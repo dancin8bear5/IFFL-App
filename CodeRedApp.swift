@@ -1,5 +1,6 @@
 import SwiftUI
 import Firebase
+import FirebaseMessaging
 import FirebaseAuth
 import GoogleAPIClientForREST
 
@@ -9,17 +10,72 @@ class AppState: ObservableObject {
     @Published var selectedTeam: String
     @Published var selectedPlayerForTrade: PlayerOrPick? = nil
     @Published var triggerTradeProposal: Bool = false
-
+    @Published var allPlayersPicks: [PlayerOrPick] = []
+    @Published var interestedAssets: Set<PlayerOrPick> = []
+    private let sheetsService = SheetsService()
+    private let firestoreService = FirestoreService()
+    
     init() {
         var team: String
         if let user = Auth.auth().currentUser, !user.isAnonymous {
             let userEmailPrefix = user.email?.split(separator: "@").first ?? ""
-            team = fantasyTeams.first { $0.name.contains(userEmailPrefix) }?.name ?? "A. Zurek"
+            team = fantasyTeams.first { $0.name.contains(userEmailPrefix) }?.name ?? "Jared"
         } else {
-            team = "A. Zurek"
+            team = "Jared"
         }
         self.userTeam = team
         self.selectedTeam = team
+        loadInterestedAssets()
+    }
+    
+    func loadAllPlayersPicks() {
+        sheetsService.fetchData(range: "2025 Master List!A2:M") { values in
+            if let values = values {
+                let newItems = values.map { PlayerOrPick(from: $0) }
+                DispatchQueue.main.async {
+                    self.allPlayersPicks = newItems
+                }
+            }
+        }
+    }
+    
+    func loadInterestedAssets() {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        firestoreService.getPlayerInterests(for: userId) { interests, error in
+            if let interests = interests {
+                let assetIds = Set(interests.map { $0.assetId })
+                DispatchQueue.main.async {
+                    self.interestedAssets = Set(self.allPlayersPicks.filter { assetIds.contains($0.assetId) })
+                }
+            }
+        }
+    }
+    
+    func toggleInterest(for asset: PlayerOrPick, completion: @escaping (Error?) -> Void) {
+        guard let userId = Auth.auth().currentUser?.uid else {
+            completion(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "User not logged in"]))
+            return
+        }
+        if interestedAssets.contains(asset) {
+            firestoreService.removePlayerInterest(assetId: asset.assetId, userId: userId) { error in
+                if error == nil {
+                    DispatchQueue.main.async {
+                        self.interestedAssets.remove(asset)
+                    }
+                }
+                completion(error)
+            }
+        } else {
+            let interest = PlayerInterest(id: nil, userId: userId, assetId: asset.assetId, timestamp: Date())
+            firestoreService.addPlayerInterest(interest) { error in
+                if error == nil {
+                    DispatchQueue.main.async {
+                        self.interestedAssets.insert(asset)
+                    }
+                }
+                completion(error)
+            }
+        }
     }
 }
 
@@ -72,6 +128,7 @@ struct CustomButtonStyle: ButtonStyle {
 @main
 struct CodeRedApp: App {
     @StateObject private var authService = AuthenticationService()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     init() {
         FirebaseApp.configure()
@@ -90,6 +147,45 @@ struct CodeRedApp: App {
                 LoginView(authService: authService)
             }
         }
+    }
+}
+
+// AppDelegate for FCM Setup
+class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = self
+        Messaging.messaging().delegate = self
+        
+        // Request notification permissions
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                DispatchQueue.main.async {
+                    application.registerForRemoteNotifications()
+                }
+            } else if let error = error {
+                print("Notification permission error: \(error)")
+            }
+        }
+        return true
+    }
+    
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Messaging.messaging().apnsToken = deviceToken
+    }
+    
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        if let token = fcmToken {
+            print("FCM Token: \(token)")
+            // Optionally store token in Firestore under user’s profile
+            if let userId = Auth.auth().currentUser?.uid {
+                Firestore.firestore().collection("users").document(userId).setData(["fcmToken": token], merge: true)
+            }
+        }
+    }
+    
+    // Handle foreground notifications
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
 }
 
@@ -213,6 +309,8 @@ struct ContentView: View {
 struct HomeView: View {
     @Binding var selectedTab: Int
     @EnvironmentObject var appState: AppState
+    @State private var messages: [Message] = []
+    private let firestoreService = FirestoreService()
     
     var body: some View {
         NavigationStack {
@@ -266,12 +364,49 @@ struct HomeView: View {
                             }
                         }
                         .padding()
+                        
+                        // League Messages Section
+                        Text("League Messages")
+                            .font(.headline)
+                            .foregroundColor(Color("TextColor"))
+                            .padding(.top, 20)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(messages) { message in
+                                    CardView {
+                                        Text(message.content)
+                                            .font(.body)
+                                            .foregroundColor(Color("TextColor"))
+                                            .padding()
+                                    }
+                                    .frame(width: 300)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
                     }
                     
                     Spacer()
                 }
             }
             .navigationBarHidden(true)
+            .onAppear {
+                appState.loadAllPlayersPicks()
+                loadMessages()
+            }
+        }
+    }
+    
+    private func loadMessages() {
+        firestoreService.listenToMessages { messages, error in
+            if let messages = messages {
+                DispatchQueue.main.async {
+                    self.messages = messages
+                }
+            } else if let error = error {
+                print("Error loading messages: \(error)")
+            }
         }
     }
 }
@@ -377,15 +512,22 @@ struct TeamsView: View {
                                             .font(.system(size: 12 * 1.5))
                                             .foregroundColor(Color("Price2025Color"))
                                             .bold()
-                                        if !item.isPick && item.team != appState.userTeam {
-                                            Button("Trade for") {
-                                                appState.selectedPlayerForTrade = item
-                                                appState.triggerTradeProposal = true
-                                            }
-                                            .buttonStyle(CustomButtonStyle())
-                                        }
                                     }
                                     .padding(.vertical, 12)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    if item.team != appState.userTeam {
+                                        Button {
+                                            appState.toggleInterest(for: item) { error in
+                                                if let error = error {
+                                                    print("Error toggling interest: \(error)")
+                                                }
+                                            }
+                                        } label: {
+                                            Label(appState.interestedAssets.contains(item) ? "Uninterested" : "Interested", systemImage: appState.interestedAssets.contains(item) ? "star.slash" : "star")
+                                        }
+                                        .tint(Color("AccentColor"))
+                                    }
                                 }
                                 .listRowBackground(Color("CardBackgroundColor"))
                                 .listRowInsets(EdgeInsets())
@@ -437,6 +579,7 @@ struct TeamsView: View {
 
 // MARK: - PlayersPicksView
 struct PlayersPicksView: View {
+    @EnvironmentObject var appState: AppState
     @StateObject private var sheetsService = SheetsService()
     @State private var items: [PlayerOrPick] = []
     @State private var searchPlayer: String = ""
@@ -549,6 +692,20 @@ struct PlayersPicksView: View {
                                     }
                                     .padding(.vertical, 12)
                                 }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    if item.team != appState.userTeam {
+                                        Button {
+                                            appState.toggleInterest(for: item) { error in
+                                                if let error = error {
+                                                    print("Error toggling interest: \(error)")
+                                                }
+                                            }
+                                        } label: {
+                                            Label(appState.interestedAssets.contains(item) ? "Uninterested" : "Interested", systemImage: appState.interestedAssets.contains(item) ? "star.slash" : "star")
+                                        }
+                                        .tint(Color("AccentColor"))
+                                    }
+                                }
                                 .listRowBackground(Color("CardBackgroundColor"))
                                 .listRowInsets(EdgeInsets())
                                 .overlay(
@@ -576,7 +733,6 @@ struct PlayersPicksView: View {
     }
     
     private func fetchData() {
-        items = []
         sheetsService.fetchData(range: "2025 Master List!A2:M") { values in
             if let values = values {
                 let newItems = values.map { PlayerOrPick(from: $0) }
@@ -1027,7 +1183,11 @@ struct TradeDetailView: View {
 // MARK: - Trade Proposal View
 struct TradeProposalView: View {
     @EnvironmentObject var appState: AppState
-
+    @State private var selectedOtherTeam: String? = nil
+    @State private var selectedOfferedAssets: Set<String> = []
+    @State private var selectedRequestedAssets: Set<String> = []
+    private let firestoreService = FirestoreService()
+    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -1039,16 +1199,92 @@ struct TradeProposalView: View {
                 .edgesIgnoringSafeArea(.all)
                 
                 VStack(spacing: 20) {
-                    if let player = appState.selectedPlayerForTrade {
-                        Text("Proposing trade for: \(player.name) from \(player.team)")
-                            .font(.title)
-                            .foregroundColor(Color("TextColor"))
-                            .multilineTextAlignment(.center)
-                    } else {
-                        Text("No player selected. Start by selecting a player to trade for.")
-                            .font(.title)
-                            .foregroundColor(Color("TextColor"))
-                            .multilineTextAlignment(.center)
+                    Picker("Select other team", selection: $selectedOtherTeam) {
+                        Text("Select a team").tag(nil as String?)
+                        ForEach(fantasyTeams.map { $0.name }.filter { $0 != appState.userTeam }, id: \.self) { team in
+                            Text(team).tag(team as String?)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    
+                    if let otherTeam = selectedOtherTeam {
+                        let userAssets = appState.allPlayersPicks.filter { $0.team == appState.userTeam }
+                        let otherAssets = appState.allPlayersPicks.filter { $0.team == otherTeam }
+                        
+                        Section(header: Text("Select assets to offer").font(.headline)) {
+                            List {
+                                ForEach(userAssets) { asset in
+                                    HStack {
+                                        Text(asset.name)
+                                        Spacer()
+                                        if selectedOfferedAssets.contains(asset.assetId) {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if selectedOfferedAssets.contains(asset.assetId) {
+                                            selectedOfferedAssets.remove(asset.assetId)
+                                        } else {
+                                            selectedOfferedAssets.insert(asset.assetId)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Section(header: Text("Select assets to request").font(.headline)) {
+                            List {
+                                ForEach(otherAssets) { asset in
+                                    HStack {
+                                        Text(asset.name)
+                                        Spacer()
+                                        if selectedRequestedAssets.contains(asset.assetId) {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if selectedRequestedAssets.contains(asset.assetId) {
+                                            selectedRequestedAssets.remove(asset.assetId)
+                                        } else {
+                                            selectedRequestedAssets.insert(asset.assetId)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Button("Propose Trade") {
+                            let proposal = TradeProposal(
+                                id: nil,
+                                proposer: appState.userTeam,
+                                recipient: otherTeam,
+                                offeredAssetIds: Array(selectedOfferedAssets),
+                                requestedAssetIds: Array(selectedRequestedAssets),
+                                status: "pending",
+                                response: nil,
+                                timestamp: Date()
+                            )
+                            firestoreService.addTradeProposal(proposal) { error in
+                                if let error = error {
+                                    print("Error proposing trade: \(error)")
+                                } else {
+                                    // Trigger notification (placeholder; requires server-side)
+                                    firestoreService.sendPushNotification(
+                                        to: "recipient_fcm_token",
+                                        title: "New Trade Proposal",
+                                        body: "\(appState.userTeam) proposed a trade."
+                                    )
+                                    // Clear selections
+                                    selectedOfferedAssets.removeAll()
+                                    selectedRequestedAssets.removeAll()
+                                    selectedOtherTeam = nil
+                                }
+                            }
+                        }
+                        .disabled(selectedOfferedAssets.isEmpty || selectedRequestedAssets.isEmpty)
+                        .buttonStyle(CustomButtonStyle())
                     }
                     Spacer()
                 }
@@ -1056,6 +1292,111 @@ struct TradeProposalView: View {
             }
             .navigationTitle("Trade Proposal")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                if let player = appState.selectedPlayerForTrade, player.team != appState.userTeam {
+                    selectedOtherTeam = player.team
+                    selectedRequestedAssets.insert(player.assetId)
+                    appState.selectedPlayerForTrade = nil
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Trade Proposals Feedback View
+struct TradeProposalsFeedbackView: View {
+    @EnvironmentObject var appState: AppState
+    @State private var proposals: [TradeProposal] = []
+    private let firestoreService = FirestoreService()
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [Color("BackgroundColor"), Color("CardBackgroundColor")]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .edgesIgnoringSafeArea(.all)
+                
+                VStack(spacing: 20) {
+                    Text("Pending Trade Proposals")
+                        .font(.title)
+                        .foregroundColor(Color("TextColor"))
+                    
+                    if proposals.isEmpty {
+                        Text("No pending proposals")
+                            .font(.body)
+                            .foregroundColor(Color("SecondaryTextColor"))
+                    } else {
+                        List {
+                            ForEach(proposals) { proposal in
+                                CardView {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        Text("From: \(proposal.proposer)")
+                                            .font(.headline)
+                                        Text("Offered: \(proposal.offeredAssetIds.joined(separator: ", "))")
+                                        Text("Requested: \(proposal.requestedAssetIds.joined(separator: ", "))")
+                                        HStack {
+                                            Button("Yes") {
+                                                respondToProposal(proposal, response: "yes", status: "accepted")
+                                            }
+                                            .buttonStyle(CustomButtonStyle())
+                                            Button("No") {
+                                                respondToProposal(proposal, response: "no", status: "rejected")
+                                            }
+                                            .buttonStyle(CustomButtonStyle())
+                                            Button("Maybe") {
+                                                respondToProposal(proposal, response: "maybe", status: "pending")
+                                            }
+                                            .buttonStyle(CustomButtonStyle())
+                                        }
+                                    }
+                                    .padding()
+                                }
+                            }
+                        }
+                        .listStyle(PlainListStyle())
+                    }
+                    Spacer()
+                }
+                .padding()
+            }
+            .navigationTitle("Trade Proposals")
+            .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                loadProposals()
+            }
+        }
+    }
+    
+    private func loadProposals() {
+        firestoreService.getTradeProposals(for: appState.userTeam) { proposals, error in
+            if let proposals = proposals {
+                DispatchQueue.main.async {
+                    self.proposals = proposals
+                }
+            } else if let error = error {
+                print("Error loading proposals: \(error)")
+            }
+        }
+    }
+    
+    private func respondToProposal(_ proposal: TradeProposal, response: String, status: String) {
+        guard let id = proposal.id else { return }
+        firestoreService.updateTradeProposalResponse(proposalId: id, response: response, status: status) { error in
+            if let error = error {
+                print("Error responding to proposal: \(error)")
+            } else {
+                // Trigger notification (placeholder)
+                firestoreService.sendPushNotification(
+                    to: "proposer_fcm_token",
+                    title: "Trade Proposal Response",
+                    body: "\(appState.userTeam) responded: \(response)"
+                )
+                // Reload proposals
+                loadProposals()
+            }
         }
     }
 }
@@ -1189,7 +1530,7 @@ let fantasyTeams: [FantasyTeam] = [
     FantasyTeam(name: "Wayne", color: .brown, logo: "WayneLogo")
 ]
 
-struct PlayerOrPick: Identifiable {
+struct PlayerOrPick: Identifiable, Hashable {
     let id = UUID()
     let team: String
     let position: String
@@ -1204,6 +1545,8 @@ struct PlayerOrPick: Identifiable {
     let rookieRound: String
     let draftYear: String
     let tradeHistory: String
+    
+    var assetId: String { "\(team)-\(name)" }
     
     init(from array: [String]) {
         self.team = array[0].trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1250,6 +1593,14 @@ struct PlayerOrPick: Identifiable {
             tradeHistory: tradeHistory.isEmpty ? nil : tradeHistory
         )
     }
+    
+    static func == (lhs: PlayerOrPick, rhs: PlayerOrPick) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }
 
 struct RosterPlayer: Identifiable, Hashable {
@@ -1289,6 +1640,54 @@ struct Trade: Identifiable {
     let team2: String
 }
 
+struct PlayerInterest: Identifiable, Codable {
+    @DocumentID var id: String?
+    let userId: String
+    let assetId: String
+    let timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId
+        case assetId
+        case timestamp
+    }
+}
+
+struct TradeProposal: Identifiable, Codable {
+    @DocumentID var id: String?
+    let proposer: String
+    let recipient: String
+    let offeredAssetIds: [String]
+    let requestedAssetIds: [String]
+    var status: String  // e.g., "pending", "accepted", "rejected"
+    var response: String?  // e.g., "yes", "no", "maybe"
+    let timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case proposer
+        case recipient
+        case offeredAssetIds
+        case requestedAssetIds
+        case status
+        case response
+        case timestamp
+    }
+}
+
+struct Message: Identifiable, Codable {
+    @DocumentID var id: String?
+    let content: String
+    let timestamp: Date
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case content
+        case timestamp
+    }
+}
+
 // MARK: - Sheets Service with Caching
 class SheetsService: ObservableObject {
     private let service = GTLRSheetsService()
@@ -1316,5 +1715,116 @@ class SheetsService: ObservableObject {
                 completion(nil)
             }
         }
+    }
+}
+
+// MARK: - Firestore Service
+class FirestoreService: ObservableObject {
+    private let db = Firestore.firestore()
+    
+    // Add Player Interest
+    func addPlayerInterest(_ interest: PlayerInterest, completion: @escaping (Error?) -> Void) {
+        do {
+            _ = try db.collection("playerInterests").addDocument(from: interest, completion: completion)
+        } catch {
+            completion(error)
+        }
+    }
+    
+    // Remove Player Interest
+    func removePlayerInterest(assetId: String, userId: String, completion: @escaping (Error?) -> Void) {
+        db.collection("playerInterests")
+            .whereField("assetId", isEqualTo: assetId)
+            .whereField("userId", isEqualTo: userId)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    completion(error)
+                    return
+                }
+                guard let documents = snapshot?.documents else {
+                    completion(nil)
+                    return
+                }
+                for document in documents {
+                    document.reference.delete(completion: completion)
+                }
+            }
+    }
+    
+    // Get Player Interests for User
+    func getPlayerInterests(for userId: String, completion: @escaping ([PlayerInterest]?, Error?) -> Void) {
+        db.collection("playerInterests")
+            .whereField("userId", isEqualTo: userId)
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    completion(nil, error)
+                } else {
+                    let interests = snapshot?.documents.compactMap { try? $0.data(as: PlayerInterest.self) }
+                    completion(interests, nil)
+                }
+            }
+    }
+    
+    // Add Trade Proposal
+    func addTradeProposal(_ proposal: TradeProposal, completion: @escaping (Error?) -> Void) {
+        do {
+            _ = try db.collection("tradeProposals").addDocument(from: proposal, completion: completion)
+        } catch {
+            completion(error)
+        }
+    }
+    
+    // Update Trade Proposal Response
+    func updateTradeProposalResponse(proposalId: String, response: String, status: String, completion: @escaping (Error?) -> Void) {
+        db.collection("tradeProposals").document(proposalId).updateData([
+            "response": response,
+            "status": status
+        ], completion: completion)
+    }
+    
+    // Get Trade Proposals for Team
+    func getTradeProposals(for team: String, completion: @escaping ([TradeProposal]?, Error?) -> Void) {
+        db.collection("tradeProposals")
+            .whereField("recipient", isEqualTo: team)
+            .whereField("status", isEqualTo: "pending")
+            .getDocuments { snapshot, error in
+                if let error = error {
+                    completion(nil, error)
+                } else {
+                    let proposals = snapshot?.documents.compactMap { try? $0.data(as: TradeProposal.self) }
+                    completion(proposals, nil)
+                }
+            }
+    }
+    
+    // Add Message
+    func addMessage(_ message: Message, completion: @escaping (Error?) -> Void) {
+        do {
+            _ = try db.collection("messages").addDocument(from: message, completion: completion)
+        } catch {
+            completion(error)
+        }
+    }
+    
+    // Get Messages with Real-Time Updates
+    func listenToMessages(completion: @escaping ([Message]?, Error?) -> Void) {
+        db.collection("messages")
+            .order(by: "timestamp", descending: true)
+            .limit(to: 10)
+            .addSnapshotListener { snapshot, error in
+                if let error = error {
+                    completion(nil, error)
+                } else {
+                    let messages = snapshot?.documents.compactMap { try? $0.data(as: Message.self) }
+                    completion(messages, nil)
+                }
+            }
+    }
+    
+    // Send Push Notification
+    func sendPushNotification(to fcmToken: String, title: String, body: String) {
+        // Note: This requires server-side implementation (e.g., Firebase Cloud Functions).
+        // For testing, use Firebase Console or implement a Cloud Function.
+        print("Sending notification to \(fcmToken): \(title) - \(body)")
     }
 }

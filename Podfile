@@ -8,6 +8,7 @@ target 'CodeRed' do
   pod 'GTMSessionFetcher/Core', '~> 3.0'
   pod 'Firebase/Auth', '~> 10.24.0'
   pod 'Firebase/Firestore', '~> 10.24.0'
+  pod 'Firebase/Messaging', '~> 10.24.0'
 end
 
 post_install do |installer|

@@ -39850,6 +39850,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D9BAD764DF337843BCAD7D49B7855EA /* abseil.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/abseil";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -39859,6 +39860,10 @@
 				IBSC_MODULE = absl;
 				INFOPLIST_FILE = "Target Support Files/abseil/ResourceBundle-xcprivacy-abseil-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = xcprivacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -39871,6 +39876,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DC668828516A21AD055113B33CC07731 /* GoogleDataTransport.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -39895,6 +39901,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/GoogleDataTransport/GoogleDataTransport.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = GoogleDataTransport;
 				PRODUCT_NAME = GoogleDataTransport;
 				SDKROOT = iphoneos;
@@ -39913,6 +39923,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9B73CD7E1F4D7D838B0F1A830BD6A06D /* FirebaseInstallations.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -39938,6 +39949,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseInstallations/FirebaseInstallations.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseInstallations;
 				PRODUCT_NAME = FirebaseInstallations;
 				SDKROOT = iphoneos;
@@ -39956,6 +39971,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B28E27E7EFEF85987654829044CF8589 /* FirebaseFirestoreInternal.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -39981,6 +39997,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseFirestoreInternal/FirebaseFirestoreInternal.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseFirestoreInternal;
 				PRODUCT_NAME = FirebaseFirestoreInternal;
 				SDKROOT = iphoneos;
@@ -39999,6 +40019,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B1547A678B37D9B94296654A2970B0E8 /* FirebaseAuth.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40024,6 +40045,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseAuth/FirebaseAuth.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseAuth;
 				PRODUCT_NAME = FirebaseAuth;
 				SDKROOT = iphoneos;
@@ -40042,6 +40067,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C98942CC6E3C34CB00135F22EB381040 /* nanopb.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/nanopb";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40051,6 +40077,10 @@
 				IBSC_MODULE = nanopb;
 				INFOPLIST_FILE = "Target Support Files/nanopb/ResourceBundle-nanopb_Privacy-nanopb-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = nanopb_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40063,6 +40093,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B7B889748E0A3C2251F85EF78FD64245 /* FirebaseCore.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseCore";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40072,6 +40103,10 @@
 				IBSC_MODULE = FirebaseCore;
 				INFOPLIST_FILE = "Target Support Files/FirebaseCore/ResourceBundle-FirebaseCore_Privacy-FirebaseCore-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseCore_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40084,6 +40119,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5E734A0BEB2C1C658143B5D783F4216B /* nanopb.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -40109,6 +40145,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/nanopb/nanopb.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = nanopb;
 				PRODUCT_NAME = nanopb;
 				SDKROOT = iphoneos;
@@ -40126,6 +40166,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0DE9CB6D66BA4FC6FDB192D50C356DDF /* GTMSessionFetcher.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/GTMSessionFetcher";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40135,6 +40176,10 @@
 				IBSC_MODULE = GTMSessionFetcher;
 				INFOPLIST_FILE = "Target Support Files/GTMSessionFetcher/ResourceBundle-GTMSessionFetcher_Core_Privacy-GTMSessionFetcher-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = GTMSessionFetcher_Core_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40148,6 +40193,7 @@
 			baseConfigurationReference = 5CB9E8B3C051A869189F2EC4CFEC73E5 /* Pods-CodeRed.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40173,6 +40219,10 @@
 				);
 				MACH_O_TYPE = staticlib;
 				MODULEMAP_FILE = "Target Support Files/Pods-CodeRed/Pods-CodeRed.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOLFLAGS = "";
 				PODS_ROOT = "$(SRCROOT)";
@@ -40191,6 +40241,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A33D6E3517056501BC4DCBC2B0219F15 /* FirebaseAuth.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseAuth";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40200,6 +40251,10 @@
 				IBSC_MODULE = FirebaseAuth;
 				INFOPLIST_FILE = "Target Support Files/FirebaseAuth/ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseAuth_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40212,6 +40267,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 91DE8FF78F7140053901283061104B1A /* FirebaseMessaging.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40237,6 +40293,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseMessaging/FirebaseMessaging.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseMessaging;
 				PRODUCT_NAME = FirebaseMessaging;
 				SDKROOT = iphoneos;
@@ -40255,6 +40315,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C98942CC6E3C34CB00135F22EB381040 /* nanopb.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -40280,6 +40341,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/nanopb/nanopb.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = nanopb;
 				PRODUCT_NAME = nanopb;
 				SDKROOT = iphoneos;
@@ -40298,6 +40363,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6A8873493430853175B892E702D59E41 /* PromisesObjC.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/PromisesObjC";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40307,6 +40373,10 @@
 				IBSC_MODULE = FBLPromises;
 				INFOPLIST_FILE = "Target Support Files/PromisesObjC/ResourceBundle-FBLPromises_Privacy-PromisesObjC-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FBLPromises_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40319,6 +40389,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1A1EDD77792329ABC023EEE62C9FC927 /* leveldb-library.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/leveldb-library";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40328,6 +40399,10 @@
 				IBSC_MODULE = leveldb;
 				INFOPLIST_FILE = "Target Support Files/leveldb-library/ResourceBundle-leveldb_Privacy-leveldb-library-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = leveldb_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40340,6 +40415,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 1A1EDD77792329ABC023EEE62C9FC927 /* leveldb-library.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40366,6 +40442,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/leveldb-library/leveldb-library.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = leveldb;
 				PRODUCT_NAME = leveldb;
 				SDKROOT = iphoneos;
@@ -40383,6 +40463,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E776B8E6267C1C0B05D65CCE30AE0352 /* gRPC-C++.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40409,6 +40490,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/gRPC-C++/gRPC-C++.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = grpcpp;
 				PRODUCT_NAME = grpcpp;
 				SDKROOT = iphoneos;
@@ -40427,6 +40512,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A42F870361A8A2A2B9BC4DB89321D292 /* FirebaseFirestoreInternal.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40452,6 +40538,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseFirestoreInternal/FirebaseFirestoreInternal.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseFirestoreInternal;
 				PRODUCT_NAME = FirebaseFirestoreInternal;
 				SDKROOT = iphoneos;
@@ -40469,6 +40559,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E776B8E6267C1C0B05D65CCE30AE0352 /* gRPC-C++.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/gRPC-C++";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40478,6 +40569,10 @@
 				IBSC_MODULE = grpcpp;
 				INFOPLIST_FILE = "Target Support Files/gRPC-C++/ResourceBundle-grpcpp-gRPC-C++-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = grpcpp;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40490,6 +40585,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3E06A2350F7FD996907F2A3783E82194 /* PromisesObjC.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/PromisesObjC";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40499,6 +40595,10 @@
 				IBSC_MODULE = FBLPromises;
 				INFOPLIST_FILE = "Target Support Files/PromisesObjC/ResourceBundle-FBLPromises_Privacy-PromisesObjC-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FBLPromises_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40511,6 +40611,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2FB8BA1A0819544B513E86062DCBC09F /* FirebaseCore.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40536,6 +40637,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseCore/FirebaseCore.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseCore;
 				PRODUCT_NAME = FirebaseCore;
 				SDKROOT = iphoneos;
@@ -40553,6 +40658,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F8C6439B830777B217A17C4F79BCBAE7 /* FirebaseCoreInternal.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseCoreInternal";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40562,6 +40668,10 @@
 				IBSC_MODULE = FirebaseCoreInternal;
 				INFOPLIST_FILE = "Target Support Files/FirebaseCoreInternal/ResourceBundle-FirebaseCoreInternal_Privacy-FirebaseCoreInternal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseCoreInternal_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40574,6 +40684,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 93FE16A71754F0E62D76777D640EE7DF /* FirebaseAppCheckInterop.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40600,6 +40711,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseAppCheckInterop;
 				PRODUCT_NAME = FirebaseAppCheckInterop;
 				SDKROOT = iphoneos;
@@ -40617,6 +40732,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3E06A2350F7FD996907F2A3783E82194 /* PromisesObjC.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -40640,6 +40756,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/PromisesObjC/PromisesObjC.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FBLPromises;
 				PRODUCT_NAME = FBLPromises;
 				SDKROOT = iphoneos;
@@ -40658,6 +40778,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8E717C6CA069A4BB105245BB2AE29EAC /* FirebaseCoreExtension.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40684,6 +40805,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseCoreExtension/FirebaseCoreExtension.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseCoreExtension;
 				PRODUCT_NAME = FirebaseCoreExtension;
 				SDKROOT = iphoneos;
@@ -40702,6 +40827,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7816285BDCDDD89C6B9A971E26FBB25D /* FirebaseSharedSwift.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40727,6 +40853,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseSharedSwift/FirebaseSharedSwift.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseSharedSwift;
 				PRODUCT_NAME = FirebaseSharedSwift;
 				SDKROOT = iphoneos;
@@ -40745,6 +40875,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A42F870361A8A2A2B9BC4DB89321D292 /* FirebaseFirestoreInternal.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseFirestoreInternal";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40754,6 +40885,10 @@
 				IBSC_MODULE = FirebaseFirestoreInternal;
 				INFOPLIST_FILE = "Target Support Files/FirebaseFirestoreInternal/ResourceBundle-FirebaseFirestoreInternal_Privacy-FirebaseFirestoreInternal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseFirestoreInternal_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -40766,6 +40901,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F2094C3B82FCE3DEC690CED9F50CC1EA /* BoringSSL-GRPC.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40792,6 +40928,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/BoringSSL-GRPC/BoringSSL-GRPC.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = openssl_grpc;
 				PRODUCT_NAME = openssl_grpc;
 				SDKROOT = iphoneos;
@@ -40810,6 +40950,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8BA829089D7D336616EBB60B9526BF5B /* GoogleDataTransport.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -40834,6 +40975,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/GoogleDataTransport/GoogleDataTransport.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = GoogleDataTransport;
 				PRODUCT_NAME = GoogleDataTransport;
 				SDKROOT = iphoneos;
@@ -40851,6 +40996,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D949633E1768195ABF490D01ED667D8F /* FirebaseSharedSwift.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -40876,6 +41022,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseSharedSwift/FirebaseSharedSwift.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseSharedSwift;
 				PRODUCT_NAME = FirebaseSharedSwift;
 				SDKROOT = iphoneos;
@@ -40895,6 +41045,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40905,6 +41056,10 @@
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
 				);
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -40982,6 +41137,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B9BE0CC308D63D1B5860EAAAC83EA011 /* GoogleUtilities.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/GoogleUtilities";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -40991,6 +41147,10 @@
 				IBSC_MODULE = GoogleUtilities;
 				INFOPLIST_FILE = "Target Support Files/GoogleUtilities/ResourceBundle-GoogleUtilities_Privacy-GoogleUtilities-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = GoogleUtilities_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41003,6 +41163,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B1547A678B37D9B94296654A2970B0E8 /* FirebaseAuth.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseAuth";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41012,6 +41173,10 @@
 				IBSC_MODULE = FirebaseAuth;
 				INFOPLIST_FILE = "Target Support Files/FirebaseAuth/ResourceBundle-FirebaseAuth_Privacy-FirebaseAuth-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseAuth_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41024,6 +41189,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8BA829089D7D336616EBB60B9526BF5B /* GoogleDataTransport.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/GoogleDataTransport";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41033,6 +41199,10 @@
 				IBSC_MODULE = GoogleDataTransport;
 				INFOPLIST_FILE = "Target Support Files/GoogleDataTransport/ResourceBundle-GoogleDataTransport_Privacy-GoogleDataTransport-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = GoogleDataTransport_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41045,6 +41215,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 7B63EA7916BC412972DF042E027D27D8 /* FirebaseAppCheckInterop.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41071,6 +41242,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseAppCheckInterop/FirebaseAppCheckInterop.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseAppCheckInterop;
 				PRODUCT_NAME = FirebaseAppCheckInterop;
 				SDKROOT = iphoneos;
@@ -41089,6 +41264,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FE689B149E78E105C73D3A22736FA000 /* gRPC-C++.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/gRPC-C++";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41098,6 +41274,10 @@
 				IBSC_MODULE = grpcpp;
 				INFOPLIST_FILE = "Target Support Files/gRPC-C++/ResourceBundle-grpcpp-gRPC-C++-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = grpcpp;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41110,6 +41290,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8E717C6CA069A4BB105245BB2AE29EAC /* FirebaseCoreExtension.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseCoreExtension";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41119,6 +41300,10 @@
 				IBSC_MODULE = FirebaseCoreExtension;
 				INFOPLIST_FILE = "Target Support Files/FirebaseCoreExtension/ResourceBundle-FirebaseCoreExtension_Privacy-FirebaseCoreExtension-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseCoreExtension_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41131,6 +41316,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D143168DD2A0BB911B7084B4D74B7B48 /* FirebaseInstallations.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseInstallations";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41140,6 +41326,10 @@
 				IBSC_MODULE = FirebaseInstallations;
 				INFOPLIST_FILE = "Target Support Files/FirebaseInstallations/ResourceBundle-FirebaseInstallations_Privacy-FirebaseInstallations-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseInstallations_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41152,6 +41342,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C5470FCD73EFA38DC527EA08BFB50FAE /* leveldb-library.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/leveldb-library";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41161,6 +41352,10 @@
 				IBSC_MODULE = leveldb;
 				INFOPLIST_FILE = "Target Support Files/leveldb-library/ResourceBundle-leveldb_Privacy-leveldb-library-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = leveldb_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41173,6 +41368,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C1399F6F185BB95393050F8C0F0697EA /* GoogleUtilities.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/GoogleUtilities";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41182,6 +41378,10 @@
 				IBSC_MODULE = GoogleUtilities;
 				INFOPLIST_FILE = "Target Support Files/GoogleUtilities/ResourceBundle-GoogleUtilities_Privacy-GoogleUtilities-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = GoogleUtilities_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41194,6 +41394,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FE689B149E78E105C73D3A22736FA000 /* gRPC-C++.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/gRPC-C++";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41203,6 +41404,10 @@
 				IBSC_MODULE = grpcpp;
 				INFOPLIST_FILE = "Target Support Files/gRPC-C++/ResourceBundle-gRPCCertificates-Cpp-gRPC-C++-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = "gRPCCertificates-Cpp";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41215,6 +41420,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 236568F547AF3A149320D72F5F34B8D1 /* gRPC-Core.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41241,6 +41447,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/gRPC-Core/gRPC-Core.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = grpc;
 				PRODUCT_NAME = grpc;
 				SDKROOT = iphoneos;
@@ -41259,6 +41469,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = CB271D791721BA8F3FA0E1A7C6F40535 /* RecaptchaInterop.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41285,6 +41496,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/RecaptchaInterop/RecaptchaInterop.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = RecaptchaInterop;
 				PRODUCT_NAME = RecaptchaInterop;
 				SDKROOT = iphoneos;
@@ -41305,6 +41520,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41316,6 +41532,10 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -41325,6 +41545,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 6A8873493430853175B892E702D59E41 /* PromisesObjC.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -41348,6 +41569,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/PromisesObjC/PromisesObjC.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FBLPromises;
 				PRODUCT_NAME = FBLPromises;
 				SDKROOT = iphoneos;
@@ -41365,6 +41590,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 58725954A003CC8D0B1C5EA7408FE466 /* BoringSSL-GRPC.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/BoringSSL-GRPC";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41374,6 +41600,10 @@
 				IBSC_MODULE = openssl_grpc;
 				INFOPLIST_FILE = "Target Support Files/BoringSSL-GRPC/ResourceBundle-openssl_grpc-BoringSSL-GRPC-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = openssl_grpc;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41386,6 +41616,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 0DE9CB6D66BA4FC6FDB192D50C356DDF /* GTMSessionFetcher.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41410,6 +41641,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/GTMSessionFetcher/GTMSessionFetcher.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = GTMSessionFetcher;
 				PRODUCT_NAME = GTMSessionFetcher;
 				SDKROOT = iphoneos;
@@ -41427,6 +41662,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5E734A0BEB2C1C658143B5D783F4216B /* nanopb.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/nanopb";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41436,6 +41672,10 @@
 				IBSC_MODULE = nanopb;
 				INFOPLIST_FILE = "Target Support Files/nanopb/ResourceBundle-nanopb_Privacy-nanopb-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = nanopb_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41448,6 +41688,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F2094C3B82FCE3DEC690CED9F50CC1EA /* BoringSSL-GRPC.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/BoringSSL-GRPC";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41457,6 +41698,10 @@
 				IBSC_MODULE = openssl_grpc;
 				INFOPLIST_FILE = "Target Support Files/BoringSSL-GRPC/ResourceBundle-openssl_grpc-BoringSSL-GRPC-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = openssl_grpc;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41469,6 +41714,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DC8A6F7824B5335530F1E3D8EBCEA81A /* FirebaseCoreExtension.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseCoreExtension";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41478,6 +41724,10 @@
 				IBSC_MODULE = FirebaseCoreExtension;
 				INFOPLIST_FILE = "Target Support Files/FirebaseCoreExtension/ResourceBundle-FirebaseCoreExtension_Privacy-FirebaseCoreExtension-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseCoreExtension_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41490,6 +41740,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B28E27E7EFEF85987654829044CF8589 /* FirebaseFirestoreInternal.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseFirestoreInternal";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41499,6 +41750,10 @@
 				IBSC_MODULE = FirebaseFirestoreInternal;
 				INFOPLIST_FILE = "Target Support Files/FirebaseFirestoreInternal/ResourceBundle-FirebaseFirestoreInternal_Privacy-FirebaseFirestoreInternal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseFirestoreInternal_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41511,6 +41766,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 36178ACB4FA0EB25152CAB048A2224BD /* gRPC-Core.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41537,6 +41793,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/gRPC-Core/gRPC-Core.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = grpc;
 				PRODUCT_NAME = grpc;
 				SDKROOT = iphoneos;
@@ -41554,6 +41814,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9B73CD7E1F4D7D838B0F1A830BD6A06D /* FirebaseInstallations.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseInstallations";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41563,6 +41824,10 @@
 				IBSC_MODULE = FirebaseInstallations;
 				INFOPLIST_FILE = "Target Support Files/FirebaseInstallations/ResourceBundle-FirebaseInstallations_Privacy-FirebaseInstallations-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseInstallations_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41575,6 +41840,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C1399F6F185BB95393050F8C0F0697EA /* GoogleUtilities.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -41599,6 +41865,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/GoogleUtilities/GoogleUtilities.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = GoogleUtilities;
 				PRODUCT_NAME = GoogleUtilities;
 				SDKROOT = iphoneos;
@@ -41618,6 +41888,7 @@
 			baseConfigurationReference = 51553BADB73CAE21AA4124D69A350DB4 /* Pods-CodeRed.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41643,6 +41914,10 @@
 				);
 				MACH_O_TYPE = staticlib;
 				MODULEMAP_FILE = "Target Support Files/Pods-CodeRed/Pods-CodeRed.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOLFLAGS = "";
 				PODS_ROOT = "$(SRCROOT)";
@@ -41660,6 +41935,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 754F6194633F78102C09DE148DBDB2F6 /* FirebaseFirestore.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41685,6 +41961,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseFirestore/FirebaseFirestore.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseFirestore;
 				PRODUCT_NAME = FirebaseFirestore;
 				SDKROOT = iphoneos;
@@ -41703,6 +41983,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 160D504D062718A0BEBAEF506341D2BB /* FirebaseCoreInternal.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseCoreInternal";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41712,6 +41993,10 @@
 				IBSC_MODULE = FirebaseCoreInternal;
 				INFOPLIST_FILE = "Target Support Files/FirebaseCoreInternal/ResourceBundle-FirebaseCoreInternal_Privacy-FirebaseCoreInternal-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseCoreInternal_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41724,6 +42009,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4D5E116E9BD8E44EA193543DBFB843FE /* FirebaseFirestore.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseFirestore";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41733,6 +42019,10 @@
 				IBSC_MODULE = FirebaseFirestore;
 				INFOPLIST_FILE = "Target Support Files/FirebaseFirestore/ResourceBundle-FirebaseFirestore_Privacy-FirebaseFirestore-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseFirestore_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41745,6 +42035,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E776B8E6267C1C0B05D65CCE30AE0352 /* gRPC-C++.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/gRPC-C++";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41754,6 +42045,10 @@
 				IBSC_MODULE = grpcpp;
 				INFOPLIST_FILE = "Target Support Files/gRPC-C++/ResourceBundle-gRPCCertificates-Cpp-gRPC-C++-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = "gRPCCertificates-Cpp";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41766,6 +42061,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = A33D6E3517056501BC4DCBC2B0219F15 /* FirebaseAuth.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41791,6 +42087,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseAuth/FirebaseAuth.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseAuth;
 				PRODUCT_NAME = FirebaseAuth;
 				SDKROOT = iphoneos;
@@ -41808,6 +42108,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2FB8BA1A0819544B513E86062DCBC09F /* FirebaseCore.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseCore";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -41817,6 +42118,10 @@
 				IBSC_MODULE = FirebaseCore;
 				INFOPLIST_FILE = "Target Support Files/FirebaseCore/ResourceBundle-FirebaseCore_Privacy-FirebaseCore-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseCore_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -41829,6 +42134,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DC8A6F7824B5335530F1E3D8EBCEA81A /* FirebaseCoreExtension.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41855,6 +42161,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseCoreExtension/FirebaseCoreExtension.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseCoreExtension;
 				PRODUCT_NAME = FirebaseCoreExtension;
 				SDKROOT = iphoneos;
@@ -41872,6 +42182,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 58725954A003CC8D0B1C5EA7408FE466 /* BoringSSL-GRPC.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41898,6 +42209,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/BoringSSL-GRPC/BoringSSL-GRPC.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = openssl_grpc;
 				PRODUCT_NAME = openssl_grpc;
 				SDKROOT = iphoneos;
@@ -41915,6 +42230,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 43E34A1FF4CE82DF2B291F94056A9767 /* abseil.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -41940,6 +42256,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/abseil/abseil.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = absl;
 				PRODUCT_NAME = absl;
 				SDKROOT = iphoneos;
@@ -41958,6 +42278,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB35FA8815AA725A0704ACF263CAC696 /* GTMSessionFetcher.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -41982,6 +42303,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/GTMSessionFetcher/GTMSessionFetcher.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = GTMSessionFetcher;
 				PRODUCT_NAME = GTMSessionFetcher;
 				SDKROOT = iphoneos;
@@ -42000,6 +42325,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2EC117A75C794E0E434B31A75E25C3FE /* FirebaseMessaging.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseMessaging";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42009,6 +42335,10 @@
 				IBSC_MODULE = FirebaseMessaging;
 				INFOPLIST_FILE = "Target Support Files/FirebaseMessaging/ResourceBundle-FirebaseMessaging_Privacy-FirebaseMessaging-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseMessaging_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42021,6 +42351,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5D9BAD764DF337843BCAD7D49B7855EA /* abseil.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -42046,6 +42377,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/abseil/abseil.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = absl;
 				PRODUCT_NAME = absl;
 				SDKROOT = iphoneos;
@@ -42063,6 +42398,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B7B889748E0A3C2251F85EF78FD64245 /* FirebaseCore.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42088,6 +42424,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseCore/FirebaseCore.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseCore;
 				PRODUCT_NAME = FirebaseCore;
 				SDKROOT = iphoneos;
@@ -42106,6 +42446,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EB35FA8815AA725A0704ACF263CAC696 /* GTMSessionFetcher.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/GTMSessionFetcher";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42115,6 +42456,10 @@
 				IBSC_MODULE = GTMSessionFetcher;
 				INFOPLIST_FILE = "Target Support Files/GTMSessionFetcher/ResourceBundle-GTMSessionFetcher_Core_Privacy-GTMSessionFetcher-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = GTMSessionFetcher_Core_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42127,6 +42472,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 91DE8FF78F7140053901283061104B1A /* FirebaseMessaging.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseMessaging";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42136,6 +42482,10 @@
 				IBSC_MODULE = FirebaseMessaging;
 				INFOPLIST_FILE = "Target Support Files/FirebaseMessaging/ResourceBundle-FirebaseMessaging_Privacy-FirebaseMessaging-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseMessaging_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42148,6 +42498,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2EC117A75C794E0E434B31A75E25C3FE /* FirebaseMessaging.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42173,6 +42524,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseMessaging/FirebaseMessaging.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseMessaging;
 				PRODUCT_NAME = FirebaseMessaging;
 				SDKROOT = iphoneos;
@@ -42190,6 +42545,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D143168DD2A0BB911B7084B4D74B7B48 /* FirebaseInstallations.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42215,6 +42571,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseInstallations/FirebaseInstallations.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseInstallations;
 				PRODUCT_NAME = FirebaseInstallations;
 				SDKROOT = iphoneos;
@@ -42232,6 +42592,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C5470FCD73EFA38DC527EA08BFB50FAE /* leveldb-library.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42258,6 +42619,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/leveldb-library/leveldb-library.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = leveldb;
 				PRODUCT_NAME = leveldb;
 				SDKROOT = iphoneos;
@@ -42276,6 +42641,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 160D504D062718A0BEBAEF506341D2BB /* FirebaseCoreInternal.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42302,6 +42668,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseCoreInternal/FirebaseCoreInternal.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseCoreInternal;
 				PRODUCT_NAME = FirebaseCoreInternal;
 				SDKROOT = iphoneos;
@@ -42320,6 +42690,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 36178ACB4FA0EB25152CAB048A2224BD /* gRPC-Core.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/gRPC-Core";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42329,6 +42700,10 @@
 				IBSC_MODULE = grpc;
 				INFOPLIST_FILE = "Target Support Files/gRPC-Core/ResourceBundle-grpc-gRPC-Core-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = grpc;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42341,6 +42716,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 236568F547AF3A149320D72F5F34B8D1 /* gRPC-Core.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/gRPC-Core";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42350,6 +42726,10 @@
 				IBSC_MODULE = grpc;
 				INFOPLIST_FILE = "Target Support Files/gRPC-Core/ResourceBundle-grpc-gRPC-Core-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = grpc;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42362,6 +42742,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F8C6439B830777B217A17C4F79BCBAE7 /* FirebaseCoreInternal.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42388,6 +42769,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseCoreInternal/FirebaseCoreInternal.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseCoreInternal;
 				PRODUCT_NAME = FirebaseCoreInternal;
 				SDKROOT = iphoneos;
@@ -42467,6 +42852,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 9FC52B26801FA596000F92C7D584ADE2 /* RecaptchaInterop.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42493,6 +42879,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/RecaptchaInterop/RecaptchaInterop.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = RecaptchaInterop;
 				PRODUCT_NAME = RecaptchaInterop;
 				SDKROOT = iphoneos;
@@ -42510,6 +42900,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 4D5E116E9BD8E44EA193543DBFB843FE /* FirebaseFirestore.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42535,6 +42926,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/FirebaseFirestore/FirebaseFirestore.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = FirebaseFirestore;
 				PRODUCT_NAME = FirebaseFirestore;
 				SDKROOT = iphoneos;
@@ -42552,6 +42947,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FE689B149E78E105C73D3A22736FA000 /* gRPC-C++.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -42578,6 +42974,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/gRPC-C++/gRPC-C++.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = grpcpp;
 				PRODUCT_NAME = grpcpp;
 				SDKROOT = iphoneos;
@@ -42595,6 +42995,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 43E34A1FF4CE82DF2B291F94056A9767 /* abseil.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/abseil";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42604,6 +43005,10 @@
 				IBSC_MODULE = absl;
 				INFOPLIST_FILE = "Target Support Files/abseil/ResourceBundle-xcprivacy-abseil-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = xcprivacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42616,6 +43021,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 754F6194633F78102C09DE148DBDB2F6 /* FirebaseFirestore.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/FirebaseFirestore";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42625,6 +43031,10 @@
 				IBSC_MODULE = FirebaseFirestore;
 				INFOPLIST_FILE = "Target Support Files/FirebaseFirestore/ResourceBundle-FirebaseFirestore_Privacy-FirebaseFirestore-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = FirebaseFirestore_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -42637,6 +43047,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = B9BE0CC308D63D1B5860EAAAC83EA011 /* GoogleUtilities.debug.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
 				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
@@ -42661,6 +43072,10 @@
 					"@loader_path/Frameworks",
 				);
 				MODULEMAP_FILE = "Target Support Files/GoogleUtilities/GoogleUtilities.modulemap";
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_MODULE_NAME = GoogleUtilities;
 				PRODUCT_NAME = GoogleUtilities;
 				SDKROOT = iphoneos;
@@ -42678,6 +43093,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = DC668828516A21AD055113B33CC07731 /* GoogleDataTransport.release.xcconfig */;
 			buildSettings = {
+				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
 				CODE_SIGNING_ALLOWED = NO;
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/GoogleDataTransport";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -42687,6 +43103,10 @@
 				IBSC_MODULE = GoogleDataTransport;
 				INFOPLIST_FILE = "Target Support Files/GoogleDataTransport/ResourceBundle-GoogleDataTransport_Privacy-GoogleDataTransport-Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(inherited)",
+					"-Wno-inconsistent-missing-override",
+				);
 				PRODUCT_NAME = GoogleDataTransport_Privacy;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;

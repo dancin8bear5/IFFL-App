@@ -57,6 +57,44 @@ class FirestoreDataService: ObservableObject {
         ], completion: completion)
     }
 
+    /// Assigns a fantasy team to a Firebase Auth UID in the userTeamMap.
+    func assignTeam(uid: String, teamName: String, completion: @escaping (Error?) -> Void) {
+        db.collection(Col.config).document("league").updateData([
+            "userTeamMap.\(uid)": teamName
+        ], completion: completion)
+    }
+
+    /// Removes a UID's team assignment from the userTeamMap.
+    func removeTeamAssignment(uid: String, completion: @escaping (Error?) -> Void) {
+        db.collection(Col.config).document("league").updateData([
+            "userTeamMap.\(uid)": FieldValue.delete()
+        ], completion: completion)
+    }
+
+    /// Reads the legacy Users collection (uid → teamname) and writes all entries
+    /// into config/league.userTeamMap in one batch. Safe to run multiple times.
+    func migrateUserTeamMapFromUsersCollection(completion: @escaping (Result<Int, Error>) -> Void) {
+        db.collection("Users").getDocuments { [self] snapshot, error in
+            if let error = error { completion(.failure(error)); return }
+            guard let docs = snapshot?.documents, !docs.isEmpty else {
+                completion(.success(0)); return
+            }
+
+            var map: [String: Any] = [:]
+            for doc in docs {
+                if let teamName = doc.data()["teamname"] as? String {
+                    map["userTeamMap.\(doc.documentID)"] = teamName
+                }
+            }
+
+            guard !map.isEmpty else { completion(.success(0)); return }
+            db.collection(Col.config).document("league").updateData(map) { error in
+                if let error = error { completion(.failure(error)) }
+                else { completion(.success(map.count)) }
+            }
+        }
+    }
+
     // MARK: - Players
 
     /// Returns a real-time listener. Caller must retain and call .remove() on deinit.

@@ -15,6 +15,7 @@ struct AdminView: View {
         case picks     = "Picks"
         case trades    = "Trades"
         case messages  = "Messages"
+        case teams     = "Teams"
         case access    = "Access"
     }
 
@@ -49,6 +50,7 @@ struct AdminView: View {
                     case .picks:     AdminPicksSection()
                     case .trades:    AdminTradesSection()
                     case .messages:  AdminMessagesSection()
+                    case .teams:     AdminTeamsSection()
                     case .access:    AdminAccessSection()
                     }
                 }
@@ -633,6 +635,135 @@ struct AdminMessagesSection: View {
     private func deleteMessage(_ message: Message) {
         guard let id = message.id else { return }
         appState.dataService.deleteMessage(messageId: id) { _ in }
+    }
+}
+
+// MARK: - Team Assignment Section
+
+struct AdminTeamsSection: View {
+    @EnvironmentObject var appState: AppState
+    @State private var config: LeagueConfig? = nil
+    @State private var isLoading: Bool = true
+    @State private var newUID: String = ""
+    @State private var selectedTeam: String = ""
+    @State private var statusMsg: String = ""
+    @State private var isMigrating: Bool = false
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 20) {
+
+                // Migrate from legacy Users collection
+                AdminCard(title: "Import from Users Collection", icon: "arrow.down.circle") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("One-tap import: reads the existing Users collection (uid → teamname) and populates the UID-based team map. Run this once to migrate all 12 owners.")
+                            .font(.caption)
+                            .foregroundColor(Color("SecondaryTextColor"))
+                        Button(isMigrating ? "Importing…" : "Import All Teams") {
+                            runMigration()
+                        }
+                        .disabled(isMigrating)
+                        .buttonStyle(CustomButtonStyle())
+                        if !statusMsg.isEmpty {
+                            Text(statusMsg)
+                                .font(.caption)
+                                .foregroundColor(statusMsg.contains("✓") ? .green : .red)
+                        }
+                    }
+                }
+
+                // Current assignments
+                AdminCard(title: "Current Team Assignments", icon: "person.2.fill") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if isLoading {
+                            ProgressView()
+                        } else if let map = config?.userTeamMap, !map.isEmpty {
+                            ForEach(map.sorted(by: { $0.value < $1.value }), id: \.key) { uid, team in
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(team)
+                                            .font(.subheadline).bold()
+                                            .foregroundColor(Color("TextColor"))
+                                        Text(uid)
+                                            .font(.system(.caption2, design: .monospaced))
+                                            .foregroundColor(Color("SecondaryTextColor"))
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    Spacer()
+                                    Button {
+                                        appState.dataService.removeTeamAssignment(uid: uid) { _ in loadConfig() }
+                                    } label: {
+                                        Image(systemName: "minus.circle.fill").foregroundColor(.red)
+                                    }
+                                }
+                            }
+                        } else {
+                            Text("No assignments yet — run Import above.")
+                                .font(.caption)
+                                .foregroundColor(Color("SecondaryTextColor"))
+                        }
+                    }
+                }
+
+                // Manual assignment
+                AdminCard(title: "Assign Team Manually", icon: "person.badge.plus") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        TextField("Paste UID", text: $newUID)
+                            .font(.system(.caption, design: .monospaced))
+                            .autocapitalization(.none)
+                        Picker("Team", selection: $selectedTeam) {
+                            Text("Select team").tag("")
+                            ForEach(fantasyTeams.map { $0.name }, id: \.self) {
+                                Text($0).tag($0)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .foregroundColor(Color("TextColor"))
+                        Button("Assign") { assignTeam() }
+                            .disabled(newUID.trimmingCharacters(in: .whitespaces).isEmpty || selectedTeam.isEmpty)
+                            .buttonStyle(CustomButtonStyle())
+                    }
+                }
+            }
+            .padding()
+        }
+        .onAppear { loadConfig() }
+    }
+
+    private func loadConfig() {
+        appState.dataService.fetchLeagueConfig { cfg in
+            DispatchQueue.main.async {
+                config    = cfg
+                isLoading = false
+                if selectedTeam.isEmpty { selectedTeam = fantasyTeams.first?.name ?? "" }
+            }
+        }
+    }
+
+    private func runMigration() {
+        isMigrating = true
+        statusMsg   = "Importing…"
+        appState.dataService.migrateUserTeamMapFromUsersCollection { result in
+            DispatchQueue.main.async {
+                isMigrating = false
+                switch result {
+                case .success(let count): statusMsg = "✓ \(count) teams imported"; loadConfig()
+                case .failure(let err):  statusMsg = "✗ \(err.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func assignTeam() {
+        let uid = newUID.trimmingCharacters(in: .whitespaces)
+        guard !uid.isEmpty, !selectedTeam.isEmpty else { return }
+        appState.dataService.assignTeam(uid: uid, teamName: selectedTeam) { error in
+            DispatchQueue.main.async {
+                if let e = error { statusMsg = "✗ \(e.localizedDescription)" }
+                else { statusMsg = "✓ Assigned"; newUID = ""; loadConfig() }
+            }
+        }
     }
 }
 

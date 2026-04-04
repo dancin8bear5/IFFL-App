@@ -270,7 +270,9 @@ struct LeagueConfig: Codable {
     var activeSeasonYear: Int
     /// Firebase Auth UIDs that have commissioner/admin access
     var authorizedUIDs: [String]
-    /// Maps email prefix to team name, e.g. ["jared": "Jared", "abad": "Abad"]
+    /// Maps Firebase Auth UID → fantasy team name (primary team lookup)
+    var userTeamMap: [String: String]
+    /// Maps email prefix → team name (legacy fallback only)
     var teamEmailMap: [String: String]
 }
 

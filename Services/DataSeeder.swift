@@ -74,6 +74,7 @@ class DataSeeder {
         let config = LeagueConfig(
             activeSeasonYear: 2026,
             authorizedUIDs: [commissionerUID],
+            userTeamMap: [commissionerUID: "Jared"],
             teamEmailMap: [
                 "azurek":   "A. Zurek",
                 "abad":     "Abad",

@@ -60,18 +60,23 @@ class AppState: ObservableObject {
 
     /// Call this once after the user successfully logs in.
     func setup(for user: User) {
-        // Determine team from email prefix (fallback; overridden by teamEmailMap below)
-        let prefix = user.email?.split(separator: "@").first.map(String.init)?.lowercased() ?? ""
-        userTeam     = fantasyTeams.first { $0.name.lowercased().contains(prefix) }?.name ?? "Jared"
-        selectedTeam = userTeam
-
-        // Active season + commissioner flag + precise team lookup from config
+        // Active season + commissioner flag + team lookup from config
         dataService.fetchLeagueConfig { [weak self] config in
             guard let self else { return }
             DispatchQueue.main.async {
                 self.activeSeason   = config?.activeSeasonYear ?? 2026
                 self.isCommissioner = config?.authorizedUIDs.contains(user.uid) ?? false
-                if let team = config?.teamEmailMap[prefix] {
+
+                // 1. Primary: UID-based map (reliable, commissioner-assigned)
+                if let team = config?.userTeamMap[user.uid] {
+                    self.userTeam    = team
+                    self.selectedTeam = team
+                // 2. Fallback: email prefix map
+                } else {
+                    let prefix = user.email?.split(separator: "@").first.map(String.init)?.lowercased() ?? ""
+                    let team = config?.teamEmailMap[prefix]
+                        ?? fantasyTeams.first { $0.name.lowercased().contains(prefix) }?.name
+                        ?? fantasyTeams.first?.name ?? "Unknown"
                     self.userTeam    = team
                     self.selectedTeam = team
                 }

@@ -16,7 +16,6 @@
 		AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */; };
 		AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA03B0012DB5E1310003B594 /* AdminView.swift */; };
 		AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA04B0012DB5E1310003B594 /* DataSeeder.swift */; };
-		AA05B0072DB5E1310003B594 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA05B0012DB5E1310003B594 /* ContentView.swift */; };
 		E22EB39D4F24EF4E6ABFD667 /* Pods_CodeRed.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */; };
 /* End PBXBuildFile section */
 
@@ -52,7 +51,6 @@
 		AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreDataService.swift; sourceTree = "<group>"; };
 		AA03B0012DB5E1310003B594 /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminView.swift; sourceTree = "<group>"; };
 		AA04B0012DB5E1310003B594 /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
-		AA05B0012DB5E1310003B594 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.release.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.release.xcconfig"; sourceTree = "<group>"; };
 		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -99,23 +97,54 @@
 		17C08AB52DB5DEF80003B594 = {
 			isa = PBXGroup;
 			children = (
+				BB01000000000000000000AA /* App */,
+				BB02000000000000000000AA /* Models */,
+				BB03000000000000000000AA /* Services */,
+				BB04000000000000000000AA /* Views */,
 				17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */,
 				17C08AFF2DB5E1310003B594 /* Assets.xcassets */,
-				17C08B002DB5E1310003B594 /* CodeRedApp.swift */,
-				AA01B0012DB5E1310003B594 /* DataModels.swift */,
-				AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */,
-				AA03B0012DB5E1310003B594 /* AdminView.swift */,
-				AA04B0012DB5E1310003B594 /* DataSeeder.swift */,
-				AA05B0012DB5E1310003B594 /* ContentView.swift */,
 				17C08B012DB5E1310003B594 /* GoogleService-Info.plist */,
 				17C08B022DB5E1310003B594 /* serviceAccountKey.json */,
+				17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */,
 				17C08AD32DB5DEF90003B594 /* CodeRedTests */,
 				17C08ADD2DB5DEF90003B594 /* CodeRedUITests */,
 				17C08ABF2DB5DEF80003B594 /* Products */,
 				50EFAE3A52ED3B19194CA3F2 /* Pods */,
-				17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */,
 				351C102397A278057B983F5F /* Frameworks */,
 			);
+			sourceTree = "<group>";
+		};
+		BB01000000000000000000AA /* App */ = {
+			isa = PBXGroup;
+			children = (
+				17C08B002DB5E1310003B594 /* CodeRedApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		BB02000000000000000000AA /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA01B0012DB5E1310003B594 /* DataModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		BB03000000000000000000AA /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */,
+				AA04B0012DB5E1310003B594 /* DataSeeder.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		BB04000000000000000000AA /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA03B0012DB5E1310003B594 /* AdminView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		17C08ABF2DB5DEF80003B594 /* Products */ = {
@@ -338,7 +367,6 @@
 				AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */,
 				AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */,
 				AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */,
-				AA05B0072DB5E1310003B594 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

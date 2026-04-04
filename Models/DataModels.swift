@@ -253,10 +253,6 @@ struct PlayerInterest: Identifiable, Codable {
     let userId: String
     let assetId: String
     let timestamp: Date
-
-    enum CodingKeys: String, CodingKey {
-        case id, userId, assetId, timestamp
-    }
 }
 
 // MARK: - Message (Firestore: "messages" collection)
@@ -265,10 +261,6 @@ struct Message: Identifiable, Codable {
     @DocumentID var id: String?
     let content: String
     let timestamp: Date
-
-    enum CodingKeys: String, CodingKey {
-        case id, content, timestamp
-    }
 }
 
 // MARK: - LeagueConfig (Firestore: "config/league")

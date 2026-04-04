@@ -16,12 +16,12 @@ import FirebaseFirestore
 class DataSeeder {
 
     private let db = Firestore.firestore()
-    private let service = FirestoreDataService()
 
     // MARK: - Entry Point
 
     func seedIfNeeded(commissionerUID: String, completion: @escaping (Result<String, Error>) -> Void) {
-        service.isDatabaseSeeded { alreadySeeded in
+        db.collection("players").limit(to: 1).getDocuments { [self] snapshot, _ in
+            let alreadySeeded = !(snapshot?.documents.isEmpty ?? true)
             if alreadySeeded {
                 completion(.success("Database already seeded — skipped."))
                 return
@@ -188,7 +188,10 @@ class DataSeeder {
             )
             do {
                 try batch.setData(from: pick, forDocument: ref)
-            } catch { }
+            } catch {
+                completion(error)
+                return
+            }
         }
         batch.commit(completion: completion)
     }

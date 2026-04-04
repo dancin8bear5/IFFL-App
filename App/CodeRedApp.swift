@@ -13,7 +13,16 @@ class AppState: ObservableObject {
     @Published var userTeam: String = "Jared"
     @Published var selectedTeam: String = "Jared"
     @Published var isCommissioner: Bool = false
-    @Published var activeSeason: Int = 2026
+    @Published var activeSeason: Int = 2026 {
+        didSet {
+            guard oldValue != activeSeason else { return }
+            tradeListener?.remove()
+            tradeListener = dataService.listenToTrades(season: activeSeason) { [weak self] trades, _ in
+                guard let self else { return }
+                DispatchQueue.main.async { self.trades = trades }
+            }
+        }
+    }
     @Published var isInitialLoadComplete: Bool = false
 
     @Published var players: [Player] = []
@@ -51,17 +60,21 @@ class AppState: ObservableObject {
 
     /// Call this once after the user successfully logs in.
     func setup(for user: User) {
-        // Determine team from email
-        let prefix = user.email?.split(separator: "@").first.map(String.init) ?? ""
-        userTeam     = fantasyTeams.first { $0.name.lowercased().contains(prefix.lowercased()) }?.name ?? "Jared"
+        // Determine team from email prefix (fallback; overridden by teamEmailMap below)
+        let prefix = user.email?.split(separator: "@").first.map(String.init)?.lowercased() ?? ""
+        userTeam     = fantasyTeams.first { $0.name.lowercased().contains(prefix) }?.name ?? "Jared"
         selectedTeam = userTeam
 
-        // Active season from config (fall back to 2026)
+        // Active season + commissioner flag + precise team lookup from config
         dataService.fetchLeagueConfig { [weak self] config in
             guard let self else { return }
             DispatchQueue.main.async {
                 self.activeSeason   = config?.activeSeasonYear ?? 2026
                 self.isCommissioner = config?.authorizedUIDs.contains(user.uid) ?? false
+                if let team = config?.teamEmailMap[prefix] {
+                    self.userTeam    = team
+                    self.selectedTeam = team
+                }
             }
         }
 
@@ -286,12 +299,6 @@ struct LoginView: View {
                     }
                 }
                 .buttonStyle(CustomButtonStyle())
-
-                Button(action: {}) {
-                    Text("Forgot Password?")
-                        .font(.body)
-                        .foregroundColor(Color("SecondaryTextColor"))
-                }
 
                 Spacer()
             }
@@ -849,7 +856,10 @@ struct TradesView: View {
     @State private var searchQuery: String = ""
 
     private var currentSeasonTrades: [Trade] {
-        appState.trades.filter { $0.status == .completed || $0.status == .historical }
+        appState.trades.filter {
+            $0.season == appState.activeSeason &&
+            ($0.status == .completed || $0.status == .historical)
+        }
     }
 
     private var filteredTrades: [Trade] {

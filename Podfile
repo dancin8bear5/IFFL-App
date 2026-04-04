@@ -4,8 +4,6 @@ platform :ios, '17.0'
 
 target 'CodeRed' do
   use_frameworks!
-  pod 'GoogleAPIClientForREST/Sheets', '~> 3.0'
-  pod 'GTMSessionFetcher/Core', '~> 3.0'
   pod 'Firebase/Auth', '~> 10.24.0'
   pod 'Firebase/Firestore', '~> 10.24.0'
   pod 'Firebase/Messaging', '~> 10.24.0'

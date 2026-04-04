@@ -12,6 +12,11 @@
 		17C08B052DB5E1310003B594 /* 2025 IFFL Keeper Master.csv in Resources */ = {isa = PBXBuildFile; fileRef = 17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */; };
 		17C08B062DB5E1310003B594 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 17C08B012DB5E1310003B594 /* GoogleService-Info.plist */; };
 		17C08B072DB5E1310003B594 /* CodeRedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C08B002DB5E1310003B594 /* CodeRedApp.swift */; };
+		AA01B0072DB5E1310003B594 /* DataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01B0012DB5E1310003B594 /* DataModels.swift */; };
+		AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */; };
+		AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA03B0012DB5E1310003B594 /* AdminView.swift */; };
+		AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA04B0012DB5E1310003B594 /* DataSeeder.swift */; };
+		AA05B0072DB5E1310003B594 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA05B0012DB5E1310003B594 /* ContentView.swift */; };
 		E22EB39D4F24EF4E6ABFD667 /* Pods_CodeRed.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */; };
 /* End PBXBuildFile section */
 
@@ -43,6 +48,11 @@
 		17C08B012DB5E1310003B594 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		17C08B022DB5E1310003B594 /* serviceAccountKey.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = serviceAccountKey.json; sourceTree = "<group>"; };
 		17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CodeRed-Bridging-Header.h"; sourceTree = "<group>"; };
+		AA01B0012DB5E1310003B594 /* DataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataModels.swift; sourceTree = "<group>"; };
+		AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreDataService.swift; sourceTree = "<group>"; };
+		AA03B0012DB5E1310003B594 /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminView.swift; sourceTree = "<group>"; };
+		AA04B0012DB5E1310003B594 /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
+		AA05B0012DB5E1310003B594 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.release.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.release.xcconfig"; sourceTree = "<group>"; };
 		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -92,6 +102,11 @@
 				17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */,
 				17C08AFF2DB5E1310003B594 /* Assets.xcassets */,
 				17C08B002DB5E1310003B594 /* CodeRedApp.swift */,
+				AA01B0012DB5E1310003B594 /* DataModels.swift */,
+				AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */,
+				AA03B0012DB5E1310003B594 /* AdminView.swift */,
+				AA04B0012DB5E1310003B594 /* DataSeeder.swift */,
+				AA05B0012DB5E1310003B594 /* ContentView.swift */,
 				17C08B012DB5E1310003B594 /* GoogleService-Info.plist */,
 				17C08B022DB5E1310003B594 /* serviceAccountKey.json */,
 				17C08AD32DB5DEF90003B594 /* CodeRedTests */,
@@ -319,6 +334,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				17C08B072DB5E1310003B594 /* CodeRedApp.swift in Sources */,
+				AA01B0072DB5E1310003B594 /* DataModels.swift in Sources */,
+				AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */,
+				AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */,
+				AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */,
+				AA05B0072DB5E1310003B594 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

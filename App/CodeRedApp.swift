@@ -3,6 +3,8 @@ import Firebase
 import FirebaseMessaging
 import FirebaseAuth
 import FirebaseFirestore
+import GoogleSignIn
+
 
 // MARK: - AppState
 
@@ -157,11 +159,16 @@ class AppState: ObservableObject {
 
 class AuthenticationService: ObservableObject {
     @Published var isLoggedIn: Bool = false
+    @Published var signInError: String? = nil
     private var handle: AuthStateDidChangeListenerHandle?
 
     init() {
         handle = Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            self?.isLoggedIn = user != nil
+            DispatchQueue.main.async { self?.isLoggedIn = user != nil }
+        }
+        // Configure Google Sign-In with the Firebase client ID
+        if let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
         }
     }
 
@@ -169,18 +176,51 @@ class AuthenticationService: ObservableObject {
         if let h = handle { Auth.auth().removeStateDidChangeListener(h) }
     }
 
-    func signIn(email: String, password: String, completion: @escaping (Error?) -> Void) {
-        Auth.auth().signIn(withEmail: email, password: password) { _, error in
-            if let error = error as NSError? {
-                print("🔴 Firebase Auth Error — code: \(error.code), domain: \(error.domain)")
-                print("🔴 Description: \(error.localizedDescription)")
-                print("🔴 User info: \(error.userInfo)")
+    // MARK: - Google Sign-In
+
+    func signInWithGoogle() {
+        // Ensure GIDSignIn is configured (in case FirebaseApp wasn't ready at init time)
+        if GIDSignIn.sharedInstance.configuration == nil,
+           let clientID = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+        }
+
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first?.rootViewController else {
+            print("[Auth] Could not find root view controller for Google Sign-In")
+            return
+        }
+
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootVC) { [weak self] result, error in
+            guard let self else { return }
+            if let error = error {
+                let nsError = error as NSError
+                // kGIDSignInErrorCodeCanceled = -5 — user dismissed the sign-in sheet
+                if nsError.domain == kGIDSignInErrorDomain && nsError.code == -5 { return }
+                print("[Auth] Google Sign-In error: \(error.localizedDescription)")
+                DispatchQueue.main.async { self.signInError = error.localizedDescription }
+                return
             }
-            completion(error)
+            guard let user = result?.user,
+                  let idToken = user.idToken?.tokenString else {
+                print("[Auth] Google Sign-In: missing ID token")
+                return
+            }
+            let credential = GoogleAuthProvider.credential(
+                withIDToken: idToken,
+                accessToken: user.accessToken.tokenString
+            )
+            Auth.auth().signIn(with: credential) { _, error in
+                if let error = error as NSError? {
+                    print("[Auth] Firebase credential sign-in error — code: \(error.code): \(error.localizedDescription)")
+                    DispatchQueue.main.async { self.signInError = error.localizedDescription }
+                }
+            }
         }
     }
 
     func signOut() {
+        GIDSignIn.sharedInstance.signOut()
         try? Auth.auth().signOut()
     }
 }
@@ -218,7 +258,6 @@ struct CodeRedApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     init() {
-        FirebaseApp.configure()
         UINavigationBar.appearance().barTintColor            = UIColor(named: "BackgroundColor")
         UINavigationBar.appearance().titleTextAttributes     = [.foregroundColor: UIColor(named: "TextColor") ?? .white]
         UITabBar.appearance().barTintColor                   = UIColor(named: "BackgroundColor")
@@ -243,11 +282,12 @@ struct CodeRedApp: App {
     }
 }
 
-// MARK: - AppDelegate (FCM)
+// MARK: - AppDelegate (FCM + Google Sign-In)
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        FirebaseApp.configure()
         UNUserNotificationCenter.current().delegate = self
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
@@ -255,6 +295,14 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         }
         return true
     }
+
+    // MARK: Google Sign-In URL handling
+
+    func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        return GIDSignIn.sharedInstance.handle(url)
+    }
+
+    // MARK: FCM
 
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Messaging.messaging().apnsToken = deviceToken
@@ -274,9 +322,6 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
 struct LoginView: View {
     @ObservedObject var authService: AuthenticationService
-    @State private var email: String    = ""
-    @State private var password: String = ""
-    @State private var errorMessage: String? = nil
 
     var body: some View {
         ZStack {
@@ -286,33 +331,55 @@ struct LoginView: View {
             )
             .edgesIgnoringSafeArea(.all)
 
-            VStack(spacing: 20) {
-                Text("Welcome to the IFFL")
-                    .font(.largeTitle).fontWeight(.bold)
-                    .foregroundColor(Color("TextColor"))
+            VStack(spacing: 32) {
+                Spacer()
 
-                TextField("Email", text: $email)
-                    .textFieldStyle(CustomTextFieldStyle())
-                    .keyboardType(.emailAddress)
-                    .autocapitalization(.none)
+                // MARK: Branding
+                VStack(spacing: 8) {
+                    Text("IFFL")
+                        .font(.system(size: 64, weight: .black, design: .rounded))
+                        .foregroundColor(Color("AccentColor"))
 
-                SecureField("Password", text: $password)
-                    .textFieldStyle(CustomTextFieldStyle())
-
-                if let error = errorMessage {
-                    Text(error).foregroundColor(.red).font(.body)
+                    Text("Insanity Fantasy Football League")
+                        .font(.subheadline)
+                        .foregroundColor(Color("SecondaryTextColor"))
+                        .multilineTextAlignment(.center)
                 }
-
-                Button("Login") {
-                    authService.signIn(email: email, password: password) { error in
-                        errorMessage = error?.localizedDescription
-                    }
-                }
-                .buttonStyle(CustomButtonStyle())
 
                 Spacer()
+
+                // MARK: Google Sign-In Button
+                Button(action: { authService.signInWithGoogle() }) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "g.circle.fill")
+                            .foregroundColor(.white)
+                            .font(.title2)
+                        Text("Sign in with Google")
+                            .foregroundColor(.white)
+                            .font(.headline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(red: 0.26, green: 0.52, blue: 0.96))
+                    .cornerRadius(10)
+                }
+                .padding(.horizontal)
+
+                if let error = authService.signInError {
+                    Text(error)
+                        .foregroundColor(.red)
+                        .font(.caption)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
+                }
+
+                Spacer()
+
+                Text("Access is limited to IFFL members.")
+                    .font(.caption)
+                    .foregroundColor(Color("SecondaryTextColor"))
+                    .padding(.bottom, 20)
             }
-            .padding(.top, 50)
             .padding(.horizontal)
         }
     }

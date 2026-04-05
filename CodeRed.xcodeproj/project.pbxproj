@@ -47,22 +47,26 @@
 		17C08B012DB5E1310003B594 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		17C08B022DB5E1310003B594 /* serviceAccountKey.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = serviceAccountKey.json; sourceTree = "<group>"; };
 		17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CodeRed-Bridging-Header.h"; sourceTree = "<group>"; };
+		2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.release.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.release.xcconfig"; sourceTree = "<group>"; };
 		AA01B0012DB5E1310003B594 /* DataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataModels.swift; sourceTree = "<group>"; };
 		AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreDataService.swift; sourceTree = "<group>"; };
 		AA03B0012DB5E1310003B594 /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminView.swift; sourceTree = "<group>"; };
 		AA04B0012DB5E1310003B594 /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
-		2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.release.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.release.xcconfig"; sourceTree = "<group>"; };
 		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		17C08AD32DB5DEF90003B594 /* CodeRedTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = CodeRedTests;
 			sourceTree = "<group>";
 		};
 		17C08ADD2DB5DEF90003B594 /* CodeRedUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+			);
 			path = CodeRedUITests;
 			sourceTree = "<group>";
 		};
@@ -114,6 +118,33 @@
 			);
 			sourceTree = "<group>";
 		};
+		17C08ABF2DB5DEF80003B594 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				17C08ABE2DB5DEF80003B594 /* CodeRed.app */,
+				17C08AD02DB5DEF90003B594 /* CodeRedTests.xctest */,
+				17C08ADA2DB5DEF90003B594 /* CodeRedUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		351C102397A278057B983F5F /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		50EFAE3A52ED3B19194CA3F2 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */,
+				2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		BB01000000000000000000AA /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -145,33 +176,6 @@
 				AA03B0012DB5E1310003B594 /* AdminView.swift */,
 			);
 			path = Views;
-			sourceTree = "<group>";
-		};
-		17C08ABF2DB5DEF80003B594 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				17C08ABE2DB5DEF80003B594 /* CodeRed.app */,
-				17C08AD02DB5DEF90003B594 /* CodeRedTests.xctest */,
-				17C08ADA2DB5DEF90003B594 /* CodeRedUITests.xctest */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		351C102397A278057B983F5F /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		50EFAE3A52ED3B19194CA3F2 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */,
-				2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */,
-			);
-			path = Pods;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

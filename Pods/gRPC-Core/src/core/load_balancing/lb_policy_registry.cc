@@ -14,9 +14,10 @@
 // limitations under the License.
 //
 
-#include <grpc/support/port_platform.h>
-
 #include "src/core/load_balancing/lb_policy_registry.h"
+
+#include <grpc/support/json.h>
+#include <grpc/support/port_platform.h>
 
 #include <algorithm>
 #include <map>
@@ -24,15 +25,13 @@
 #include <utility>
 #include <vector>
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-
-#include <grpc/support/json.h>
-#include <grpc/support/log.h>
-
 #include "src/core/load_balancing/lb_policy.h"
 
 namespace grpc_core {
@@ -43,9 +42,8 @@ namespace grpc_core {
 
 void LoadBalancingPolicyRegistry::Builder::RegisterLoadBalancingPolicyFactory(
     std::unique_ptr<LoadBalancingPolicyFactory> factory) {
-  gpr_log(GPR_DEBUG, "registering LB policy factory for \"%s\"",
-          std::string(factory->name()).c_str());
-  GPR_ASSERT(factories_.find(factory->name()) == factories_.end());
+  VLOG(2) << "registering LB policy factory for \"" << factory->name() << "\"";
+  CHECK(factories_.find(factory->name()) == factories_.end());
   factories_.emplace(factory->name(), std::move(factory));
 }
 

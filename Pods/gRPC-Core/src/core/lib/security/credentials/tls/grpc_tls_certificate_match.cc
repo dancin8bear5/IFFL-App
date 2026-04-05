@@ -15,7 +15,6 @@
 //
 
 #include <grpc/support/port_platform.h>
-
 #if COCOAPODS==1
   #include <openssl_grpc/bio.h>
 #else
@@ -45,7 +44,6 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
-
 #include "src/core/lib/security/credentials/tls/grpc_tls_certificate_provider.h"
 
 namespace grpc_core {

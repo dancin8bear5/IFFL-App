@@ -17,6 +17,7 @@
 #ifndef GRPC_SRC_CORE_LOAD_BALANCING_HEALTH_CHECK_CLIENT_INTERNAL_H
 #define GRPC_SRC_CORE_LOAD_BALANCING_HEALTH_CHECK_CLIENT_INTERNAL_H
 
+#include <grpc/impl/connectivity_state.h>
 #include <grpc/support/port_platform.h>
 
 #include <map>
@@ -29,20 +30,17 @@
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
-
-#include <grpc/impl/connectivity_state.h>
-
 #include "src/core/client_channel/subchannel.h"
 #include "src/core/client_channel/subchannel_interface_internal.h"
 #include "src/core/client_channel/subchannel_stream_client.h"
-#include "src/core/lib/gprpp/orphanable.h"
-#include "src/core/lib/gprpp/ref_counted_ptr.h"
-#include "src/core/lib/gprpp/sync.h"
-#include "src/core/lib/gprpp/unique_type_name.h"
-#include "src/core/lib/gprpp/work_serializer.h"
 #include "src/core/lib/iomgr/iomgr_fwd.h"
 #include "src/core/lib/iomgr/pollset_set.h"
 #include "src/core/load_balancing/subchannel_interface.h"
+#include "src/core/util/orphanable.h"
+#include "src/core/util/ref_counted_ptr.h"
+#include "src/core/util/sync.h"
+#include "src/core/util/unique_type_name.h"
+#include "src/core/util/work_serializer.h"
 
 namespace grpc_core {
 
@@ -52,14 +50,12 @@ class HealthWatcher;
 // health watch call for each health check service name that is being
 // watched and reports the resulting connectivity state to all
 // registered watchers.
-class HealthProducer : public Subchannel::DataProducerInterface {
+class HealthProducer final : public Subchannel::DataProducerInterface {
  public:
   HealthProducer() : interested_parties_(grpc_pollset_set_create()) {}
   ~HealthProducer() override { grpc_pollset_set_destroy(interested_parties_); }
 
   void Start(RefCountedPtr<Subchannel> subchannel);
-
-  void Orphan() override;
 
   static UniqueTypeName Type() {
     static UniqueTypeName::Factory kFactory("health_check");
@@ -79,7 +75,7 @@ class HealthProducer : public Subchannel::DataProducerInterface {
 
   // Health checker for a given health check service name.  Contains the
   // health check client and the list of watchers.
-  class HealthChecker : public InternallyRefCounted<HealthChecker> {
+  class HealthChecker final : public InternallyRefCounted<HealthChecker> {
    public:
     HealthChecker(WeakRefCountedPtr<HealthProducer> producer,
                   absl::string_view health_check_service_name);
@@ -139,6 +135,7 @@ class HealthProducer : public Subchannel::DataProducerInterface {
   // Handles a connectivity state change on the subchannel.
   void OnConnectivityStateChange(grpc_connectivity_state state,
                                  const absl::Status& status);
+  void Orphaned() override;
 
   RefCountedPtr<Subchannel> subchannel_;
   ConnectivityWatcher* connectivity_watcher_;
@@ -156,7 +153,7 @@ class HealthProducer : public Subchannel::DataProducerInterface {
 };
 
 // A data watcher that handles health checking.
-class HealthWatcher : public InternalSubchannelDataWatcherInterface {
+class HealthWatcher final : public InternalSubchannelDataWatcherInterface {
  public:
   HealthWatcher(
       std::shared_ptr<WorkSerializer> work_serializer,

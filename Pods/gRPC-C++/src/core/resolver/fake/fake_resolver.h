@@ -17,6 +17,7 @@
 #ifndef GRPC_SRC_CORE_RESOLVER_FAKE_FAKE_RESOLVER_H
 #define GRPC_SRC_CORE_RESOLVER_FAKE_FAKE_RESOLVER_H
 
+#include <grpc/grpc.h>
 #include <grpc/support/port_platform.h>
 
 #include <utility>
@@ -25,15 +26,12 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/optional.h"
-
-#include <grpc/grpc.h>
-
-#include "src/core/lib/gpr/useful.h"
-#include "src/core/lib/gprpp/notification.h"
-#include "src/core/lib/gprpp/ref_counted.h"
-#include "src/core/lib/gprpp/ref_counted_ptr.h"
-#include "src/core/lib/gprpp/sync.h"
 #include "src/core/resolver/resolver.h"
+#include "src/core/util/notification.h"
+#include "src/core/util/ref_counted.h"
+#include "src/core/util/ref_counted_ptr.h"
+#include "src/core/util/sync.h"
+#include "src/core/util/useful.h"
 
 #define GRPC_ARG_FAKE_RESOLVER_RESPONSE_GENERATOR \
   "grpc.fake_resolver.response_generator"
@@ -49,7 +47,7 @@ class FakeResolver;
 // instead of RefCounted, but external refs are currently needed to
 // encode this in channel args.  Once channel_args are converted to C++,
 // see if we can find a way to fix this.
-class FakeResolverResponseGenerator
+class FakeResolverResponseGenerator final
     : public RefCounted<FakeResolverResponseGenerator> {
  public:
   static const grpc_arg_pointer_vtable kChannelArgPointerVtable;

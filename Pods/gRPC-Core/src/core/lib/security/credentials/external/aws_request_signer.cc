@@ -13,13 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-#include <grpc/support/port_platform.h>
-
 #include "src/core/lib/security/credentials/external/aws_request_signer.h"
 
-#include <utility>
-#include <vector>
-
+#include <grpc/support/port_platform.h>
 #if COCOAPODS==1
   #include <openssl_grpc/crypto.h>
 #else
@@ -40,6 +36,9 @@
 #else
   #include <openssl/sha.h>
 #endif
+
+#include <utility>
+#include <vector>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"

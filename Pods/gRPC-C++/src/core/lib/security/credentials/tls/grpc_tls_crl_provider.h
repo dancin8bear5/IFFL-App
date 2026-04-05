@@ -19,7 +19,14 @@
 #ifndef GRPC_SRC_CORE_LIB_SECURITY_CREDENTIALS_TLS_GRPC_TLS_CRL_PROVIDER_H
 #define GRPC_SRC_CORE_LIB_SECURITY_CREDENTIALS_TLS_GRPC_TLS_CRL_PROVIDER_H
 
+#include <grpc/event_engine/event_engine.h>
+#include <grpc/grpc_crl_provider.h>
 #include <grpc/support/port_platform.h>
+#if COCOAPODS==1
+  #include <openssl_grpc/crypto.h>
+#else
+  #include <openssl/crypto.h>
+#endif
 
 #include <chrono>
 #include <functional>
@@ -28,25 +35,15 @@
 #include <string>
 #include <utility>
 
-#if COCOAPODS==1
-  #include <openssl_grpc/crypto.h>
-#else
-  #include <openssl/crypto.h>
-#endif
-
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
-
-#include <grpc/event_engine/event_engine.h>
-#include <grpc/grpc_crl_provider.h>
-
-#include "src/core/lib/gprpp/directory_reader.h"
-#include "src/core/lib/gprpp/sync.h"
-#include "src/core/lib/gprpp/time.h"
+#include "src/core/util/directory_reader.h"
+#include "src/core/util/sync.h"
+#include "src/core/util/time.h"
 
 namespace grpc_core {
 namespace experimental {
@@ -83,13 +80,17 @@ class CrlImpl : public Crl {
 
 class CertificateInfoImpl : public CertificateInfo {
  public:
-  explicit CertificateInfoImpl(absl::string_view issuer) : issuer_(issuer) {}
-  // Returns a string representation of the issuer pulled from the
-  // certificate.
+  explicit CertificateInfoImpl(absl::string_view issuer,
+                               absl::string_view authority_key_identifier = "")
+      : issuer_(issuer), authority_key_identifier_(authority_key_identifier) {}
   absl::string_view Issuer() const override { return issuer_; }
+  absl::string_view AuthorityKeyIdentifier() const override {
+    return authority_key_identifier_;
+  }
 
  private:
   const std::string issuer_;
+  const std::string authority_key_identifier_;
 };
 
 // Defining this here lets us hide implementation details (and includes) from

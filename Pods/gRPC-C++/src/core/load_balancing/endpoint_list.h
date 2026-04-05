@@ -17,8 +17,8 @@
 #ifndef GRPC_SRC_CORE_LOAD_BALANCING_ENDPOINT_LIST_H
 #define GRPC_SRC_CORE_LOAD_BALANCING_ENDPOINT_LIST_H
 
+#include <grpc/impl/connectivity_state.h>
 #include <grpc/support/port_platform.h>
-
 #include <stdlib.h>
 
 #include <memory>
@@ -28,18 +28,15 @@
 #include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
-
-#include <grpc/impl/connectivity_state.h>
-
 #include "src/core/lib/channel/channel_args.h"
-#include "src/core/lib/gprpp/debug_location.h"
-#include "src/core/lib/gprpp/orphanable.h"
-#include "src/core/lib/gprpp/ref_counted_ptr.h"
-#include "src/core/lib/gprpp/work_serializer.h"
 #include "src/core/lib/iomgr/resolved_address.h"
 #include "src/core/load_balancing/lb_policy.h"
 #include "src/core/load_balancing/subchannel_interface.h"
 #include "src/core/resolver/endpoint_addresses.h"
+#include "src/core/util/debug_location.h"
+#include "src/core/util/orphanable.h"
+#include "src/core/util/ref_counted_ptr.h"
+#include "src/core/util/work_serializer.h"
 
 namespace grpc_core {
 
@@ -54,9 +51,10 @@ class MyEndpointList : public EndpointList {
  public:
   MyEndpointList(RefCountedPtr<MyLbPolicy> lb_policy,
                  EndpointAddressesIterator* endpoints,
-                 const ChannelArgs& args)
+                 const ChannelArgs& args,
+                 std::vector<std::string>* errors)
       : EndpointList(std::move(lb_policy),
-                     GRPC_TRACE_FLAG_ENABLED(grpc_my_tracer)
+                     GRPC_TRACE_FLAG_ENABLED(my_tracer)
                          ? "MyEndpointList"
                          : nullptr) {
     Init(endpoints, args,
@@ -64,7 +62,7 @@ class MyEndpointList : public EndpointList {
              const EndpointAddresses& addresses, const ChannelArgs& args) {
            return MakeOrphanable<MyEndpoint>(
                std::move(endpoint_list), addresses, args,
-               policy<MyLbPolicy>()->work_serializer());
+               policy<MyLbPolicy>()->work_serializer(), errors);
          });
   }
 
@@ -72,10 +70,15 @@ class MyEndpointList : public EndpointList {
   class MyEndpoint : public Endpoint {
    public:
     MyEndpoint(RefCountedPtr<MyEndpointList> endpoint_list,
-               const EndpointAddresses& address, const ChannelArgs& args,
-               std::shared_ptr<WorkSerializer> work_serializer)
+               const EndpointAddresses& addresses, const ChannelArgs& args,
+               std::shared_ptr<WorkSerializer> work_serializer,
+               std::vector<std::string>* errors)
         : Endpoint(std::move(endpoint_list)) {
-      Init(addresses, args, std::move(work_serializer));
+      absl::Status status = Init(addresses, args, std::move(work_serializer));
+      if (!status.ok()) {
+        errors->emplace_back(absl::StrCat(
+            "endpoint ", addresses.ToString(), ": ", status.ToString()));
+      }
     }
 
    private:
@@ -121,8 +124,9 @@ class EndpointList : public InternallyRefCounted<EndpointList> {
     explicit Endpoint(RefCountedPtr<EndpointList> endpoint_list)
         : endpoint_list_(std::move(endpoint_list)) {}
 
-    void Init(const EndpointAddresses& addresses, const ChannelArgs& args,
-              std::shared_ptr<WorkSerializer> work_serializer);
+    absl::Status Init(const EndpointAddresses& addresses,
+                      const ChannelArgs& args,
+                      std::shared_ptr<WorkSerializer> work_serializer);
 
     // Templated for convenience, to provide a short-hand for
     // down-casting in the caller.

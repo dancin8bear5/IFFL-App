@@ -14,6 +14,7 @@
 #ifndef GRPC_SRC_CORE_LIB_EVENT_ENGINE_THREAD_POOL_THREAD_COUNT_H
 #define GRPC_SRC_CORE_LIB_EVENT_ENGINE_THREAD_POOL_THREAD_COUNT_H
 
+#include <grpc/support/cpu.h>
 #include <grpc/support/port_platform.h>
 
 #include <atomic>
@@ -24,12 +25,9 @@
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
-
-#include <grpc/support/cpu.h>
-
-#include "src/core/lib/gpr/useful.h"
-#include "src/core/lib/gprpp/sync.h"
-#include "src/core/lib/gprpp/time.h"
+#include "src/core/util/sync.h"
+#include "src/core/util/time.h"
+#include "src/core/util/useful.h"
 
 namespace grpc_event_engine {
 namespace experimental {

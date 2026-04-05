@@ -171,6 +171,11 @@ class AuthenticationService: ObservableObject {
 
     func signIn(email: String, password: String, completion: @escaping (Error?) -> Void) {
         Auth.auth().signIn(withEmail: email, password: password) { _, error in
+            if let error = error as NSError? {
+                print("🔴 Firebase Auth Error — code: \(error.code), domain: \(error.domain)")
+                print("🔴 Description: \(error.localizedDescription)")
+                print("🔴 User info: \(error.userInfo)")
+            }
             completion(error)
         }
     }

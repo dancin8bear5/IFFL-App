@@ -538,6 +538,7 @@
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleURLTypes = "<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLName</key><string>com.google.signin</string><key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.876749980452-sqihihfjdvmn2rmaqh9qjjkivjepan4n</string></array></dict></array>";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -573,6 +574,7 @@
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleURLTypes = "<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLName</key><string>com.google.signin</string><key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.876749980452-sqihihfjdvmn2rmaqh9qjjkivjepan4n</string></array></dict></array>";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

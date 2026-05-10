@@ -360,6 +360,14 @@ class FirestoreDataService: ObservableObject {
             }
     }
 
+    func fetchAllInterests(completion: @escaping ([PlayerInterest]?, Error?) -> Void) {
+        db.collection(Col.interests).getDocuments { snapshot, error in
+            if let error = error { completion(nil, error); return }
+            let interests = snapshot?.documents.compactMap { try? $0.data(as: PlayerInterest.self) }
+            completion(interests, nil)
+        }
+    }
+
     // MARK: - Messages
 
     func addMessage(content: String, completion: @escaping (Error?) -> Void) {

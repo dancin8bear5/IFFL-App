@@ -17,6 +17,13 @@
 		AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA03B0012DB5E1310003B594 /* AdminView.swift */; };
 		AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA04B0012DB5E1310003B594 /* DataSeeder.swift */; };
 		E22EB39D4F24EF4E6ABFD667 /* Pods_CodeRed.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */; };
+		BB0100002000000000000011 /* IFFLApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0100001000000000000011 /* IFFLApp.swift */; };
+		BB0100002000000000000012 /* IFFLTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0100001000000000000012 /* IFFLTheme.swift */; };
+		BB0400002000000000000011 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000011 /* DashboardView.swift */; };
+		BB0400002000000000000012 /* RostersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000012 /* RostersView.swift */; };
+		BB0400002000000000000013 /* MarketView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000013 /* MarketView.swift */; };
+		BB0400002000000000000014 /* LeagueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000014 /* LeagueView.swift */; };
+		BB0400002000000000000015 /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000015 /* WebViewContainer.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,6 +60,13 @@
 		AA03B0012DB5E1310003B594 /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminView.swift; sourceTree = "<group>"; };
 		AA04B0012DB5E1310003B594 /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
 		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
+		BB0100001000000000000011 /* IFFLApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IFFLApp.swift; sourceTree = "<group>"; };
+		BB0100001000000000000012 /* IFFLTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IFFLTheme.swift; sourceTree = "<group>"; };
+		BB0400001000000000000011 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000012 /* RostersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RostersView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000013 /* MarketView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000014 /* LeagueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000015 /* WebViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewContainer.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -149,6 +163,8 @@
 			isa = PBXGroup;
 			children = (
 				17C08B002DB5E1310003B594 /* CodeRedApp.swift */,
+				BB0100001000000000000011 /* IFFLApp.swift */,
+				BB0100001000000000000012 /* IFFLTheme.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -174,6 +190,11 @@
 			isa = PBXGroup;
 			children = (
 				AA03B0012DB5E1310003B594 /* AdminView.swift */,
+				BB0400001000000000000011 /* DashboardView.swift */,
+				BB0400001000000000000012 /* RostersView.swift */,
+				BB0400001000000000000013 /* MarketView.swift */,
+				BB0400001000000000000014 /* LeagueView.swift */,
+				BB0400001000000000000015 /* WebViewContainer.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -371,6 +392,13 @@
 				AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */,
 				AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */,
 				AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */,
+				BB0100002000000000000011 /* IFFLApp.swift in Sources */,
+				BB0100002000000000000012 /* IFFLTheme.swift in Sources */,
+				BB0400002000000000000011 /* DashboardView.swift in Sources */,
+				BB0400002000000000000012 /* RostersView.swift in Sources */,
+				BB0400002000000000000013 /* MarketView.swift in Sources */,
+				BB0400002000000000000014 /* LeagueView.swift in Sources */,
+				BB0400002000000000000015 /* WebViewContainer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

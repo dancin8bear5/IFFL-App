@@ -1,11 +1,12 @@
 import Foundation
 
 struct MarketEngine {
-    struct TradeMatch {
+    struct TradeMatch: Identifiable {
         let teamA: String
         let teamB: String
         let aWants: [DisplayAsset]   // assets owned by teamB that teamA flagged
         let bWants: [DisplayAsset]   // assets owned by teamA that teamB flagged
+        var id: String { "\(teamA)↔\(teamB)" }
     }
 
     static func findMatches(

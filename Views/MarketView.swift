@@ -178,40 +178,12 @@ struct InterestRow: View {
 struct MatchesView: View {
     @EnvironmentObject var appState: AppState
 
-    struct TradeMatch: Identifiable {
-        let id = UUID()
-        let teamA: String
-        let teamB: String
-        let aWants: [DisplayAsset]
-        let bWants: [DisplayAsset]
-    }
-
-    private var matches: [TradeMatch] {
-        var teamInterests: [String: Set<String>] = [:]
-        for i in appState.allLeagueInterests {
-            guard let team = i.teamName else { continue }
-            teamInterests[team, default: []].insert(i.assetId)
-        }
-
-        var assetOwner: [String: String] = [:]
-        for a in appState.allDisplayAssets { assetOwner[a.assetId] = a.teamName }
-
-        var results: [TradeMatch] = []
-        let teams = Array(teamInterests.keys)
-        for i in 0..<teams.count {
-            for j in (i + 1)..<teams.count {
-                let a = teams[i], b = teams[j]
-                let aFromB = (teamInterests[a] ?? []).filter { assetOwner[$0] == b }
-                let bFromA = (teamInterests[b] ?? []).filter { assetOwner[$0] == a }
-                guard !aFromB.isEmpty, !bFromA.isEmpty else { continue }
-
-                let aAssets = aFromB.compactMap { id in appState.allDisplayAssets.first { $0.assetId == id } }
-                let bAssets = bFromA.compactMap { id in appState.allDisplayAssets.first { $0.assetId == id } }
-                results.append(TradeMatch(teamA: a, teamB: b, aWants: aAssets, bWants: bAssets))
-            }
-        }
-        // User's matches first
-        return results.sorted { $0.teamA == appState.userTeam || $0.teamB == appState.userTeam }
+    private var matches: [MarketEngine.TradeMatch] {
+        MarketEngine.findMatches(
+            interests: appState.allLeagueInterests,
+            assets: appState.allDisplayAssets,
+            priorityTeam: appState.userTeam
+        )
     }
 
     var body: some View {
@@ -242,7 +214,7 @@ struct MatchesView: View {
 
 struct MatchCard: View {
     @EnvironmentObject var appState: AppState
-    let match: MatchesView.TradeMatch
+    let match: MarketEngine.TradeMatch
 
     var body: some View {
         VStack(spacing: 12) {
@@ -267,9 +239,21 @@ struct MatchCard: View {
                     .frame(maxWidth: .infinity).padding(.vertical, 8)
                     .background(Color.iffAccent).cornerRadius(8)
             }
+            .simultaneousGesture(TapGesture().onEnded { prefillFromMatch() })
         }
         .padding()
         .iffCard()
+    }
+
+    private func prefillFromMatch() {
+        let userIsA = match.teamA == appState.userTeam
+        let userIsB = match.teamB == appState.userTeam
+        guard userIsA || userIsB else { return }
+        // Seed with the first asset the user has flagged from the other team
+        let theirAssets = userIsA ? match.aWants : match.bWants
+        if let first = theirAssets.first {
+            appState.selectedAssetForTrade = first
+        }
     }
 
     private func teamLabel(_ name: String) -> some View {

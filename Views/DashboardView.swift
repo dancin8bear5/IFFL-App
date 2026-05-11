@@ -22,13 +22,19 @@ struct DashboardView: View {
                 ScrollView {
                     VStack(spacing: 24) {
                         header
-                        myTeamCard
-                        if !recentTrades.isEmpty { recentTradesSection }
-                        if !appState.messages.isEmpty { messagesSection }
-                        teamGridSection
+                        if appState.isInitialLoadComplete {
+                            myTeamCard
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            if !recentTrades.isEmpty { recentTradesSection }
+                            if !appState.messages.isEmpty { messagesSection }
+                            teamGridSection
+                        } else {
+                            LoadingView(count: 4).padding(.top, 12)
+                        }
                     }
                     .padding(.horizontal)
                     .padding(.bottom, 100)
+                    .animation(.spring(response: 0.45, dampingFraction: 0.78), value: appState.isInitialLoadComplete)
                 }
             }
             .navigationBarHidden(true)

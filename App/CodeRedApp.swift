@@ -136,6 +136,7 @@ class AppState: ObservableObject {
             completion(NSError(domain: "IFFL", code: -1))
             return
         }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         if interestedAssetIds.contains(asset.assetId) {
             dataService.removePlayerInterest(assetId: asset.assetId, userId: uid) { [weak self] error in
                 if error == nil { DispatchQueue.main.async { self?.interestedAssetIds.remove(asset.assetId) } }

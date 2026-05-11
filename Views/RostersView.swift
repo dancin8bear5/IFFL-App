@@ -59,8 +59,7 @@ struct TeamRosterView: View {
             .background(Color.iffSurface)
 
             if !appState.isInitialLoadComplete {
-                Spacer()
-                ProgressView().tint(Color.iffAccent)
+                LoadingView()
                 Spacer()
             } else {
                 List {

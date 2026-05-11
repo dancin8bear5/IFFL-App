@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 // MARK: - Color Tokens
 
@@ -69,5 +70,70 @@ struct IFFLOutlineButtonStyle: ButtonStyle {
             .padding(.vertical, 8)
             .overlay(Capsule().stroke(Color.iffAccent, lineWidth: 1.5))
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+    }
+}
+
+// MARK: - Shimmer / Skeleton Loading
+
+struct ShimmerModifier: ViewModifier {
+    @State private var isAnimating = false
+
+    func body(content: Content) -> some View {
+        content.overlay(
+            GeometryReader { geo in
+                let w = geo.size.width
+                LinearGradient(
+                    colors: [.clear, Color.white.opacity(0.12), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: w * 0.6)
+                .offset(x: isAnimating ? w * 1.5 : -w * 0.6)
+                .animation(.linear(duration: 1.3).repeatForever(autoreverses: false), value: isAnimating)
+            }
+            .clipped()
+            .mask(content)
+        )
+        .onAppear { isAnimating = true }
+    }
+}
+
+extension View {
+    func shimmer() -> some View { modifier(ShimmerModifier()) }
+}
+
+struct SkeletonRow: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.iffElevated)
+                .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 6) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.iffElevated)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 14)
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.iffElevated)
+                    .frame(width: 130, height: 11)
+            }
+            Spacer()
+        }
+        .padding()
+        .shimmer()
+    }
+}
+
+struct LoadingView: View {
+    var count: Int = 5
+
+    var body: some View {
+        LazyVStack(spacing: 0) {
+            ForEach(0..<count, id: \.self) { _ in
+                SkeletonRow()
+                Divider().background(Color.iffElevated)
+            }
+        }
+        .padding(.top, 8)
     }
 }

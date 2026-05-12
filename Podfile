@@ -15,6 +15,7 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
       config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
     end
 
     if target.name == 'BoringSSL-GRPC'

@@ -187,18 +187,32 @@ class AuthenticationService: ObservableObject {
             if let error = error {
                 let nsError = error as NSError
                 if nsError.domain == kGIDSignInErrorDomain && nsError.code == -5 { return }
+                print("[Auth] GIDSignIn error domain=\(nsError.domain) code=\(nsError.code) userInfo=\(nsError.userInfo)")
                 DispatchQueue.main.async { self.signInError = error.localizedDescription }
                 return
             }
             guard let user = result?.user,
-                  let idToken = user.idToken?.tokenString else { return }
+                  let idToken = user.idToken?.tokenString else {
+                print("[Auth] GIDSignIn returned no user/idToken")
+                return
+            }
             let credential = GoogleAuthProvider.credential(
                 withIDToken: idToken,
                 accessToken: user.accessToken.tokenString
             )
             Auth.auth().signIn(with: credential) { _, error in
                 if let error = error as NSError? {
-                    DispatchQueue.main.async { self.signInError = error.localizedDescription }
+                    print("[Auth] Firebase signIn error domain=\(error.domain) code=\(error.code)")
+                    print("[Auth] localizedDescription: \(error.localizedDescription)")
+                    print("[Auth] userInfo: \(error.userInfo)")
+                    let detail = (error.userInfo["FIRAuthErrorUserInfoNameKey"] as? String)
+                        ?? (error.userInfo[NSLocalizedFailureReasonErrorKey] as? String)
+                        ?? "code \(error.code)"
+                    DispatchQueue.main.async {
+                        self.signInError = "\(error.localizedDescription) [\(detail)]"
+                    }
+                } else {
+                    print("[Auth] Firebase signIn succeeded")
                 }
             }
         }

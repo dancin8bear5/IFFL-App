@@ -253,6 +253,7 @@ struct PlayerInterest: Identifiable, Codable {
     let userId: String
     let assetId: String
     let timestamp: Date
+    var teamName: String?
 }
 
 // MARK: - Message (Firestore: "messages" collection)

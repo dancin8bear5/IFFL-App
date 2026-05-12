@@ -1,0 +1,43 @@
+name: Check Autograph Show Attendees
+
+on:
+  schedule:
+    # 3:00 PM CDT = 20:00 UTC (September 2026, DST active: CDT = UTC-5)
+    - cron: '0 20 * * *'
+  workflow_dispatch: # Manual trigger for testing
+
+permissions:
+  contents: write # Required to commit updated state file back to repo
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install -r scraper/requirements.txt
+
+      - name: Install Playwright Chromium
+        run: playwright install chromium
+
+      - name: Run attendee scraper
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python scraper/main.py
+
+      - name: Commit updated state and any output files
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add data/known_attendees.json output/
+          git diff --staged --quiet || git commit -m "chore: update attendees state [skip ci]"
+          git push

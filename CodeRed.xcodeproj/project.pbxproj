@@ -585,7 +585,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRed;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				REVERSED_CLIENT_ID = REPLACE_WITH_REVERSED_CLIENT_ID;
+				REVERSED_CLIENT_ID = "com.googleusercontent.apps.876749980452-sqihihfjdvmn2rmaqh9qjjkivjepan4n";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "CodeRed-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -622,7 +622,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRed;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				REVERSED_CLIENT_ID = REPLACE_WITH_REVERSED_CLIENT_ID;
+				REVERSED_CLIENT_ID = "com.googleusercontent.apps.876749980452-sqihihfjdvmn2rmaqh9qjjkivjepan4n";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "CodeRed-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

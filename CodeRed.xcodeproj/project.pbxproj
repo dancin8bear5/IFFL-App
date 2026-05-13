@@ -566,7 +566,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"/Users/jaredtaylor/Documents/Development/CodeRed/CodeRed/Preview Content/Preview Assets.xcassets\"";
+				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -603,7 +603,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"/Users/jaredtaylor/Documents/Development/CodeRed/CodeRed/Preview Content/Preview Assets.xcassets\"";
+				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;

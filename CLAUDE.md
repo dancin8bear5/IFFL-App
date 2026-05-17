@@ -59,6 +59,20 @@ Each phase runs two parallel sub-agent audits:
 - **CHECK B** — flow audit: NavigationLink destination types, EnvironmentObject providers, every symbol traced to a file registered in `PBXSourcesBuildPhase`.
 Resolution rule: fix root cause, re-run both checks, only advance when both clean.
 
+## Backlog
+
+- [ ] **Fastlane release automation** — one command (`fastlane beta`) to increment build number, archive, and upload to TestFlight. `fastlane/` folder already in `.gitignore`.
+- [ ] **Merge open branches** — `claude/repo-cleanup-and-security` and `claude/claude-md-init` into main once build is confirmed working on device.
+- [ ] **Rotate serviceAccountKey.json** — old key was committed to git history; rotate in Google Cloud Console.
+
+## TestFlight — manual steps (until Fastlane is set up)
+
+1. Xcode toolbar → change destination to **"Any iOS Device (arm64)"**
+2. `Product → Archive` (2-3 min)
+3. Organizer opens → **Distribute App → App Store Connect → Upload** → keep all defaults → Upload
+4. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → create app if needed (bundle ID: `com.IFFLtest.CodeRed`) → TestFlight → add yourself as tester
+5. Check email for TestFlight invite
+
 ## User context
 - User is not a developer by trade. Explain git operations and Xcode steps with full paths and exact commands.
 - User's repo also contains an unrelated Auto Show Notifier project on a separate branch — keep work scoped to IFFL.

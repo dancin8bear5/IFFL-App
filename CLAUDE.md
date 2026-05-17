@@ -70,8 +70,15 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 1. Xcode toolbar → change destination to **"Any iOS Device (arm64)"**
 2. `Product → Archive` (2-3 min)
 3. Organizer opens → **Distribute App → App Store Connect → Upload** → keep all defaults → Upload
-4. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → create app if needed (bundle ID: `com.IFFLtest.CodeRed`) → TestFlight → add yourself as tester
-5. Check email for TestFlight invite
+4. Wait 5–15 min for Apple to finish processing the build
+5. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → find the **existing** IFFL app (bundle ID `com.IFFLtest.CodeRed`) — do NOT create a new app, it already exists
+6. **TestFlight** tab → **Internal Testing** → add yourself as tester → Save
+7. Check email for TestFlight invite, or open the TestFlight app on iPhone directly
+
+**Lessons learned (first TestFlight upload):**
+- The app record already existed in App Store Connect — creating a new one fails because `com.IFFLtest.CodeRed` is already taken. Always look for the existing record first.
+- "You need an invite from a developer" in TestFlight = you haven't added yourself as a tester yet in App Store Connect.
+- Bundle ID must be registered in developer.apple.com Identifiers before it appears in App Store Connect's dropdown.
 
 ## User context
 - User is not a developer by trade. Explain git operations and Xcode steps with full paths and exact commands.

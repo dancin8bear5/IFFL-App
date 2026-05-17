@@ -221,20 +221,19 @@ struct PlayerEditView: View {
     private let pools       = ["Auction","Rookie Draft","Free Agent","Draft Pick"]
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Identity") {
-                    TextField("Player Name", text: $name)
-                    Picker("Position", selection: $position) {
-                        ForEach(positions, id: \.self) { Text($0) }
-                    }
-                    Picker("Team", selection: $teamName) {
-                        ForEach(fantasyTeams.map { $0.name }, id: \.self) { Text($0) }
-                    }
-                    Picker("Player Pool", selection: $playerPool) {
-                        ForEach(pools, id: \.self) { Text($0) }
-                    }
+        Form {
+            Section("Identity") {
+                TextField("Player Name", text: $name)
+                Picker("Position", selection: $position) {
+                    ForEach(positions, id: \.self) { Text($0) }
                 }
+                Picker("Team", selection: $teamName) {
+                    ForEach(fantasyTeams.map { $0.name }, id: \.self) { Text($0) }
+                }
+                Picker("Player Pool", selection: $playerPool) {
+                    ForEach(pools, id: \.self) { Text($0) }
+                }
+            }
 
                 Section("Contract") {
                     TextField("Purchase Year (e.g. 2025)", text: $purchaseYear)
@@ -266,7 +265,6 @@ struct PlayerEditView: View {
                 }
             }
             .onAppear { populateFields() }
-        }
     }
 
     private func populateFields() {
@@ -392,35 +390,33 @@ struct PickConversionView: View {
     private let positions = ["QB","RB","WR","TE"]
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Pick Info") {
-                    LabeledContent("Pick", value: pick.displayName)
-                    LabeledContent("Owner", value: pick.currentTeamName)
-                    LabeledContent("Original Team", value: pick.originalTeamName)
-                }
+        Form {
+            Section("Pick Info") {
+                LabeledContent("Pick", value: pick.displayName)
+                LabeledContent("Owner", value: pick.currentTeamName)
+                LabeledContent("Original Team", value: pick.originalTeamName)
+            }
 
-                Section("Rookie Player") {
-                    TextField("Player Name", text: $playerName)
-                    TextField("NFL Team (optional)", text: $nflTeam)
-                    Picker("Position", selection: $position) {
-                        ForEach(positions, id: \.self) { Text($0) }
-                    }
-                }
-
-                if !errorMsg.isEmpty {
-                    Section { Text(errorMsg).foregroundColor(.red).font(.caption) }
+            Section("Rookie Player") {
+                TextField("Player Name", text: $playerName)
+                TextField("NFL Team (optional)", text: $nflTeam)
+                Picker("Position", selection: $position) {
+                    ForEach(positions, id: \.self) { Text($0) }
                 }
             }
-            .navigationTitle("Convert Pick")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(isSaving ? "Saving…" : "Confirm") { convertPick() }
-                        .disabled(isSaving || playerName.isEmpty)
-                }
+
+            if !errorMsg.isEmpty {
+                Section { Text(errorMsg).foregroundColor(.red).font(.caption) }
+            }
+        }
+        .navigationTitle("Convert Pick")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") { dismiss() }
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button(isSaving ? "Saving…" : "Confirm") { convertPick() }
+                    .disabled(isSaving || playerName.isEmpty)
             }
         }
     }

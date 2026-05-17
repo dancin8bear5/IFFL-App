@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		17C08B032DB5E1310003B594 /* serviceAccountKey.json in Resources */ = {isa = PBXBuildFile; fileRef = 17C08B022DB5E1310003B594 /* serviceAccountKey.json */; };
 		17C08B042DB5E1310003B594 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17C08AFF2DB5E1310003B594 /* Assets.xcassets */; };
 		17C08B052DB5E1310003B594 /* 2025 IFFL Keeper Master.csv in Resources */ = {isa = PBXBuildFile; fileRef = 17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */; };
 		17C08B062DB5E1310003B594 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 17C08B012DB5E1310003B594 /* GoogleService-Info.plist */; };
@@ -53,7 +52,6 @@
 		17C08AFF2DB5E1310003B594 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		17C08B002DB5E1310003B594 /* CodeRedApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeRedApp.swift; sourceTree = "<group>"; };
 		17C08B012DB5E1310003B594 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
-		17C08B022DB5E1310003B594 /* serviceAccountKey.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = serviceAccountKey.json; sourceTree = "<group>"; };
 		17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "CodeRed-Bridging-Header.h"; sourceTree = "<group>"; };
 		2F7C425D028EC96B115DC388 /* Pods-CodeRed.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.release.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.release.xcconfig"; sourceTree = "<group>"; };
 		AA01B0012DB5E1310003B594 /* DataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataModels.swift; sourceTree = "<group>"; };
@@ -124,7 +122,6 @@
 				17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */,
 				17C08AFF2DB5E1310003B594 /* Assets.xcassets */,
 				17C08B012DB5E1310003B594 /* GoogleService-Info.plist */,
-				17C08B022DB5E1310003B594 /* serviceAccountKey.json */,
 				17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */,
 				17C08AD32DB5DEF90003B594 /* CodeRedTests */,
 				17C08ADD2DB5DEF90003B594 /* CodeRedUITests */,
@@ -320,7 +317,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				17C08B032DB5E1310003B594 /* serviceAccountKey.json in Resources */,
 				17C08B042DB5E1310003B594 /* Assets.xcassets in Resources */,
 				17C08B052DB5E1310003B594 /* 2025 IFFL Keeper Master.csv in Resources */,
 				17C08B062DB5E1310003B594 /* GoogleService-Info.plist in Resources */,
@@ -566,11 +562,11 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"/Users/jaredtaylor/Documents/Development/CodeRed/CodeRed/Preview Content/Preview Assets.xcassets\"";
+				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleURLTypes = "<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLName</key><string>com.google.signin</string><key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.876749980452-sqihihfjdvmn2rmaqh9qjjkivjepan4n</string></array></dict></array>";
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -585,6 +581,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRed;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REVERSED_CLIENT_ID = "com.googleusercontent.apps.876749980452-oibgt1c35fdla5rufbrslapqg8kf6fsd";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "CodeRed-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -602,11 +599,11 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_ASSET_PATHS = "\"/Users/jaredtaylor/Documents/Development/CodeRed/CodeRed/Preview Content/Preview Assets.xcassets\"";
+				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleURLTypes = "<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLName</key><string>com.google.signin</string><key>CFBundleURLSchemes</key><array><string>com.googleusercontent.apps.876749980452-sqihihfjdvmn2rmaqh9qjjkivjepan4n</string></array></dict></array>";
+				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -621,6 +618,7 @@
 				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRed;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REVERSED_CLIENT_ID = "com.googleusercontent.apps.876749980452-oibgt1c35fdla5rufbrslapqg8kf6fsd";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "CodeRed-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

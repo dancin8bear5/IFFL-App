@@ -80,6 +80,54 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - "You need an invite from a developer" in TestFlight = you haven't added yourself as a tester yet in App Store Connect.
 - Bundle ID must be registered in developer.apple.com Identifiers before it appears in App Store Connect's dropdown.
 
+## V2 Scratchpad — Features Under Design
+
+### 🏆 Belt Winner Icons on Team Cards
+**Concept:** Each team card in the Dashboard grid shows mini belt icons below the team name — one icon per league championship won. Teams with zero belts show nothing extra.
+
+**Mockup:**
+```
+┌──────────┐   ┌──────────┐   ┌──────────┐
+│          │   │          │   │          │
+│  [logo]  │   │  [logo]  │   │  [logo]  │
+│          │   │          │   │          │
+│  Jared   │   │   Ryan   │   │  Dugan   │
+│  🏆🏆🏆  │   │    🏆    │   │          │
+└──────────┘   └──────────┘   └──────────┘
+```
+- Icon: `crown.fill` SF Symbol in `iffGold` (#F4A261), ~12pt
+- One icon per belt won, displayed as a horizontal row
+- Fixed reserved space below team name so card height stays consistent
+
+**Open questions before building:**
+1. **Data source** — where does belt history live? Not in current data model. Options: hardcode in `DataModels.swift` alongside `fantasyTeams`, or add a `beltWinners` collection to Firestore.
+2. **Belt icon** — `crown.fill` SF Symbol, `trophy.fill`, or a custom belt image asset you upload?
+3. **Which belt** — league championship only, or is there a specific IFFL "title belt" concept (wrestling-style)?
+
+---
+
+### 🔄 Trade Portal — Needs Review
+Current state: basic trade proposal + pending/completed list in MarketView. Flagged for deeper look.
+
+**Questions to answer during review:**
+- What does the current trade flow feel like on device? Is the proposal builder intuitive?
+- Are pending trades easy to find and act on?
+- Does trade history show enough context (assets traded, teams, date)?
+- Missing: push notifications when a trade is proposed to you?
+
+---
+
+### 💬 Messaging — Needs Review
+Current state: league messages shown as a horizontal scroll carousel on the Dashboard.
+
+**Questions to answer during review:**
+- Is the carousel the right pattern or should messages get their own tab/section?
+- Who can send messages — commissioner only, or all managers?
+- Should messages support replies/threads, or is broadcast-only fine?
+- Missing: unread badge count?
+
+---
+
 ## User context
 - User is not a developer by trade. Explain git operations and Xcode steps with full paths and exact commands.
 - User's repo also contains an unrelated Auto Show Notifier project on a separate branch — keep work scoped to IFFL.

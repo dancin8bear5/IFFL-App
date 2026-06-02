@@ -6,6 +6,7 @@ struct MarketView: View {
     @EnvironmentObject var appState: AppState
     @State private var section: MarketSection = .interest
     @State private var showSettings = false
+    @State private var showTradeProposal = false
 
     enum MarketSection: String, CaseIterable {
         case interest = "Interest"
@@ -21,7 +22,7 @@ struct MarketView: View {
                     sectionPicker
                     switch section {
                     case .interest: FMKSwiperView()
-                    case .matches:  MatchesView()
+                    case .matches:  MatchesView(onPropose: { showTradeProposal = true })
                     case .trades:   TradeHistorySection()
                     }
                 }
@@ -31,7 +32,7 @@ struct MarketView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     HStack(spacing: 12) {
-                        NavigationLink(destination: TradeProposalView()) {
+                        Button { showTradeProposal = true } label: {
                             Image(systemName: "plus.circle.fill")
                                 .foregroundColor(Color.iffAccent)
                                 .font(.title3)
@@ -43,10 +44,19 @@ struct MarketView: View {
                     }
                 }
             }
+            .navigationDestination(isPresented: $showTradeProposal) {
+                TradeProposalView()
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView().environmentObject(appState)
             }
             .onAppear { appState.loadAllLeagueInterests() }
+            .onChange(of: appState.triggerTradeProposal) { triggered in
+                if triggered {
+                    showTradeProposal = true
+                    appState.triggerTradeProposal = false
+                }
+            }
         }
     }
 
@@ -187,7 +197,7 @@ struct InterestRow: View {
 
 struct MatchesView: View {
     @EnvironmentObject var appState: AppState
-    @State private var showProposal = false
+    let onPropose: () -> Void
 
     private var matches: [MarketEngine.TradeMatch] {
         MarketEngine.findMatches(
@@ -217,16 +227,13 @@ struct MatchesView: View {
                         ForEach(matches) { match in
                             MatchCard(match: match) {
                                 prefillFromMatch(match)
-                                showProposal = true
+                                onPropose()
                             }
                         }
                     }
                     .padding()
                 }
             }
-        }
-        .navigationDestination(isPresented: $showProposal) {
-            TradeProposalView()
         }
     }
 

@@ -84,7 +84,7 @@ struct IFFLContentView: View {
         .onChange(of: appState.triggerTradeProposal) { triggered in
             if triggered {
                 selectedTab = 2
-                appState.triggerTradeProposal = false
+                // MarketView resets triggerTradeProposal after it fires its own push
             }
         }
         .onChange(of: appState.didLoadSettings) { loaded in

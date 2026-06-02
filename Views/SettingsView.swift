@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) var dismiss
     @State private var isSaving = false
     @State private var settings: UserSettings = UserSettings()
+    @State private var selectedTeam: String = ""
 
     private let tabNames = ["Dashboard", "Rosters", "Market", "League"]
 
@@ -42,7 +43,10 @@ struct SettingsView: View {
                         .foregroundColor(Color.iffAccent)
                 }
             }
-            .onAppear { settings = appState.userSettings }
+            .onAppear {
+                settings = appState.userSettings
+                selectedTeam = appState.userTeam
+            }
         }
     }
 
@@ -56,12 +60,13 @@ struct SettingsView: View {
                 Text(Auth.auth().currentUser?.displayName ?? "—")
                     .foregroundColor(Color.iffSubtext)
             }
-            HStack {
-                Text("ESPN Team").foregroundColor(Color.iffSubtext)
-                Spacer()
-                Text(appState.userTeam)
-                    .foregroundColor(Color.iffSubtext)
+            Picker("ESPN Team", selection: $selectedTeam) {
+                ForEach(fantasyTeams.map { $0.name }, id: \.self) {
+                    Text($0).tag($0)
+                }
             }
+            .pickerStyle(.menu)
+            .tint(Color.iffAccent)
             HStack {
                 Text("Nickname").foregroundColor(.white)
                 Spacer()
@@ -155,6 +160,16 @@ struct SettingsView: View {
     private func save() {
         isSaving = true
         appState.userSettings = settings
+
+        let teamChanged = selectedTeam != appState.userTeam && !selectedTeam.isEmpty
+        if teamChanged {
+            if let uid = Auth.auth().currentUser?.uid {
+                appState.dataService.assignTeam(uid: uid, teamName: selectedTeam) { _ in }
+            }
+            appState.userTeam = selectedTeam
+            appState.selectedTeam = selectedTeam
+        }
+
         appState.saveUserSettings { _ in
             DispatchQueue.main.async {
                 isSaving = false

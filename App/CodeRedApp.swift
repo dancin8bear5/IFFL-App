@@ -54,7 +54,7 @@ class AppState: ObservableObject {
     var currentUserUID: String? { Auth.auth().currentUser?.uid }
 
     var isAdmin: Bool {
-        isCommissioner && Auth.auth().currentUser?.email == "jarrtayl@gmail.com"
+        Auth.auth().currentUser?.email == "jarrtayl@gmail.com"
     }
 
     var allDisplayAssets: [DisplayAsset] {
@@ -597,7 +597,7 @@ struct AssetDetailView: View {
                         .font(.title.bold()).foregroundColor(.white)
                     Text(asset.isPick
                          ? "Draft Pick · \(asset.teamName)"
-                         : "\(asset.position) · \(asset.teamName)")
+                         : asset.position)
                         .font(.subheadline).foregroundColor(Color.iffSubtext)
 
                     let summary = fmkSummary

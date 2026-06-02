@@ -57,6 +57,8 @@ struct IFFLContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTab: Int = 0
 
+    private var myMatchCount: Int { appState.myMatchCount }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             DashboardView(selectedTab: $selectedTab)
@@ -69,6 +71,7 @@ struct IFFLContentView: View {
 
             MarketView()
                 .tabItem { Label("Market", systemImage: "arrow.2.squarepath") }
+                .badge(myMatchCount)
                 .tag(2)
 
             LeagueView()

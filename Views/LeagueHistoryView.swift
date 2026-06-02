@@ -54,7 +54,7 @@ struct SeasonHistoryCard: View {
             Button(action: onTap) {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(entry.season) Season")
+                        Text(String(entry.season) + " Season")
                             .font(.headline).foregroundColor(.white)
                         HStack(spacing: 6) {
                             Text("🏆").font(.caption)

@@ -16,6 +16,12 @@ struct DashboardView: View {
             .prefix(5))
     }
 
+    private var myTeamInfo: FantasyTeam? {
+        fantasyTeams.first { $0.name == appState.userTeam }
+    }
+
+    private var myMatchCount: Int { appState.myMatchCount }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -26,6 +32,7 @@ struct DashboardView: View {
                         if appState.isInitialLoadComplete {
                             myTeamCard
                                 .transition(.opacity.combined(with: .move(edge: .top)))
+                            if myMatchCount > 0 { matchNotificationCard }
                             if !recentTrades.isEmpty { recentTradesSection }
                             if !appState.messages.isEmpty { messagesSection }
                             teamGridSection
@@ -71,46 +78,113 @@ struct DashboardView: View {
         .padding(.top, 16)
     }
 
-    // MARK: My Team Card
+    // MARK: My Team Card (redesigned)
 
     private var myTeamCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("My Team").font(.caption).foregroundColor(Color.iffSubtext)
-                    Text(appState.userTeam)
-                        .font(.system(size: 22, weight: .bold)).foregroundColor(.white)
+        let capTotal = myAssets.map { $0.currentPrice }.reduce(0, +)
+        let belts = myTeamInfo?.beltWins ?? 0
+
+        return VStack(alignment: .leading, spacing: 0) {
+            // Team identity row
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("My Team")
+                        .font(.caption).foregroundColor(Color.iffSubtext)
+                    HStack(alignment: .center, spacing: 8) {
+                        Text(appState.userTeam)
+                            .font(.system(size: 26, weight: .black))
+                            .foregroundColor(.white)
+                        if belts > 0 {
+                            HStack(spacing: 2) {
+                                ForEach(0..<belts, id: \.self) { _ in
+                                    Image(systemName: "crown.fill")
+                                        .font(.system(size: 10))
+                                        .foregroundColor(Color.iffGold)
+                                }
+                            }
+                        }
+                    }
+                    if belts > 0 {
+                        Text("\(belts)× League Champion")
+                            .font(.caption2)
+                            .foregroundColor(Color.iffGold.opacity(0.8))
+                    }
                 }
                 Spacer()
+                if let logoName = appState.userSettings.teamLogoName {
+                    Image(systemName: logoName)
+                        .font(.system(size: 32))
+                        .foregroundColor(Color.iffAccent.opacity(0.7))
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top, 16)
+            .padding(.bottom, 12)
+
+            Divider().background(Color.iffElevated).padding(.horizontal)
+
+            // Cap total — center stage
+            VStack(spacing: 4) {
+                Text("$\(capTotal)")
+                    .font(.system(size: 42, weight: .black, design: .rounded))
+                    .foregroundColor(Color.iffGold)
+                Text(String(appState.activeSeason) + " Salary Cap")
+                    .font(.caption)
+                    .foregroundColor(Color.iffSubtext)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 18)
+
+            Divider().background(Color.iffElevated).padding(.horizontal)
+
+            // Action buttons
+            HStack(spacing: 12) {
                 Button { selectedTab = 1 } label: {
-                    Text("View Roster").font(.caption.bold())
+                    Label("Roster", systemImage: "person.3.fill")
+                        .font(.caption.bold())
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(IFFLOutlineButtonStyle())
+
+                Button { selectedTab = 2 } label: {
+                    Label("Market", systemImage: "arrow.2.squarepath")
+                        .font(.caption.bold())
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(IFFLOutlineButtonStyle())
             }
-
-            HStack(spacing: 0) {
-                statCell(value: "\(myAssets.filter { !$0.isPick }.count)", label: "Players")
-                Divider().frame(height: 32).background(Color.iffElevated)
-                statCell(value: "\(myAssets.filter { $0.isPick }.count)", label: "Picks")
-                Divider().frame(height: 32).background(Color.iffElevated)
-                statCell(value: "$\(myAssets.map { $0.currentPrice }.reduce(0, +))",
-                         label: "\(appState.activeSeason) Cap")
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .background(Color.iffElevated)
-            .cornerRadius(10)
+            .padding()
         }
-        .padding()
         .iffCard()
     }
 
-    private func statCell(value: String, label: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value).font(.system(size: 18, weight: .bold)).foregroundColor(Color.iffGold)
-            Text(label).font(.caption2).foregroundColor(Color.iffSubtext)
+    // MARK: Match Notification Card
+
+    private var matchNotificationCard: some View {
+        Button { selectedTab = 2 } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(Color.iffAccent.opacity(0.15))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: "arrow.2.squarepath")
+                        .font(.system(size: 17))
+                        .foregroundColor(Color.iffAccent)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(myMatchCount) Trade Match\(myMatchCount == 1 ? "" : "es")")
+                        .font(.subheadline.bold()).foregroundColor(.white)
+                    Text("Mutual trade interest detected")
+                        .font(.caption).foregroundColor(Color.iffSubtext)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(Color.iffSubtext)
+            }
+            .padding()
+            .iffCard()
         }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: Recent Trades

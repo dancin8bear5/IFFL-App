@@ -63,6 +63,11 @@ class AppState: ObservableObject {
         return playerAssets + pickAssets
     }
 
+    var myMatchCount: Int {
+        MarketEngine.findMatches(fmkSignals: allLeagueFMK, assets: allDisplayAssets)
+            .filter { $0.teamA == userTeam || $0.teamB == userTeam }.count
+    }
+
     // MARK: Setup / Teardown
 
     func setup(for user: User) {
@@ -597,7 +602,7 @@ struct AssetDetailView: View {
                         .font(.title.bold()).foregroundColor(.white)
                     Text(asset.isPick
                          ? "Draft Pick · \(asset.teamName)"
-                         : asset.position)
+                         : "\(asset.position) · \(asset.teamName.isEmpty ? "Free Agent" : asset.teamName)")
                         .font(.subheadline).foregroundColor(Color.iffSubtext)
 
                     let summary = fmkSummary

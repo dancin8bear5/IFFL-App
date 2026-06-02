@@ -99,7 +99,7 @@ struct FMKSwiperView: View {
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(appState.activeSeason) Value")
+                    Text(String(appState.activeSeason) + " Value")
                         .font(.caption).foregroundColor(Color.iffSubtext)
                     Text(asset.formattedCurrentPrice)
                         .font(.title3.bold()).foregroundColor(Color.iffGold)
@@ -241,7 +241,7 @@ extension FMKSignal {
     var label: String {
         switch self {
         case .fuck:  return "Want"
-        case .marry: return "Must Have"
+        case .marry: return "Need"
         case .kill:  return "Dump"
         }
     }

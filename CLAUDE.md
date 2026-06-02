@@ -23,7 +23,9 @@
 App/             IFFLApp.swift, IFFLTheme.swift, CodeRedApp.swift
 Models/          DataModels.swift
 Services/        FirestoreDataService.swift, DataSeeder.swift, MarketEngine.swift
-Views/           AdminView.swift, DashboardView.swift, RostersView.swift, MarketView.swift, LeagueView.swift, WebViewContainer.swift
+Views/           AdminView.swift, DashboardView.swift, RostersView.swift, MarketView.swift,
+                 LeagueView.swift, WebViewContainer.swift,
+                 FMKSwiperView.swift, LeagueHistoryView.swift, SettingsView.swift  ← added V2
 Info.plist       CFBundleURLTypes (Google Sign-In) + FirebaseAppDelegateProxyEnabled=false
 GoogleService-Info.plist   NOT in git — local only on Mac
 serviceAccountKey.json     NOT in git — server credentials, must never ship in iOS bundle
@@ -58,6 +60,29 @@ Each phase runs two parallel sub-agent audits:
 - **CHECK A** — static analysis: undefined types, missing imports, duplicate `@main`, duplicate symbols, asset name references, NavigationStack nesting.
 - **CHECK B** — flow audit: NavigationLink destination types, EnvironmentObject providers, every symbol traced to a file registered in `PBXSourcesBuildPhase`.
 Resolution rule: fix root cause, re-run both checks, only advance when both clean.
+
+## V2 feature status (branch: `claude/insanity-league-ios-app-g73Jo`)
+
+### Shipped (all committed + pushed)
+- **FMK trade interest system** — Tinder swipe deck (right=Fuck, left=Kill, up=Marry), FMK-aware matching algorithm (bilateral F/M signals + ≤10% price parity), FMK summary + picker on player detail, league-wide FMK listener in AppState
+- **Rosters** — horizontal chip team switcher, player row shows position only (not "WR · Jared"), NFL team row in player detail, Settings gear on every tab
+- **League tab** — History tab (SeasonHistoryCard expand/collapse), off-season overlay on standings/scores when `isOffSeason = true`
+- **Admin** — Jared-only gate (`email == "jarrtayl@gmail.com"`, email check only — no isCommissioner dependency), Sync NFL Teams action, Seed League History action, Season Mode toggle
+- **Settings page** — all users; profile (name read-only, ESPN team picker, nickname), appearance (logo icon presets), league prefs (default tab, show trade values, FMK privacy), notifications placeholder
+- **Data model** — `FMKSignal`, `PlayerFMK`, `UserSettings`, `SeasonHistory`/`TeamFinish`, `nflTeam` on Player/DisplayAsset, `isOffSeason` on LeagueConfig, `beltWins` on FantasyTeam (all = 0)
+- **Bug fixes (post-device-test)** — player detail subtitle shows position only; trade proposal flow auto-pushes `TradeProposalView` when triggered from player detail; Settings ESPN Team is a picker so wrong team mapping can be self-corrected
+
+### Needs user data before features are live
+- **League history** — `DataSeeder.historySeeds` is an empty array. Jared must provide year-by-year champions/standings/notable trades; then run "Seed League History" from Admin > Database.
+- **NFL team mapping** — `DataSeeder.nflTeamMapping` has a starter dict; run "Sync NFL Teams" from Admin > Database to apply. Refresh 2-3x/year.
+- **Belt wins** — `beltWins: Int = 0` for all 12 teams in `DataModels.swift`. Fill in once league history is loaded (or hardcode from memory).
+
+### Pending / next session
+- [ ] **Push notifications for trade proposals** — receiving team needs FCM notification when a trade is proposed. Firestore write already happens; just needs Cloud Function trigger + FCM send.
+- [ ] **Trade Portal UX review** — test accept/decline flow on device; confirm pending trades are surfaced clearly
+- [ ] **Retire legacy `PlayerInterest` collection** — old star-flag interest system superseded by FMK; remove once FMK is fully adopted
+- [ ] **Firestore security rules** — add composite indexes for `playerFMK` (userId, assetId) and `leagueHistory` (year desc)
+- [ ] **Honor `showTradeValues`** — toggle saved in UserSettings but not yet used to hide/show price columns in Rosters/Market
 
 ## Backlog
 
@@ -107,13 +132,12 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 ---
 
 ### 🔄 Trade Portal — Needs Review
-Current state: basic trade proposal + pending/completed list in MarketView. Flagged for deeper look.
+Current state: trade proposal builder works (select own assets + opponent assets, send). Pending + completed list in Market > Trades tab. Fixed post-V2: tapping "Propose Trade for X" on any player detail now auto-navigates to the builder with that player pre-selected.
 
-**Questions to answer during review:**
-- What does the current trade flow feel like on device? Is the proposal builder intuitive?
-- Are pending trades easy to find and act on?
-- Does trade history show enough context (assets traded, teams, date)?
-- Missing: push notifications when a trade is proposed to you?
+**Still needed:**
+- Push notification to receiving team when a trade is proposed (Cloud Function + FCM)
+- Accept/decline flow review on device — confirm it feels intuitive
+- Trade history context (assets traded, teams, date) — confirm sufficient
 
 ---
 

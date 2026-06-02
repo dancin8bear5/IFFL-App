@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @Binding var selectedTab: Int
     @EnvironmentObject var appState: AppState
+    @State private var showSettings = false
 
     private var myAssets: [DisplayAsset] {
         appState.allDisplayAssets.filter { $0.teamName == appState.userTeam }
@@ -36,8 +37,19 @@ struct DashboardView: View {
                     .padding(.bottom, 100)
                     .animation(.spring(response: 0.45, dampingFraction: 0.78), value: appState.isInitialLoadComplete)
                 }
+                .overlay(alignment: .topTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(Color.iffSubtext)
+                            .font(.body)
+                            .padding(16)
+                    }
+                }
             }
             .navigationBarHidden(true)
+            .sheet(isPresented: $showSettings) {
+                SettingsView().environmentObject(appState)
+            }
         }
     }
 

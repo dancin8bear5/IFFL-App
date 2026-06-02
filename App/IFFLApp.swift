@@ -75,7 +75,7 @@ struct IFFLContentView: View {
                 .tabItem { Label("League", systemImage: "trophy.fill") }
                 .tag(3)
 
-            if appState.isCommissioner {
+            if appState.isAdmin {
                 AdminView()
                     .tabItem { Label("Admin", systemImage: "shield.checkered") }
                     .tag(4)
@@ -85,6 +85,13 @@ struct IFFLContentView: View {
             if triggered {
                 selectedTab = 2
                 appState.triggerTradeProposal = false
+            }
+        }
+        .onChange(of: appState.didLoadSettings) { loaded in
+            // Apply the user's saved default launch tab once, on initial settings load.
+            if loaded {
+                let tab = appState.userSettings.defaultTab
+                if (0...3).contains(tab) { selectedTab = tab }
             }
         }
     }

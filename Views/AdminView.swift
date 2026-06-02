@@ -76,6 +76,12 @@ struct AdminDatabaseSection: View {
     @State private var isSeeding: Bool = false
     @State private var showSeedConfirm: Bool = false
 
+    @State private var nflSyncStatus: String = ""
+    @State private var isNFLSyncing: Bool = false
+    @State private var historyStatus: String = ""
+    @State private var isHistorySeeding: Bool = false
+    @State private var isOffSeasonLocal: Bool = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
@@ -97,6 +103,57 @@ struct AdminDatabaseSection: View {
                         .disabled(isSeeding)
                         .buttonStyle(CustomButtonStyle())
                     }
+                }
+
+                AdminCard(title: "Sync NFL Teams", icon: "football.fill") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Applies the hardcoded NFL team abbreviation mapping to all players. Run 2–3x per year (post-draft, trade deadline, end of season).")
+                            .font(.caption)
+                            .foregroundColor(Color("SecondaryTextColor"))
+
+                        if !nflSyncStatus.isEmpty {
+                            Text(nflSyncStatus)
+                                .font(.caption)
+                                .foregroundColor(nflSyncStatus.contains("✓") ? .green : .red)
+                        }
+
+                        Button(isNFLSyncing ? "Syncing…" : "Sync NFL Teams") {
+                            syncNFLTeams()
+                        }
+                        .disabled(isNFLSyncing)
+                        .buttonStyle(CustomButtonStyle())
+                    }
+                }
+
+                AdminCard(title: "League History", icon: "clock.fill") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Seeds the hardcoded season history (champions, standings, notable trades) into Firestore. Safe to re-run — overwrites by year.")
+                            .font(.caption)
+                            .foregroundColor(Color("SecondaryTextColor"))
+
+                        if !historyStatus.isEmpty {
+                            Text(historyStatus)
+                                .font(.caption)
+                                .foregroundColor(historyStatus.contains("✓") ? .green : .red)
+                        }
+
+                        Button(isHistorySeeding ? "Seeding…" : "Seed History Data") {
+                            seedHistory()
+                        }
+                        .disabled(isHistorySeeding)
+                        .buttonStyle(CustomButtonStyle())
+                    }
+                }
+
+                AdminCard(title: "Season Mode", icon: "calendar.badge.clock") {
+                    Toggle("Off-Season Mode", isOn: $isOffSeasonLocal)
+                        .tint(Color("AccentColor"))
+                        .foregroundColor(Color("TextColor"))
+                        .onChange(of: isOffSeasonLocal) { newValue in
+                            appState.dataService.setOffSeason(newValue) { _ in
+                                DispatchQueue.main.async { appState.isOffSeason = newValue }
+                            }
+                        }
                 }
 
                 AdminCard(title: "Active Season", icon: "calendar") {
@@ -121,6 +178,7 @@ struct AdminDatabaseSection: View {
             }
             .padding()
         }
+        .onAppear { isOffSeasonLocal = appState.isOffSeason }
         .confirmationDialog("Run seed?", isPresented: $showSeedConfirm, titleVisibility: .visible) {
             Button("Seed Database", role: .destructive) { runSeed() }
             Button("Cancel", role: .cancel) {}
@@ -139,6 +197,34 @@ struct AdminDatabaseSection: View {
                 switch result {
                 case .success(let msg): seedStatus = "✓ \(msg)"
                 case .failure(let err): seedStatus = "✗ \(err.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func syncNFLTeams() {
+        isNFLSyncing = true
+        nflSyncStatus = "Syncing…"
+        DataSeeder().seedNFLTeams { result in
+            DispatchQueue.main.async {
+                isNFLSyncing = false
+                switch result {
+                case .success(let count): nflSyncStatus = "✓ Updated \(count) players"
+                case .failure(let err):   nflSyncStatus = "✗ \(err.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func seedHistory() {
+        isHistorySeeding = true
+        historyStatus = "Seeding…"
+        DataSeeder().seedLeagueHistory { result in
+            DispatchQueue.main.async {
+                isHistorySeeding = false
+                switch result {
+                case .success(let msg): historyStatus = "✓ \(msg)"
+                case .failure(let err): historyStatus = "✗ \(err.localizedDescription)"
                 }
             }
         }

@@ -36,14 +36,26 @@ class AppState: ObservableObject {
     @Published var selectedAssetForTrade: DisplayAsset? = nil
     @Published var triggerTradeProposal: Bool = false
 
+    @Published var fmkSignals: [PlayerFMK] = []
+    @Published var allLeagueFMK: [PlayerFMK] = []
+    @Published var userSettings: UserSettings = UserSettings()
+    @Published var didLoadSettings: Bool = false
+    @Published var leagueHistory: [SeasonHistory] = []
+    @Published var isOffSeason: Bool = false
+
     let dataService = FirestoreDataService()
 
     private var playerListener:  ListenerRegistration?
     private var pickListener:    ListenerRegistration?
     private var tradeListener:   ListenerRegistration?
     private var messageListener: ListenerRegistration?
+    private var fmkListener:     ListenerRegistration?
 
     var currentUserUID: String? { Auth.auth().currentUser?.uid }
+
+    var isAdmin: Bool {
+        isCommissioner && Auth.auth().currentUser?.email == "jarrtayl@gmail.com"
+    }
 
     var allDisplayAssets: [DisplayAsset] {
         let playerAssets = players.map { $0.toDisplayAsset(activeSeason: activeSeason) }
@@ -59,6 +71,7 @@ class AppState: ObservableObject {
             DispatchQueue.main.async {
                 self.activeSeason   = config?.activeSeasonYear ?? 2026
                 self.isCommissioner = config?.authorizedUIDs.contains(user.uid) ?? false
+                self.isOffSeason    = config?.isOffSeason ?? false
 
                 if let team = config?.userTeamMap[user.uid] {
                     self.userTeam    = team
@@ -76,6 +89,8 @@ class AppState: ObservableObject {
 
         startListeners()
         loadInterests()
+        loadFMKSignals(userId: user.uid)
+        loadUserSettings(userId: user.uid)
     }
 
     func teardown() {
@@ -83,6 +98,7 @@ class AppState: ObservableObject {
         pickListener?.remove();    pickListener    = nil
         tradeListener?.remove();   tradeListener   = nil
         messageListener?.remove(); messageListener = nil
+        fmkListener?.remove();     fmkListener     = nil
     }
 
     // MARK: Listeners
@@ -109,6 +125,11 @@ class AppState: ObservableObject {
         messageListener = dataService.listenToMessages { [weak self] messages, _ in
             guard let self else { return }
             DispatchQueue.main.async { self.messages = messages ?? [] }
+        }
+
+        fmkListener = dataService.listenToAllFMKSignals { [weak self] signals, _ in
+            guard let self else { return }
+            DispatchQueue.main.async { self.allLeagueFMK = signals }
         }
     }
 
@@ -149,6 +170,77 @@ class AppState: ObservableObject {
                 if error == nil { DispatchQueue.main.async { self?.interestedAssetIds.insert(asset.assetId) } }
                 completion(error)
             }
+        }
+    }
+
+    // MARK: - FMK
+
+    private func loadFMKSignals(userId: String) {
+        dataService.getFMKSignals(for: userId) { [weak self] signals, _ in
+            guard let self, let signals else { return }
+            DispatchQueue.main.async { self.fmkSignals = signals }
+        }
+    }
+
+    func setFMKSignal(for asset: DisplayAsset, signal: FMKSignal, completion: @escaping (Error?) -> Void) {
+        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        let existing = fmkSignals.first(where: { $0.assetId == asset.assetId })
+        let fmk = PlayerFMK(
+            id: nil, userId: uid, teamName: userTeam,
+            assetId: asset.assetId, assetName: asset.name,
+            assetOwnerTeam: asset.teamName, signal: signal,
+            timestamp: existing?.timestamp ?? Date(),
+            updatedAt: Date()
+        )
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        dataService.setFMKSignal(fmk) { [weak self] error in
+            if error == nil {
+                DispatchQueue.main.async {
+                    self?.fmkSignals.removeAll { $0.assetId == fmk.assetId }
+                    self?.fmkSignals.append(fmk)
+                }
+            }
+            completion(error)
+        }
+    }
+
+    func removeFMKSignal(for asset: DisplayAsset, completion: @escaping (Error?) -> Void) {
+        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        dataService.removeFMKSignal(userId: uid, assetId: asset.assetId) { [weak self] error in
+            if error == nil {
+                DispatchQueue.main.async { self?.fmkSignals.removeAll { $0.assetId == asset.assetId } }
+            }
+            completion(error)
+        }
+    }
+
+    func currentFMKSignal(for asset: DisplayAsset) -> FMKSignal? {
+        fmkSignals.first(where: { $0.assetId == asset.assetId })?.signal
+    }
+
+    // MARK: - User Settings
+
+    private func loadUserSettings(userId: String) {
+        dataService.fetchUserSettings(userId: userId) { [weak self] settings in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.userSettings = settings ?? UserSettings()
+                self.didLoadSettings = true
+            }
+        }
+    }
+
+    func saveUserSettings(completion: @escaping (Error?) -> Void) {
+        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        dataService.saveUserSettings(userSettings, userId: uid, completion: completion)
+    }
+
+    // MARK: - League History
+
+    func loadLeagueHistory() {
+        dataService.fetchLeagueHistory { [weak self] history, _ in
+            guard let self, let history else { return }
+            DispatchQueue.main.async { self.leagueHistory = history }
         }
     }
 }
@@ -364,7 +456,7 @@ struct AssetRow: View {
                 Text("  \(item.name)")
                     .font(.system(size: 17 * scale, weight: .semibold))
                     .foregroundColor(.white)
-                Text("  \(item.isPick ? "Round \(item.rookieRound ?? 0) · \(item.teamName)" : "\(item.position) · \(item.teamName)")")
+                Text("  \(item.isPick ? "Round \(item.rookieRound ?? 0) · \(item.teamName)" : item.position)")
                     .font(.system(size: 13 * scale))
                     .foregroundColor(Color.iffSubtext)
             }
@@ -447,14 +539,52 @@ struct ChipView: View {
     }
 }
 
+// MARK: - FMK Signal Picker
+
+struct FMKSignalPicker: View {
+    @EnvironmentObject var appState: AppState
+    let asset: DisplayAsset
+
+    private let signals: [FMKSignal] = [.kill, .fuck, .marry]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Your Signal:")
+                .font(.caption).foregroundColor(Color.iffSubtext)
+            ForEach(signals, id: \.self) { signal in
+                let isCurrent = appState.currentFMKSignal(for: asset) == signal
+                Button {
+                    if isCurrent {
+                        appState.removeFMKSignal(for: asset) { _ in }
+                    } else {
+                        appState.setFMKSignal(for: asset, signal: signal) { _ in }
+                    }
+                } label: {
+                    Text("\(signal.emoji) \(signal.label)")
+                        .font(.caption.bold())
+                        .foregroundColor(isCurrent ? .white : Color.iffSubtext)
+                        .padding(.horizontal, 10).padding(.vertical, 5)
+                        .background(isCurrent ? signal.signalColor.opacity(0.8) : Color.iffElevated)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Asset Detail View
 
 struct AssetDetailView: View {
     @EnvironmentObject var appState: AppState
     let asset: DisplayAsset
 
-    private var interestedCount: Int {
-        appState.allLeagueInterests.filter { $0.assetId == asset.assetId }.count
+    private var fmkSummary: (marry: Int, fuck: Int, kill: Int) {
+        let relevant = appState.allLeagueFMK.filter { $0.assetId == asset.assetId }
+        return (
+            marry: relevant.filter { $0.signal == .marry }.count,
+            fuck:  relevant.filter { $0.signal == .fuck  }.count,
+            kill:  relevant.filter { $0.signal == .kill  }.count
+        )
     }
 
     var body: some View {
@@ -470,13 +600,16 @@ struct AssetDetailView: View {
                          : "\(asset.position) · \(asset.teamName)")
                         .font(.subheadline).foregroundColor(Color.iffSubtext)
 
-                    if interestedCount > 0 {
-                        HStack(spacing: 6) {
-                            Image(systemName: "eye.fill").font(.caption).foregroundColor(Color.iffAccent)
-                            Text("\(interestedCount) team\(interestedCount == 1 ? "" : "s") interested")
-                                .font(.caption).foregroundColor(Color.iffAccent)
+                    let summary = fmkSummary
+                    if summary.marry + summary.fuck + summary.kill > 0 {
+                        HStack(spacing: 12) {
+                            if summary.marry > 0 { Text("💍 \(summary.marry)").font(.subheadline).foregroundColor(.white) }
+                            if summary.fuck  > 0 { Text("🔥 \(summary.fuck)").font(.subheadline).foregroundColor(.white) }
+                            if summary.kill  > 0 { Text("💀 \(summary.kill)").font(.subheadline).foregroundColor(.white) }
                         }
                     }
+
+                    FMKSignalPicker(asset: asset)
 
                     Divider().background(Color.iffSubtext)
 
@@ -497,6 +630,9 @@ struct AssetDetailView: View {
 
                     if !asset.isPick {
                         Group {
+                            if let nflTeam = asset.nflTeam {
+                                infoRow(label: "NFL Team", value: nflTeam)
+                            }
                             infoRow(label: "Purchase Year",       value: asset.formattedPurchaseYear)
                             infoRow(label: "Contract Years Left", value: "\(asset.contractYearsRemaining)")
                             infoRow(label: "Player Pool",         value: asset.playerPool)

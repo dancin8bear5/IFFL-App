@@ -568,4 +568,173 @@ class DataSeeder {
         PickSeed(season:2027, round:2, slot:nil, team:"Ryan",     originalTeam:"Ryan",     tradeHistory:[]),
         PickSeed(season:2027, round:2, slot:nil, team:"Wayne",    originalTeam:"Wayne",    tradeHistory:[]),
     ]
+
+    // MARK: - NFL Team Mapping
+    // Player name → NFL team abbreviation. Reflects rosters as of the 2025 season.
+    // COMMISSIONER: verify & refresh this 2–3x per year (post-NFL-draft, trade deadline,
+    // end of season). seedNFLTeams() only touches players whose name is a key here,
+    // so a partial / out-of-date map is safe — it just leaves unknowns untouched.
+    static let nflTeamMapping: [String: String] = [
+        // QBs
+        "Josh Allen": "BUF", "Joe Burrow": "CIN", "Jalen Hurts": "PHI", "Jayden Daniels": "WAS",
+        "Patrick Mahomes": "KC", "Lamar Jackson": "BAL", "Jared Goff": "DET", "Baker Mayfield": "TB",
+        "Brock Purdy": "SF", "Justin Herbert": "LAC", "Bo Nix": "DEN", "Kyler Murray": "ARI",
+        "C.J. Stroud": "HOU", "Dak Prescott": "DAL", "Caleb Williams": "CHI", "Drake Maye": "NE",
+        "Jordan Love": "GB", "Tua Tagovailoa": "MIA", "Justin Fields": "NYJ", "Sam Darnold": "SEA",
+        "Geno Smith": "LV", "Bryce Young": "CAR", "Michael Penix": "ATL", "J.J. McCarthy": "MIN",
+        "Matthew Stafford": "LAR", "Kirk Cousins": "ATL", "Anthony Richardson": "IND", "Daniel Jones": "IND",
+        "Aaron Rodgers": "PIT", "Cam Ward": "TEN", "Shedeur Sanders": "CLE", "Jaxson Dart": "NYG",
+        "Jameis Winston": "NYG", "Joe Flacco": "CLE", "Jacoby Brissett": "ARI", "Mac Jones": "SF",
+        "Jalen Milroe": "SEA", "Dillon Gabriel": "CLE", "Tyler Shough": "NO", "Quinn Ewers": "MIA",
+        "Joe Milton": "DAL", "Trey Lance": "LAC", "Malik Willis": "GB", "Kenny Pickett": "LV",
+        "Davis Mills": "HOU", "Riley Leonard": "IND", "Brady Cook": "FA", "Tanner McKee": "PHI",
+        "Taysom Hill": "NO",
+        // RBs
+        "Saquon Barkley": "PHI", "Bijan Robinson": "ATL", "Jahmyr Gibbs": "DET", "Derrick Henry": "BAL",
+        "Christian McCaffrey": "SF", "Ashton Jeanty": "LV", "De'Von Achane": "MIA", "Josh Jacobs": "GB",
+        "Jonathan Taylor": "IND", "Bucky Irving": "TB", "Kenneth Walker III": "SEA", "Chase Brown": "CIN",
+        "James Cook": "BUF", "Breece Hall": "NYJ", "Kyren Williams": "LAR", "Chuba Hubbard": "CAR",
+        "Omarion Hampton": "LAC", "Quinshon Judkins": "CLE", "TreVeyon Henderson": "NE", "Isiah Pacheco": "KC",
+        "James Conner": "ARI", "Aaron Jones": "MIN", "David Montgomery": "DET", "Joe Mixon": "HOU",
+        "Tony Pollard": "TEN", "D'Andre Swift": "CHI", "Javonte Williams": "DAL", "RJ Harvey": "DEN",
+        "Kaleb Johnson": "PIT", "Cam Skattebo": "NYG", "Rachaad White": "TB", "Jaylen Warren": "PIT",
+        "Tank Bigsby": "JAX", "Travis Etienne": "JAX", "Trey Benson": "ARI", "Zach Charbonnet": "SEA",
+        "Brian Robinson Jr": "WAS", "Tyrone Tracy Jr": "NYG", "Jordan Mason": "MIN", "Rico Dowdle": "CAR",
+        "Nick Chubb": "HOU", "JK Dobbins": "DEN", "Kareem Hunt": "KC", "Austin Ekeler": "WAS",
+        "Rhamondre Stevenson": "NE", "Tyjae Spears": "TEN", "Blake Corum": "LAR", "Braelon Allen": "NYJ",
+        "Bucky Irving ": "TB", "Ray Davis": "BUF", "Devin Singletary": "NYG", "Jaylen Wright": "MIA",
+        "Ollie Gordon": "MIA", "Woody Marks": "HOU", "Dylan Sampson": "CLE", "Bhayshul Tuten": "JAX",
+        "Bayshul Tuten": "JAX", "Jacory Croskey-Merritt": "WAS", "Devin Neal": "NO", "Kimani Vidal": "LAC",
+        "Kyle Monangai": "CHI", "Tahj Brooks": "CIN", "Phil Mafah": "DAL", "Sean Tucker": "TB",
+        "Audric Estime": "DEN", "Keaton Mitchell": "BAL", "Jeremy McNichols": "WAS", "Justice Hill": "BAL",
+        "Samaje Perine": "CIN", "Ty Johnson": "BUF", "Kenneth Gainwell": "PIT", "Emanuel Wilson": "GB",
+        "Jayden Blue": "DAL", "Jaydon Blue": "DAL", "Trevor Etienne": "CAR", "Tyler Allgeier": "ATL",
+        "Tyler Badie": "DEN", "Michael Carter": "ARI", "Isaiah Davis": "NYJ", "Malik Davis": "FA",
+        "Chris Brooks": "GB", "Chris Rodriguez Jr.": "WAS", "Jonathan Brooks": "CAR", "Bam Knight": "ARI",
+        "Emari Demercado": "ARI", "Brashard Smith": "KC",
+        // WRs
+        "JaMarr Chase": "CIN", "Justin Jefferson": "MIN", "CeeDee Lamb": "DAL", "Amon-Ra St. Brown": "DET",
+        "Puka Nacua": "LAR", "Malik Nabers": "NYG", "Nico Collins": "HOU", "Brian Thomas Jr": "JAX",
+        "Drake London": "ATL", "AJ Brown": "PHI", "Tyreek Hill": "MIA", "Ladd McConkey": "LAC",
+        "Tee Higgins": "CIN", "Mike Evans": "TB", "Davante Adams": "LAR", "Garrett Wilson": "NYJ",
+        "DJ Moore": "CHI", "DK Metcalf": "PIT", "Jaxon Smith-Njigba": "SEA", "Terry McLaurin": "WAS",
+        "Marvin Harrison Jr": "ARI", "DeVonta Smith": "PHI", "Courtland Sutton": "DEN", "George Pickens": "DAL",
+        "Jaylen Waddle": "MIA", "Zay Flowers": "BAL", "Jameson Williams": "DET", "Jerry Jeudy": "CLE",
+        "Rashee Rice": "KC", "Xavier Worthy": "KC", "Calvin Ridley": "TEN", "Jordan Addison": "MIN",
+        "Chris Olave": "NO", "Cooper Kupp": "SEA", "Keon Coleman": "BUF", "Khalil Shakir": "BUF",
+        "Jakobi Meyers": "LV", "Stefon Diggs": "NE", "Chris Godwin": "TB", "Deebo Samuel": "WAS",
+        "Brandon Aiyuk": "SF", "Jauan Jennings": "SF", "Ricky Pearsall": "SF", "Rome Odunze": "CHI",
+        "Keenan Allen": "LAC", "Tetairoa McMillan": "CAR", "Emeka Egbuka": "TB", "Matthew Golden": "GB",
+        "Travis Hunter": "JAX", "Luther Burden": "CHI", "Jayden Higgins": "HOU", "Jayden Reed": "GB",
+        "Quentin Johnston": "LAC", "Jordan Whittington": "LAR", "Josh Downs": "IND", "Michael Pittman": "IND",
+        "Adonai Mitchell": "IND", "Alec Pierce": "IND", "Cedric Tillman": "CLE", "Tre Harris": "LAC",
+        "Kyle Williams": "NE", "Kayshon Boutte": "NE", "Kendrick Bourne": "NE", "Christian Watson": "GB",
+        "Romeo Doubs": "GB", "Dontayvion Wicks": "GB", "Wan'Dale Robinson": "NYG", "Jalen McMillan": "TB",
+        "Jalen Coker": "CAR", "Tank Dell": "HOU", "Rashid Shaheed": "NO", "Marvin Mims Jr": "DEN",
+        "Troy Franklin": "DEN", "Pat Bryant": "DEN", "Tory Horton": "SEA", "Jaylin Noel": "HOU",
+        "Jack Bech": "LV", "Tre Tucker": "LV", "Dont'e Thornton Jr": "LV", "Isaiah Bond": "FA",
+        "Elic Ayomanor": "TEN", "Chimere Dike": "TEN", "Malik Washington": "MIA", "Andrei Iosivas": "CIN",
+        "Michael Wilson": "ARI", "Parker Washington": "JAX", "Isaac TeSlaa": "DET", "Kaden Prather": "FA",
+        "KaVontae Turpin": "DAL", "Quentin Johnson": "LAC",
+        // TEs
+        "Brock Bowers": "LV", "Trey McBride": "ARI", "George Kittle": "SF", "Sam Laporta": "DET",
+        "Mark Andrews": "BAL", "Travis Kelce": "KC", "T.J. Hockenson": "MIN", "David Njoku": "CLE",
+        "Tucker Kraft": "GB", "Dalton Kincaid": "BUF", "Jake Ferguson": "DAL", "Colston Loveland": "CHI",
+        "Tyler Warren": "IND", "Isaiah Likely": "BAL", "Kyle Pitts": "ATL", "Hunter Henry": "NE",
+        "Dallas Goedert": "PHI", "Jonnu Smith": "PIT", "Dalton Schultz": "HOU", "Juwan Johnson": "NO",
+        "Brenton Strange": "JAX", "Mason Taylor": "NYJ", "Harold Fannin Jr.": "CLE", "Terrance Ferguson": "LAR",
+        "Theo Johnson": "NYG", "Colby Parkinson": "LAR", "Darren Waller": "MIA", "AJ Barner": "SEA",
+        "Oronde Gadsden": "LAC", "Oronde Gadsden II": "LAC", "Elijah Arroyo": "SEA", "Cade Otton": "TB",
+    ]
+
+    // MARK: - Seed NFL Teams
+
+    func seedNFLTeams(completion: @escaping (Result<Int, Error>) -> Void) {
+        db.collection("players").getDocuments { [self] snapshot, error in
+            if let error { completion(.failure(error)); return }
+            guard let docs = snapshot?.documents else { completion(.success(0)); return }
+
+            let toUpdate = docs.filter { doc in
+                let name = doc.data()["name"] as? String ?? ""
+                return Self.nflTeamMapping[name] != nil
+            }
+
+            guard !toUpdate.isEmpty else { completion(.success(0)); return }
+
+            let chunks = stride(from: 0, to: toUpdate.count, by: 400).map {
+                Array(toUpdate[$0..<min($0 + 400, toUpdate.count)])
+            }
+
+            var errors: [Error] = []
+            let group = DispatchGroup()
+            var updated = 0
+
+            for chunk in chunks {
+                group.enter()
+                let batch = db.batch()
+                for doc in chunk {
+                    let name = doc.data()["name"] as? String ?? ""
+                    if let nflTeam = Self.nflTeamMapping[name] {
+                        batch.updateData(["nflTeam": nflTeam], forDocument: doc.reference)
+                        updated += 1
+                    }
+                }
+                batch.commit { e in
+                    if let e { errors.append(e) }
+                    group.leave()
+                }
+            }
+
+            group.notify(queue: .main) {
+                if let first = errors.first { completion(.failure(first)) }
+                else { completion(.success(updated)) }
+            }
+        }
+    }
+
+    // MARK: - Seed League History
+    // COMMISSIONER: populate this from the league's Excel archives (champions,
+    // standings, notable trades per year). Each entry overwrites by year, so it
+    // is safe to re-run after editing.
+    static let historySeeds: [SeasonHistory] = [
+        // Example shape — replace placeholders with real data from the Excel sheets:
+        // SeasonHistory(
+        //     id: "2024", season: 2024, champion: "Jared", runnerUp: "Abad",
+        //     standings: [
+        //         TeamFinish(teamName: "Jared", place: 1, record: "11-3", pointsFor: 1654.2),
+        //         TeamFinish(teamName: "Abad",  place: 2, record: "10-4", pointsFor: 1601.8),
+        //     ],
+        //     notableTrades: ["Jared traded CeeDee Lamb to Ryan for 2 first-round picks"]
+        // ),
+    ]
+
+    func seedLeagueHistory(completion: @escaping (Result<String, Error>) -> Void) {
+        let seasons = Self.historySeeds
+        guard !seasons.isEmpty else {
+            completion(.success("No history data to seed. Add entries to DataSeeder.historySeeds."))
+            return
+        }
+
+        let group = DispatchGroup()
+        var errors: [Error] = []
+
+        for season in seasons {
+            group.enter()
+            let docId = String(season.season)
+            do {
+                try db.collection("leagueHistory").document(docId).setData(from: season, merge: true) { e in
+                    if let e { errors.append(e) }
+                    group.leave()
+                }
+            } catch {
+                errors.append(error)
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) {
+            if let first = errors.first { completion(.failure(first)) }
+            else { completion(.success("Seeded \(seasons.count) season\(seasons.count == 1 ? "" : "s")")) }
+        }
+    }
 }

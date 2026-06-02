@@ -5,6 +5,7 @@ import SwiftUI
 struct MarketView: View {
     @EnvironmentObject var appState: AppState
     @State private var section: MarketSection = .interest
+    @State private var showSettings = false
 
     enum MarketSection: String, CaseIterable {
         case interest = "Interest"
@@ -19,7 +20,7 @@ struct MarketView: View {
                 VStack(spacing: 0) {
                     sectionPicker
                     switch section {
-                    case .interest: InterestBoardView()
+                    case .interest: FMKSwiperView()
                     case .matches:  MatchesView()
                     case .trades:   TradeHistorySection()
                     }
@@ -29,12 +30,21 @@ struct MarketView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    NavigationLink(destination: TradeProposalView()) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(Color.iffAccent)
-                            .font(.title3)
+                    HStack(spacing: 12) {
+                        NavigationLink(destination: TradeProposalView()) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(Color.iffAccent)
+                                .font(.title3)
+                        }
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape.fill")
+                                .foregroundColor(Color.iffSubtext)
+                        }
                     }
                 }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView().environmentObject(appState)
             }
             .onAppear { appState.loadAllLeagueInterests() }
         }
@@ -177,37 +187,56 @@ struct InterestRow: View {
 
 struct MatchesView: View {
     @EnvironmentObject var appState: AppState
+    @State private var showProposal = false
 
     private var matches: [MarketEngine.TradeMatch] {
         MarketEngine.findMatches(
-            interests: appState.allLeagueInterests,
+            fmkSignals: appState.allLeagueFMK,
             assets: appState.allDisplayAssets,
             priorityTeam: appState.userTeam
         )
     }
 
     var body: some View {
-        if matches.isEmpty {
-            VStack(spacing: 14) {
-                Spacer()
-                Image(systemName: "arrow.left.arrow.right.circle")
-                    .font(.system(size: 48)).foregroundColor(Color.iffSubtext)
-                Text("No matches yet")
-                    .font(.headline).foregroundColor(Color.iffSubtext)
-                Text("Matches appear when two teams have flagged\neach other's players as interesting.")
-                    .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.7))
-                    .multilineTextAlignment(.center).padding(.horizontal)
-                Spacer()
-            }
-        } else {
-            ScrollView {
-                LazyVStack(spacing: 12) {
-                    ForEach(matches) { match in
-                        MatchCard(match: match)
-                    }
+        Group {
+            if matches.isEmpty {
+                VStack(spacing: 14) {
+                    Spacer()
+                    Image(systemName: "arrow.left.arrow.right.circle")
+                        .font(.system(size: 48)).foregroundColor(Color.iffSubtext)
+                    Text("No matches yet")
+                        .font(.headline).foregroundColor(Color.iffSubtext)
+                    Text("Matches appear when two teams both have\nFuck/Marry signals on each other's players\nat similar trade value.")
+                        .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.7))
+                        .multilineTextAlignment(.center).padding(.horizontal)
+                    Spacer()
                 }
-                .padding()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(matches) { match in
+                            MatchCard(match: match) {
+                                prefillFromMatch(match)
+                                showProposal = true
+                            }
+                        }
+                    }
+                    .padding()
+                }
             }
+        }
+        .navigationDestination(isPresented: $showProposal) {
+            TradeProposalView()
+        }
+    }
+
+    private func prefillFromMatch(_ match: MarketEngine.TradeMatch) {
+        let userIsA = match.teamA == appState.userTeam
+        let userIsB = match.teamB == appState.userTeam
+        guard userIsA || userIsB else { return }
+        let theirCandidates = userIsA ? match.aWants : match.bWants
+        if let first = theirCandidates.first {
+            appState.selectedAssetForTrade = first.asset
         }
     }
 }
@@ -215,45 +244,38 @@ struct MatchesView: View {
 struct MatchCard: View {
     @EnvironmentObject var appState: AppState
     let match: MarketEngine.TradeMatch
+    let onPropose: () -> Void
 
     var body: some View {
         VStack(spacing: 12) {
             HStack {
                 teamLabel(match.teamA)
                 Spacer()
-                Image(systemName: "arrow.left.arrow.right")
-                    .foregroundColor(Color.iffSubtext)
+                VStack(spacing: 2) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .foregroundColor(Color.iffSubtext)
+                    Text("Match Score: \(match.matchScore)")
+                        .font(.caption2).foregroundColor(Color.iffSubtext)
+                }
                 Spacer()
                 teamLabel(match.teamB)
             }
 
             HStack(alignment: .top, spacing: 12) {
-                assetList(title: "\(match.teamA) wants:", assets: match.aWants, aligned: .leading)
+                candidateList(title: "\(match.teamA) wants:", candidates: match.aWants, aligned: .leading)
                 Spacer()
-                assetList(title: "\(match.teamB) wants:", assets: match.bWants, aligned: .trailing)
+                candidateList(title: "\(match.teamB) wants:", candidates: match.bWants, aligned: .trailing)
             }
 
-            NavigationLink(destination: TradeProposalView()) {
+            Button(action: onPropose) {
                 Text("Propose Trade")
                     .font(.caption.bold()).foregroundColor(.white)
                     .frame(maxWidth: .infinity).padding(.vertical, 8)
                     .background(Color.iffAccent).cornerRadius(8)
             }
-            .simultaneousGesture(TapGesture().onEnded { prefillFromMatch() })
         }
         .padding()
         .iffCard()
-    }
-
-    private func prefillFromMatch() {
-        let userIsA = match.teamA == appState.userTeam
-        let userIsB = match.teamB == appState.userTeam
-        guard userIsA || userIsB else { return }
-        // Seed with the first asset the user has flagged from the other team
-        let theirAssets = userIsA ? match.aWants : match.bWants
-        if let first = theirAssets.first {
-            appState.selectedAssetForTrade = first
-        }
     }
 
     private func teamLabel(_ name: String) -> some View {
@@ -263,11 +285,17 @@ struct MatchCard: View {
     }
 
     @ViewBuilder
-    private func assetList(title: String, assets: [DisplayAsset], aligned: HorizontalAlignment) -> some View {
+    private func candidateList(title: String, candidates: [MarketEngine.MatchCandidate], aligned: HorizontalAlignment) -> some View {
         VStack(alignment: aligned, spacing: 4) {
             Text(title).font(.caption).foregroundColor(Color.iffSubtext)
-            ForEach(assets) { a in
-                Text(a.name).font(.caption.bold()).foregroundColor(.white)
+            ForEach(candidates, id: \.asset.id) { candidate in
+                HStack(spacing: 3) {
+                    Text(candidate.signal.emoji).font(.caption)
+                    Text(candidate.asset.name).font(.caption.bold()).foregroundColor(.white)
+                    if candidate.ownerSignal == .kill {
+                        Text("💀").font(.caption2)
+                    }
+                }
             }
         }
     }

@@ -23,6 +23,9 @@
 		BB0400002000000000000013 /* MarketView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000013 /* MarketView.swift */; };
 		BB0400002000000000000014 /* LeagueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000014 /* LeagueView.swift */; };
 		BB0400002000000000000015 /* WebViewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000015 /* WebViewContainer.swift */; };
+		BB0400002000000000000016 /* FMKSwiperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000016 /* FMKSwiperView.swift */; };
+		BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000017 /* LeagueHistoryView.swift */; };
+		BB0400002000000000000018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000018 /* SettingsView.swift */; };
 		BB0500002000000000000011 /* MarketEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0500001000000000000011 /* MarketEngine.swift */; };
 /* End PBXBuildFile section */
 
@@ -66,6 +69,9 @@
 		BB0400001000000000000013 /* MarketView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000014 /* LeagueView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000015 /* WebViewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewContainer.swift; sourceTree = "<group>"; };
+		BB0400001000000000000016 /* FMKSwiperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMKSwiperView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000017 /* LeagueHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueHistoryView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BB0500001000000000000011 /* MarketEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -195,6 +201,9 @@
 				BB0400001000000000000013 /* MarketView.swift */,
 				BB0400001000000000000014 /* LeagueView.swift */,
 				BB0400001000000000000015 /* WebViewContainer.swift */,
+				BB0400001000000000000016 /* FMKSwiperView.swift */,
+				BB0400001000000000000017 /* LeagueHistoryView.swift */,
+				BB0400001000000000000018 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -398,6 +407,9 @@
 				BB0400002000000000000013 /* MarketView.swift in Sources */,
 				BB0400002000000000000014 /* LeagueView.swift in Sources */,
 				BB0400002000000000000015 /* WebViewContainer.swift in Sources */,
+				BB0400002000000000000016 /* FMKSwiperView.swift in Sources */,
+				BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */,
+				BB0400002000000000000018 /* SettingsView.swift in Sources */,
 				BB0500002000000000000011 /* MarketEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

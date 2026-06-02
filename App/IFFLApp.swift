@@ -37,7 +37,7 @@ struct IFFLApp: App {
         UITabBar.appearance().standardAppearance  = tabBar
         UITabBar.appearance().scrollEdgeAppearance = tabBar
         UITabBar.appearance().tintColor            = UIColor(red: 0.902, green: 0.224, blue: 0.275, alpha: 1)
-        UITabBar.appearance().unselectedItemTintColor = UIColor(red: 0.62, green: 0.66, blue: 0.72, alpha: 1)
+        UITabBar.appearance().unselectedItemTintColor = UIColor.white.withAlphaComponent(0.75)
 
         // Navigation bar
         let navBar = UINavigationBarAppearance()

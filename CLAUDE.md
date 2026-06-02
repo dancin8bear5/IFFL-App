@@ -67,7 +67,7 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - **FMK trade interest system** — Tinder swipe deck (right=Fuck, left=Kill, up=Marry), FMK-aware matching algorithm (bilateral F/M signals + ≤10% price parity), FMK summary + picker on player detail, league-wide FMK listener in AppState
 - **Rosters** — horizontal chip team switcher, player row shows position only (not "WR · Jared"), NFL team row in player detail, Settings gear on every tab
 - **League tab** — History tab (SeasonHistoryCard expand/collapse), off-season overlay on standings/scores when `isOffSeason = true`
-- **Admin** — Jared-only gate (`email == "jarrtayl@gmail.com"`, email check only — no isCommissioner dependency), Sync NFL Teams action, Seed League History action, Season Mode toggle
+- **Admin** — Jared-only gate (`email == "jaredrogtaylor@gmail.com"`, email check only — no isCommissioner dependency), Sync NFL Teams action, Seed League History action, Season Mode toggle
 - **Settings page** — all users; profile (name read-only, ESPN team picker, nickname), appearance (logo icon presets), league prefs (default tab, show trade values, FMK privacy), notifications placeholder
 - **Data model** — `FMKSignal`, `PlayerFMK`, `UserSettings`, `SeasonHistory`/`TeamFinish`, `nflTeam` on Player/DisplayAsset, `isOffSeason` on LeagueConfig, `beltWins` on FantasyTeam (all = 0)
 - **Bug fixes (post-device-test)** — player detail subtitle shows position only; trade proposal flow auto-pushes `TradeProposalView` when triggered from player detail; Settings ESPN Team is a picker so wrong team mapping can be self-corrected

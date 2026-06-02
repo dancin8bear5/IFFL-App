@@ -54,7 +54,7 @@ class AppState: ObservableObject {
     var currentUserUID: String? { Auth.auth().currentUser?.uid }
 
     var isAdmin: Bool {
-        Auth.auth().currentUser?.email == "jarrtayl@gmail.com"
+        Auth.auth().currentUser?.email?.lowercased() == "jarrtayl@gmail.com"
     }
 
     var allDisplayAssets: [DisplayAsset] {

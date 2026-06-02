@@ -60,6 +60,13 @@ struct SettingsView: View {
                 Text(Auth.auth().currentUser?.displayName ?? "—")
                     .foregroundColor(Color.iffSubtext)
             }
+            HStack {
+                Text("Email").foregroundColor(Color.iffSubtext)
+                Spacer()
+                Text(Auth.auth().currentUser?.email ?? "—")
+                    .foregroundColor(Color.iffSubtext)
+                    .font(.caption)
+            }
             Picker("ESPN Team", selection: $selectedTeam) {
                 ForEach(fantasyTeams.map { $0.name }, id: \.self) {
                     Text($0).tag($0)

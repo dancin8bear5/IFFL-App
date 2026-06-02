@@ -466,9 +466,14 @@ struct AssetRow: View {
                     .foregroundColor(Color.iffSubtext)
             }
             Spacer()
-            Text(item.formattedCurrentPrice)
-                .font(.system(size: 17 * scale, weight: .bold))
-                .foregroundColor(Color.iffGold)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("$\(item.price(forSeason: activeSeason))")
+                    .font(.system(size: 16 * scale, weight: .bold))
+                    .foregroundColor(.green)
+                Text("$\(item.price(forSeason: activeSeason + 1))")
+                    .font(.system(size: 12 * scale, weight: .semibold))
+                    .foregroundColor(Color.iffGold)
+            }
         }
         .padding(.vertical, 12)
     }

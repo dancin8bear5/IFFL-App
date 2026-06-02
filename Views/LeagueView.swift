@@ -29,10 +29,6 @@ struct LeagueView: View {
         }
     }
 
-    private var visibleTabs: [LeagueTab] {
-        appState.isOffSeason ? LeagueTab.allCases.filter { $0 != .scores } : LeagueTab.allCases
-    }
-
     var body: some View {
         NavigationStack {
             ZStack {
@@ -55,15 +51,12 @@ struct LeagueView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView().environmentObject(appState)
             }
-            .onChange(of: appState.isOffSeason) { isOff in
-                if isOff && activeTab == .scores { activeTab = .standings }
-            }
         }
     }
 
     private var tabPicker: some View {
         Picker("League Tab", selection: $activeTab) {
-            ForEach(visibleTabs, id: \.self) {
+            ForEach(LeagueTab.allCases, id: \.self) {
                 Label($0.rawValue, systemImage: $0.icon).tag($0)
             }
         }
@@ -83,15 +76,29 @@ struct LeagueView: View {
             LeagueHistoryView()
 
         case .standings:
-            if appState.isOffSeason {
-                LocalStandingsView(history: appState.leagueHistory)
-                    .onAppear { appState.loadLeagueHistory() }
-            } else {
-                webLoadView(url: LeagueTab.standings.url)
-            }
+            LocalStandingsView(history: appState.leagueHistory)
+                .onAppear { appState.loadLeagueHistory() }
 
         case .scores:
-            webLoadView(url: LeagueTab.scores.url)
+            seasonOverView
+        }
+    }
+
+    private var seasonOverView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "flag.checkered")
+                .font(.system(size: 56))
+                .foregroundColor(Color.iffAccent)
+            Text("Season Over")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundColor(.white)
+            Text("The " + String(appState.activeSeason - 1) + " season has concluded.\nScores will return in the fall.")
+                .font(.subheadline)
+                .foregroundColor(Color.iffSubtext)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+            Spacer()
         }
     }
 

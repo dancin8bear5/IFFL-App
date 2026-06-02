@@ -34,10 +34,16 @@ struct IFFLApp: App {
         let tabBar = UITabBarAppearance()
         tabBar.configureWithOpaqueBackground()
         tabBar.backgroundColor = UIColor(red: 0.078, green: 0.094, blue: 0.153, alpha: 1)
+        let unselected = UIColor.white.withAlphaComponent(0.6)
+        tabBar.stackedLayoutAppearance.normal.iconColor = unselected
+        tabBar.stackedLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]
+        tabBar.inlineLayoutAppearance.normal.iconColor = unselected
+        tabBar.inlineLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]
+        tabBar.compactInlineLayoutAppearance.normal.iconColor = unselected
+        tabBar.compactInlineLayoutAppearance.normal.titleTextAttributes = [.foregroundColor: unselected]
         UITabBar.appearance().standardAppearance  = tabBar
         UITabBar.appearance().scrollEdgeAppearance = tabBar
         UITabBar.appearance().tintColor            = UIColor(red: 0.902, green: 0.224, blue: 0.275, alpha: 1)
-        UITabBar.appearance().unselectedItemTintColor = UIColor.white.withAlphaComponent(0.75)
 
         // Navigation bar
         let navBar = UINavigationBarAppearance()

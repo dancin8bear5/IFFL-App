@@ -443,6 +443,14 @@ struct TeamIconView: View {
         VStack(spacing: 6) {
             Image(team.name).resizable().scaledToFit().frame(width: 60, height: 60)
             Text(team.name).font(.caption).foregroundColor(.white).lineLimit(1)
+            HStack(spacing: 2) {
+                ForEach(0..<team.beltWins, id: \.self) { _ in
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 9))
+                        .foregroundColor(Color.iffGold)
+                }
+            }
+            .frame(height: 12)
         }
         .frame(maxWidth: .infinity).padding(10).iffCard()
     }

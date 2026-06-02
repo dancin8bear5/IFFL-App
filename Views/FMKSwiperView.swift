@@ -240,9 +240,9 @@ extension FMKSignal {
 
     var label: String {
         switch self {
-        case .fuck:  return "Want"
-        case .marry: return "Need"
-        case .kill:  return "Dump"
+        case .fuck:  return "Fuck"
+        case .marry: return "Marry"
+        case .kill:  return "Kill"
         }
     }
 

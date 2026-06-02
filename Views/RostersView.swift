@@ -4,6 +4,8 @@ import SwiftUI
 
 struct RostersView: View {
     @State private var mode: RosterMode = .teams
+    @State private var showSettings = false
+    @EnvironmentObject var appState: AppState
 
     enum RosterMode: String, CaseIterable {
         case teams = "By Team"
@@ -31,6 +33,17 @@ struct RostersView: View {
             }
             .navigationTitle("Rosters")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(Color.iffSubtext)
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView().environmentObject(appState)
+            }
         }
     }
 }
@@ -48,15 +61,7 @@ struct TeamRosterView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Team", selection: $appState.selectedTeam) {
-                ForEach(fantasyTeams.map { $0.name }, id: \.self) { Text($0).tag($0) }
-            }
-            .pickerStyle(.menu)
-            .font(.title2.bold())
-            .foregroundColor(.white)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity)
-            .background(Color.iffSurface)
+            TeamSwitcherView(selectedTeam: $appState.selectedTeam)
 
             if !appState.isInitialLoadComplete {
                 LoadingView()
@@ -215,6 +220,54 @@ struct AllAssetsView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(Color.iffBg)
+    }
+}
+
+// MARK: - Team Switcher Chip Row
+
+struct TeamSwitcherView: View {
+    @Binding var selectedTeam: String
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(fantasyTeams, id: \.name) { team in
+                    TeamChip(teamName: team.name, isSelected: selectedTeam == team.name) {
+                        selectedTeam = team.name
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .background(Color.iffSurface)
+    }
+}
+
+struct TeamChip: View {
+    let teamName: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(teamName)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 20, height: 20)
+                    .clipShape(Circle())
+                Text(teamName)
+                    .font(.caption.bold())
+                    .lineLimit(1)
+            }
+            .foregroundColor(isSelected ? .white : Color.iffSubtext)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isSelected ? Color.iffAccent : Color.iffElevated)
+            .clipShape(Capsule())
+        }
     }
 }
 

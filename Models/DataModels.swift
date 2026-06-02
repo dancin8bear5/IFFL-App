@@ -24,6 +24,26 @@ enum TradeResponse: String, Codable {
     case maybe = "maybe"
 }
 
+// MARK: - FMK System
+
+enum FMKSignal: String, Codable, CaseIterable {
+    case fuck  = "fuck"
+    case marry = "marry"
+    case kill  = "kill"
+}
+
+struct PlayerFMK: Identifiable, Codable {
+    @DocumentID var id: String?
+    let userId: String
+    let teamName: String
+    let assetId: String
+    let assetName: String
+    let assetOwnerTeam: String
+    var signal: FMKSignal
+    var timestamp: Date
+    var updatedAt: Date
+}
+
 enum PickStatus: String, Codable {
     case available = "available"
     case used      = "used"
@@ -40,21 +60,23 @@ struct FantasyTeam {
     let name: String
     let color: Color
     let logo: String
+    let beltWins: Int
 }
 
 let fantasyTeams: [FantasyTeam] = [
-    FantasyTeam(name: "A. Zurek", color: .red,    logo: "A. Zurek"),
-    FantasyTeam(name: "Abad",    color: .blue,   logo: "Abad"),
-    FantasyTeam(name: "Bill",    color: .green,  logo: "Bill"),
-    FantasyTeam(name: "Cantone", color: .purple, logo: "Cantone"),
-    FantasyTeam(name: "Dugan",   color: .orange, logo: "Dugan"),
-    FantasyTeam(name: "Faybik",  color: .yellow, logo: "Faybik"),
-    FantasyTeam(name: "Foley",   color: .pink,   logo: "Foley"),
-    FantasyTeam(name: "Jared",   color: .cyan,   logo: "Jared"),
-    FantasyTeam(name: "Jason",   color: .indigo, logo: "Jason"),
-    FantasyTeam(name: "M. Zurek",color: .teal,   logo: "M. Zurek"),
-    FantasyTeam(name: "Ryan",    color: .mint,   logo: "Ryan"),
-    FantasyTeam(name: "Wayne",   color: .brown,  logo: "Wayne")
+    // beltWins = league championships won (source: ESPN history 2009-2025)
+    FantasyTeam(name: "A. Zurek", color: .red,    logo: "A. Zurek", beltWins: 0),
+    FantasyTeam(name: "Abad",    color: .blue,   logo: "Abad",    beltWins: 1), // 2023
+    FantasyTeam(name: "Bill",    color: .green,  logo: "Bill",    beltWins: 2), // 2024, 2025
+    FantasyTeam(name: "Cantone", color: .purple, logo: "Cantone", beltWins: 1), // 2021
+    FantasyTeam(name: "Dugan",   color: .orange, logo: "Dugan",   beltWins: 0),
+    FantasyTeam(name: "Faybik",  color: .yellow, logo: "Faybik",  beltWins: 1), // 2017
+    FantasyTeam(name: "Foley",   color: .pink,   logo: "Foley",   beltWins: 0),
+    FantasyTeam(name: "Jared",   color: .cyan,   logo: "Jared",   beltWins: 3), // 2018, 2019, 2020
+    FantasyTeam(name: "Jason",   color: .indigo, logo: "Jason",   beltWins: 0),
+    FantasyTeam(name: "M. Zurek",color: .teal,   logo: "M. Zurek",beltWins: 1), // 2016
+    FantasyTeam(name: "Ryan",    color: .mint,   logo: "Ryan",    beltWins: 2), // 2012, 2014
+    FantasyTeam(name: "Wayne",   color: .brown,  logo: "Wayne",   beltWins: 1), // 2022
 ]
 
 // MARK: - Player (Firestore: "players" collection)
@@ -80,6 +102,7 @@ struct Player: Identifiable, Codable, Hashable {
     var isActive: Bool
     /// Season year the player first appeared in the league
     var acquiredSeason: Int
+    var nflTeam: String?
 
     var assetId: String { "\(teamName)-\(name)" }
 
@@ -102,7 +125,8 @@ struct Player: Identifiable, Codable, Hashable {
             rookieRound: rookieRound,
             rookieDraftYear: rookieDraftYear,
             tradeHistory: tradeHistory,
-            assetType: .player
+            assetType: .player,
+            nflTeam: nflTeam
         )
     }
 
@@ -159,7 +183,8 @@ struct DraftPickAsset: Identifiable, Codable, Hashable {
             rookieRound: round,
             rookieDraftYear: season,
             tradeHistory: tradeHistory,
-            assetType: .draftPick
+            assetType: .draftPick,
+            nflTeam: nil
         )
     }
 
@@ -184,6 +209,7 @@ struct DisplayAsset: Identifiable, Hashable {
     let rookieDraftYear: Int?
     let tradeHistory: [String]
     let assetType: AssetType
+    let nflTeam: String?
 
     var isPick: Bool { assetType == .draftPick }
     var assetId: String { "\(teamName)-\(name)" }
@@ -267,14 +293,40 @@ struct Message: Identifiable, Codable {
 // MARK: - LeagueConfig (Firestore: "config/league")
 
 struct LeagueConfig: Codable {
-    /// Current active season year
     var activeSeasonYear: Int
-    /// Firebase Auth UIDs that have commissioner/admin access
     var authorizedUIDs: [String]
-    /// Maps Firebase Auth UID → fantasy team name (primary team lookup)
     var userTeamMap: [String: String]
-    /// Maps email prefix → team name (legacy fallback only)
     var teamEmailMap: [String: String]
+    var isOffSeason: Bool = false
+}
+
+// MARK: - UserSettings (Firestore: "userSettings/{userId}")
+
+struct UserSettings: Codable {
+    var teamLogoName: String?
+    var displayNickname: String?
+    var defaultTab: Int = 0
+    var showTradeValues: Bool = true
+    var fmkPublic: Bool = true
+    var accentColorName: String?
+}
+
+// MARK: - League History (Firestore: "leagueHistory/{year}")
+
+struct TeamFinish: Codable, Hashable {
+    let teamName: String
+    let place: Int
+    let record: String?
+    let pointsFor: Double?
+}
+
+struct SeasonHistory: Identifiable, Codable {
+    @DocumentID var id: String?
+    let season: Int
+    let champion: String
+    let runnerUp: String?
+    let standings: [TeamFinish]
+    let notableTrades: [String]?
 }
 
 // MARK: - Season (Firestore: "seasons/{year}")

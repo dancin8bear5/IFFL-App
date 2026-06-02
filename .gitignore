@@ -1,0 +1,33 @@
+# Firebase credentials — never commit these
+GoogleService-Info.plist
+serviceAccountKey.json
+*.pem
+*.p8
+*.p12
+
+# Xcode build artifacts
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# CocoaPods — keep Podfile.lock, ignore the rest
+Pods/
+!Podfile.lock
+
+# macOS
+.DS_Store
+
+# Xcode user-specific files
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+!default.pbxuser
+!default.perspectivev3
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output

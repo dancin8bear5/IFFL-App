@@ -22,6 +22,9 @@ class FirestoreDataService: ObservableObject {
         static let messages      = "messages"
         static let config        = "config"
         static let seasons       = "seasons"
+        static let fmk           = "playerFMK"
+        static let userSettings  = "userSettings"
+        static let leagueHistory = "leagueHistory"
     }
 
     // MARK: - League Config
@@ -393,6 +396,126 @@ class FirestoreDataService: ObservableObject {
             }
     }
 
+    // MARK: - Off-Season Toggle
+
+    func setOffSeason(_ isOffSeason: Bool, completion: @escaping (Error?) -> Void) {
+        db.collection(Col.config).document("league").updateData([
+            "isOffSeason": isOffSeason
+        ], completion: completion)
+    }
+
+    // MARK: - FMK Signals
+
+    func setFMKSignal(_ fmk: PlayerFMK, completion: @escaping (Error?) -> Void) {
+        let docId = "\(fmk.userId)_\(fmk.assetId)"
+        do {
+            try db.collection(Col.fmk).document(docId).setData(from: fmk, merge: false, completion: completion)
+        } catch { completion(error) }
+    }
+
+    func getFMKSignals(for userId: String, completion: @escaping ([PlayerFMK]?, Error?) -> Void) {
+        db.collection(Col.fmk)
+            .whereField("userId", isEqualTo: userId)
+            .getDocuments { snapshot, error in
+                if let error { completion(nil, error); return }
+                let signals = snapshot?.documents.compactMap { try? $0.data(as: PlayerFMK.self) }
+                completion(signals, nil)
+            }
+    }
+
+    @discardableResult
+    func listenToAllFMKSignals(completion: @escaping ([PlayerFMK], Error?) -> Void) -> ListenerRegistration {
+        db.collection(Col.fmk)
+            .addSnapshotListener { snapshot, error in
+                if let error { completion([], error); return }
+                let signals = snapshot?.documents.compactMap { try? $0.data(as: PlayerFMK.self) } ?? []
+                completion(signals, nil)
+            }
+    }
+
+    func removeFMKSignal(userId: String, assetId: String, completion: @escaping (Error?) -> Void) {
+        db.collection(Col.fmk).document("\(userId)_\(assetId)").delete(completion: completion)
+    }
+
+    // MARK: - User Settings
+
+    func fetchUserSettings(userId: String, completion: @escaping (UserSettings?) -> Void) {
+        db.collection(Col.userSettings).document(userId).getDocument { snapshot, _ in
+            let settings = try? snapshot?.data(as: UserSettings.self)
+            completion(settings)
+        }
+    }
+
+    func saveUserSettings(_ settings: UserSettings, userId: String, completion: @escaping (Error?) -> Void) {
+        do {
+            try db.collection(Col.userSettings).document(userId).setData(from: settings, merge: false, completion: completion)
+        } catch { completion(error) }
+    }
+
+    // MARK: - League History
+
+    func fetchLeagueHistory(completion: @escaping ([SeasonHistory]?, Error?) -> Void) {
+        db.collection(Col.leagueHistory)
+            .order(by: "season", descending: true)
+            .getDocuments { snapshot, error in
+                if let error { completion(nil, error); return }
+                let history = snapshot?.documents.compactMap { try? $0.data(as: SeasonHistory.self) }
+                completion(history, nil)
+            }
+    }
+
+    func addSeasonHistory(_ history: SeasonHistory, completion: @escaping (Error?) -> Void) {
+        let docId = String(history.season)
+        do {
+            try db.collection(Col.leagueHistory).document(docId).setData(from: history, completion: completion)
+        } catch { completion(error) }
+    }
+
+    // MARK: - Bulk NFL Team Update
+
+    func bulkSetNFLTeams(_ mapping: [String: String], completion: @escaping (Result<Int, Error>) -> Void) {
+        db.collection(Col.players).getDocuments { [self] snapshot, error in
+            if let error { completion(.failure(error)); return }
+            guard let docs = snapshot?.documents else { completion(.success(0)); return }
+
+            let toUpdate = docs.filter { doc in
+                let name = doc.data()["name"] as? String ?? ""
+                return mapping[name] != nil
+            }
+
+            guard !toUpdate.isEmpty else { completion(.success(0)); return }
+
+            let chunks = stride(from: 0, to: toUpdate.count, by: 400).map {
+                Array(toUpdate[$0..<min($0 + 400, toUpdate.count)])
+            }
+
+            var errors: [Error] = []
+            let group = DispatchGroup()
+            var updated = 0
+
+            for chunk in chunks {
+                group.enter()
+                let batch = db.batch()
+                for doc in chunk {
+                    let name = doc.data()["name"] as? String ?? ""
+                    if let nflTeam = mapping[name] {
+                        batch.updateData(["nflTeam": nflTeam], forDocument: doc.reference)
+                        updated += 1
+                    }
+                }
+                batch.commit { e in
+                    if let e { errors.append(e) }
+                    group.leave()
+                }
+            }
+
+            group.notify(queue: .main) {
+                if let first = errors.first { completion(.failure(first)) }
+                else { completion(.success(updated)) }
+            }
+        }
+    }
+
     // MARK: - Seeding Guard
 
     /// Returns true if the database already has player data (seeding was run previously).
@@ -419,7 +542,8 @@ extension Player {
         rookieDraftYear: Int? = nil,
         tradeHistory: [String] = [],
         isActive: Bool = true,
-        acquiredSeason: Int
+        acquiredSeason: Int,
+        nflTeam: String? = nil
     ) {
         self.teamName               = teamName
         self.position               = position
@@ -434,6 +558,7 @@ extension Player {
         self.tradeHistory           = tradeHistory
         self.isActive               = isActive
         self.acquiredSeason         = acquiredSeason
+        self.nflTeam                = nflTeam
     }
 }
 

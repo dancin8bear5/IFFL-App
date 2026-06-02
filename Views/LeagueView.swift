@@ -1,18 +1,22 @@
 import SwiftUI
 
 struct LeagueView: View {
+    @EnvironmentObject var appState: AppState
     @State private var activeTab: LeagueTab = .standings
     @State private var isLoading  = true
     @State private var loadFailed = false
+    @State private var showSettings = false
 
     enum LeagueTab: String, CaseIterable {
         case standings = "Standings"
         case scores    = "Scores"
+        case history   = "History"
 
-        var url: URL {
+        var url: URL? {
             switch self {
-            case .standings: return URL(string: "https://www.insanityleague.com/standings")!
-            case .scores:    return URL(string: "https://www.insanityleague.com/scores")!
+            case .standings: return URL(string: "https://www.insanityleague.com/standings")
+            case .scores:    return URL(string: "https://www.insanityleague.com/scores")
+            case .history:   return nil
             }
         }
 
@@ -20,8 +24,13 @@ struct LeagueView: View {
             switch self {
             case .standings: return "list.number"
             case .scores:    return "sportscourt.fill"
+            case .history:   return "clock.arrow.circlepath"
             }
         }
+    }
+
+    private var visibleTabs: [LeagueTab] {
+        appState.isOffSeason ? LeagueTab.allCases.filter { $0 != .scores } : LeagueTab.allCases
     }
 
     var body: some View {
@@ -35,12 +44,26 @@ struct LeagueView: View {
             }
             .navigationTitle("League")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button { showSettings = true } label: {
+                        Image(systemName: "gearshape.fill")
+                            .foregroundColor(Color.iffSubtext)
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView().environmentObject(appState)
+            }
+            .onChange(of: appState.isOffSeason) { isOff in
+                if isOff && activeTab == .scores { activeTab = .standings }
+            }
         }
     }
 
     private var tabPicker: some View {
         Picker("League Tab", selection: $activeTab) {
-            ForEach(LeagueTab.allCases, id: \.self) {
+            ForEach(visibleTabs, id: \.self) {
                 Label($0.rawValue, systemImage: $0.icon).tag($0)
             }
         }
@@ -55,31 +78,121 @@ struct LeagueView: View {
 
     @ViewBuilder
     private var webContent: some View {
+        switch activeTab {
+        case .history:
+            LeagueHistoryView()
+
+        case .standings:
+            if appState.isOffSeason {
+                LocalStandingsView(history: appState.leagueHistory)
+                    .onAppear { appState.loadLeagueHistory() }
+            } else {
+                webLoadView(url: LeagueTab.standings.url)
+            }
+
+        case .scores:
+            webLoadView(url: LeagueTab.scores.url)
+        }
+    }
+
+    @ViewBuilder
+    private func webLoadView(url: URL?) -> some View {
         ZStack {
-            if !loadFailed {
-                WebViewContainer(url: activeTab.url, isLoading: $isLoading, loadFailed: $loadFailed)
-            }
-
-            if isLoading && !loadFailed {
-                Color.iffBg
-                ProgressView().tint(Color.iffAccent).scaleEffect(1.4)
-            }
-
-            if loadFailed {
-                VStack(spacing: 16) {
-                    Image(systemName: "wifi.slash")
-                        .font(.system(size: 44))
-                        .foregroundColor(Color.iffSubtext)
-                    Text("Couldn't load page")
-                        .font(.headline).foregroundColor(.white)
-                    Button {
-                        loadFailed = false
-                        isLoading  = true
-                    } label: {
-                        Text("Retry")
-                    }
-                    .buttonStyle(IFFLPrimaryButtonStyle())
+            if let url {
+                if !loadFailed {
+                    WebViewContainer(url: url, isLoading: $isLoading, loadFailed: $loadFailed)
                 }
+                if isLoading && !loadFailed {
+                    Color.iffBg
+                    ProgressView().tint(Color.iffAccent).scaleEffect(1.4)
+                }
+                if loadFailed {
+                    VStack(spacing: 16) {
+                        Image(systemName: "wifi.slash")
+                            .font(.system(size: 44))
+                            .foregroundColor(Color.iffSubtext)
+                        Text("Couldn't load page")
+                            .font(.headline).foregroundColor(.white)
+                        Button {
+                            loadFailed = false
+                            isLoading  = true
+                        } label: {
+                            Text("Retry")
+                        }
+                        .buttonStyle(IFFLPrimaryButtonStyle())
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Local Standings View
+
+struct LocalStandingsView: View {
+    let history: [SeasonHistory]
+
+    private var latestSeason: SeasonHistory? {
+        history.sorted { $0.season > $1.season }.first
+    }
+
+    var body: some View {
+        if let season = latestSeason {
+            ScrollView {
+                VStack(spacing: 0) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(String(season.season) + " Final Standings")
+                                .font(.headline).foregroundColor(.white)
+                            HStack(spacing: 4) {
+                                Text("🏆").font(.caption)
+                                Text(season.champion)
+                                    .font(.caption.bold()).foregroundColor(Color.iffGold)
+                            }
+                        }
+                        Spacer()
+                    }
+                    .padding()
+
+                    Divider().background(Color.iffElevated)
+
+                    ForEach(season.standings.sorted { $0.place < $1.place }, id: \.teamName) { finish in
+                        HStack(spacing: 12) {
+                            Text("\(finish.place)")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(finish.place <= 3 ? Color.iffGold : Color.iffSubtext)
+                                .frame(width: 26, alignment: .center)
+                            Text(finish.teamName)
+                                .font(.subheadline).foregroundColor(.white)
+                            Spacer()
+                            if let record = finish.record {
+                                Text(record)
+                                    .font(.subheadline.monospacedDigit()).foregroundColor(Color.iffSubtext)
+                            }
+                            if let pts = finish.pointsFor {
+                                Text(String(format: "%.0f pts", pts))
+                                    .font(.caption).foregroundColor(Color.iffSubtext)
+                                    .frame(width: 56, alignment: .trailing)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        .background(finish.place % 2 == 0 ? Color.iffElevated.opacity(0.3) : Color.clear)
+                    }
+                }
+                .iffCard()
+                .padding()
+            }
+        } else {
+            VStack(spacing: 16) {
+                Spacer()
+                Image(systemName: "list.number")
+                    .font(.system(size: 48)).foregroundColor(Color.iffSubtext)
+                Text("No standings data")
+                    .font(.headline).foregroundColor(Color.iffSubtext)
+                Text("Seed league history from the Admin panel.")
+                    .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.7))
+                Spacer()
             }
         }
     }

@@ -57,6 +57,8 @@ struct IFFLContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTab: Int = 0
 
+    private var myMatchCount: Int { appState.myMatchCount }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             DashboardView(selectedTab: $selectedTab)
@@ -69,13 +71,14 @@ struct IFFLContentView: View {
 
             MarketView()
                 .tabItem { Label("Market", systemImage: "arrow.2.squarepath") }
+                .badge(myMatchCount)
                 .tag(2)
 
             LeagueView()
                 .tabItem { Label("League", systemImage: "trophy.fill") }
                 .tag(3)
 
-            if appState.isCommissioner {
+            if appState.isAdmin {
                 AdminView()
                     .tabItem { Label("Admin", systemImage: "shield.checkered") }
                     .tag(4)
@@ -84,7 +87,14 @@ struct IFFLContentView: View {
         .onChange(of: appState.triggerTradeProposal) { triggered in
             if triggered {
                 selectedTab = 2
-                appState.triggerTradeProposal = false
+                // MarketView resets triggerTradeProposal after it fires its own push
+            }
+        }
+        .onChange(of: appState.didLoadSettings) { loaded in
+            // Apply the user's saved default launch tab once, on initial settings load.
+            if loaded {
+                let tab = appState.userSettings.defaultTab
+                if (0...3).contains(tab) { selectedTab = tab }
             }
         }
     }

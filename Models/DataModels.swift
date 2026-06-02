@@ -64,18 +64,19 @@ struct FantasyTeam {
 }
 
 let fantasyTeams: [FantasyTeam] = [
+    // beltWins = league championships won (source: ESPN history 2009-2025)
     FantasyTeam(name: "A. Zurek", color: .red,    logo: "A. Zurek", beltWins: 0),
-    FantasyTeam(name: "Abad",    color: .blue,   logo: "Abad",    beltWins: 0),
-    FantasyTeam(name: "Bill",    color: .green,  logo: "Bill",    beltWins: 0),
-    FantasyTeam(name: "Cantone", color: .purple, logo: "Cantone", beltWins: 0),
+    FantasyTeam(name: "Abad",    color: .blue,   logo: "Abad",    beltWins: 1), // 2023
+    FantasyTeam(name: "Bill",    color: .green,  logo: "Bill",    beltWins: 2), // 2024, 2025
+    FantasyTeam(name: "Cantone", color: .purple, logo: "Cantone", beltWins: 1), // 2021
     FantasyTeam(name: "Dugan",   color: .orange, logo: "Dugan",   beltWins: 0),
-    FantasyTeam(name: "Faybik",  color: .yellow, logo: "Faybik",  beltWins: 0),
+    FantasyTeam(name: "Faybik",  color: .yellow, logo: "Faybik",  beltWins: 1), // 2017
     FantasyTeam(name: "Foley",   color: .pink,   logo: "Foley",   beltWins: 0),
-    FantasyTeam(name: "Jared",   color: .cyan,   logo: "Jared",   beltWins: 0),
+    FantasyTeam(name: "Jared",   color: .cyan,   logo: "Jared",   beltWins: 3), // 2018, 2019, 2020
     FantasyTeam(name: "Jason",   color: .indigo, logo: "Jason",   beltWins: 0),
-    FantasyTeam(name: "M. Zurek",color: .teal,   logo: "M. Zurek",beltWins: 0),
-    FantasyTeam(name: "Ryan",    color: .mint,   logo: "Ryan",    beltWins: 0),
-    FantasyTeam(name: "Wayne",   color: .brown,  logo: "Wayne",   beltWins: 0)
+    FantasyTeam(name: "M. Zurek",color: .teal,   logo: "M. Zurek",beltWins: 1), // 2016
+    FantasyTeam(name: "Ryan",    color: .mint,   logo: "Ryan",    beltWins: 2), // 2012, 2014
+    FantasyTeam(name: "Wayne",   color: .brown,  logo: "Wayne",   beltWins: 1), // 2022
 ]
 
 // MARK: - Player (Firestore: "players" collection)

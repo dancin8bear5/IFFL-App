@@ -693,19 +693,274 @@ class DataSeeder {
     }
 
     // MARK: - Seed League History
-    // COMMISSIONER: populate this from the league's Excel archives (champions,
-    // standings, notable trades per year). Each entry overwrites by year, so it
-    // is safe to re-run after editing.
+    // Source: ESPN league history (2009-2025). Place = final playoff/standings rank.
+    // notableTrades: add manually from the Historical Keeper Master xlsx Trades tab.
+    // Re-running seedLeagueHistory() is safe — it uses merge:true per year doc.
     static let historySeeds: [SeasonHistory] = [
-        // Example shape — replace placeholders with real data from the Excel sheets:
-        // SeasonHistory(
-        //     id: "2024", season: 2024, champion: "Jared", runnerUp: "Abad",
-        //     standings: [
-        //         TeamFinish(teamName: "Jared", place: 1, record: "11-3", pointsFor: 1654.2),
-        //         TeamFinish(teamName: "Abad",  place: 2, record: "10-4", pointsFor: 1601.8),
-        //     ],
-        //     notableTrades: ["Jared traded CeeDee Lamb to Ryan for 2 first-round picks"]
-        // ),
+
+        SeasonHistory(id: "2025", season: 2025, champion: "Bill", runnerUp: "Wayne", standings: [
+            TeamFinish(teamName: "Bill",     place: 1,  record: "11-3", pointsFor: nil),
+            TeamFinish(teamName: "Wayne",    place: 2,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 3,  record: "10-4", pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 4,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 5,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 6,  record: "10-4", pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 7,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 8,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "A. Zurek", place: 9,  record: "2-12", pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 10, record: "4-10", pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 11, record: "3-11", pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 12, record: "4-10", pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2024", season: 2024, champion: "Bill", runnerUp: "Cantone", standings: [
+            TeamFinish(teamName: "Bill",     place: 1,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 2,  record: "10-4", pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 3,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 4,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 5,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "A. Zurek", place: 6,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Wayne",    place: 7,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 8,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 9,  record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 10, record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 11, record: "4-10", pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 12, record: "3-11", pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2023", season: 2023, champion: "Abad", runnerUp: "Dugan", standings: [
+            TeamFinish(teamName: "Abad",     place: 1,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 2,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Wayne",    place: 3,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 4,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 5,  record: "11-3", pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 6,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 7,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "A. Zurek", place: 8,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 9,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 10, record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 11, record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 12, record: "5-9",  pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2022", season: 2022, champion: "Wayne", runnerUp: "Faybik", standings: [
+            TeamFinish(teamName: "Wayne",    place: 1,  record: "10-4", pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 2,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 3,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 4,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 5,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 6,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 7,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 8,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 9,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 10, record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "A. Zurek", place: 11, record: "4-10", pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 12, record: "4-10", pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2021", season: 2021, champion: "Cantone", runnerUp: "Ryan", standings: [
+            TeamFinish(teamName: "Cantone",  place: 1,  record: "10-4", pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 2,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 3,  record: "10-4", pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 4,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 5,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 6,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 7,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 8,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 9,  record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 10, record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Wayne",    place: 11, record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "A. Zurek", place: 12, record: "2-12", pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2020", season: 2020, champion: "Jared", runnerUp: "Ryan", standings: [
+            TeamFinish(teamName: "Jared",    place: 1,  record: "11-3", pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 2,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 3,  record: "11-3", pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 4,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 5,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "A. Zurek", place: 6,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Wayne",    place: 7,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 8,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 9,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 10, record: "4-10", pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 11, record: "4-10", pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 12, record: "4-10", pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2019: last year with Eric Alt and Vince Antonucci; Corey Abad also joined
+        SeasonHistory(id: "2019", season: 2019, champion: "Jared", runnerUp: "M. Zurek", standings: [
+            TeamFinish(teamName: "Jared",    place: 1,  record: "11-3", pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 2,  record: "11-3", pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 3,  record: "9-5",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 4,  record: "8-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 5,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 6,  record: "7-7",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 7,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 8,  record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 9,  record: "6-8",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 10, record: "5-9",  pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 11, record: "3-11", pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 12, record: "1-13", pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2018", season: 2018, champion: "Jared", runnerUp: "Foley", standings: [
+            TeamFinish(teamName: "Jared",    place: 1,  record: "11-2", pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 2,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 3,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 4,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 5,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 6,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 7,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 8,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Abad",     place: 9,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 10, record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 11, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 12, record: "1-12", pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2017: Faybik's first (and only) championship
+        SeasonHistory(id: "2017", season: 2017, champion: "Faybik", runnerUp: "Vince", standings: [
+            TeamFinish(teamName: "Faybik",   place: 1,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 2,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 3,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 4,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 5,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Foley",    place: 6,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 7,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 8,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 9,  record: "3-10", pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 10, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 11, record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Cantone",  place: 12, record: "4-9",  pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2016: last year with DeMott/Drabicki and Yuancie as separate teams
+        SeasonHistory(id: "2016", season: 2016, champion: "M. Zurek", runnerUp: "Bill", standings: [
+            TeamFinish(teamName: "M. Zurek", place: 1,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 2,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 3,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Dugan",    place: 4,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 5,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 6,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 7,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 8,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 9,  record: "3-10", pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 10, record: "3-10", pointsFor: nil),
+            TeamFinish(teamName: "DeMott",   place: 11, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Yuancie",  place: 12, record: "5-8",  pointsFor: nil),
+        ], notableTrades: nil),
+
+        SeasonHistory(id: "2015", season: 2015, champion: "Eric", runnerUp: "Faybik", standings: [
+            TeamFinish(teamName: "Eric",     place: 1,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 2,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "DeMott",   place: 3,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Yuancie",  place: 4,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 5,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 6,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 7,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 8,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 9,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "James",    place: 10, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 11, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 12, record: "3-10", pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2014: Ryan's second championship; faybik joins Lukas as co-manager
+        SeasonHistory(id: "2014", season: 2014, champion: "Ryan", runnerUp: "Faybik", standings: [
+            TeamFinish(teamName: "Ryan",     place: 1,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 2,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 3,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 4,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Kerry",    place: 5,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Nick",     place: 6,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 7,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 8,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 9,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 10, record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 11, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Yuancie",  place: 12, record: "2-11", pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2013: Eric Alt's second championship; Lukas solo, faybik not in league this year
+        SeasonHistory(id: "2013", season: 2013, champion: "Eric", runnerUp: "Yuancie", standings: [
+            TeamFinish(teamName: "Eric",     place: 1,  record: "11-2", pointsFor: nil),
+            TeamFinish(teamName: "Yuancie",  place: 2,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "Lukas",    place: 3,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 4,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 5,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Kerry",    place: 6,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 7,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 8,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 9,  record: "3-10", pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 10, record: "3-10", pointsFor: nil),
+            TeamFinish(teamName: "Vaswani",  place: 11, record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 12, record: "3-10", pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2012: Ryan's first championship; Lukas solo, Yuancie solo (faybik not listed)
+        SeasonHistory(id: "2012", season: 2012, champion: "Ryan", runnerUp: "Kerry", standings: [
+            TeamFinish(teamName: "Ryan",     place: 1,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Kerry",    place: 2,  record: "11-2", pointsFor: nil),
+            TeamFinish(teamName: "Vaswani",  place: 3,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 4,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 5,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 6,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Lukas",    place: 7,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Yuancie",  place: 8,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 9,  record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 10, record: "5-8",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 11, record: "4-9",  pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 12, record: "1-12", pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2011: Vince's only championship; Lukas solo, faybik/Yuancie as co-managed team
+        SeasonHistory(id: "2011", season: 2011, champion: "Vince", runnerUp: "Lukas", standings: [
+            TeamFinish(teamName: "Vince",    place: 1,  record: "9-4",  pointsFor: nil),
+            TeamFinish(teamName: "Lukas",    place: 2,  record: "8-5",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 3,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "Vaswani",  place: 4,  record: "10-3", pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 5,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 6,  record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 7,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 8,  record: "7-6",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 9,  record: "2-11", pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 10, record: "3-10", pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 11, record: "6-7",  pointsFor: nil),
+            TeamFinish(teamName: "Kerry",    place: 12, record: "5-8",  pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2010: Jim Friend's only championship; faybik/Yuancie joined the league
+        SeasonHistory(id: "2010", season: 2010, champion: "Jim", runnerUp: "Vaswani", standings: [
+            TeamFinish(teamName: "Jim",      place: 1,  record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Vaswani",  place: 2,  record: "8-4",  pointsFor: nil),
+            TeamFinish(teamName: "Lukas",    place: 3,  record: "10-2", pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 4,  record: "8-4",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 5,  record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 6,  record: "4-8",  pointsFor: nil),
+            TeamFinish(teamName: "Eric",     place: 7,  record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Kerry",    place: 8,  record: "4-8",  pointsFor: nil),
+            TeamFinish(teamName: "Faybik",   place: 9,  record: "6-6",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 10, record: "4-8",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 11, record: "4-8",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 12, record: "3-9",  pointsFor: nil),
+        ], notableTrades: nil),
+
+        // 2009: Eric Alt's first championship; league founding era
+        SeasonHistory(id: "2009", season: 2009, champion: "Eric", runnerUp: "Ryan", standings: [
+            TeamFinish(teamName: "Eric",     place: 1,  record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Ryan",     place: 2,  record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Vince",    place: 3,  record: "8-4",  pointsFor: nil),
+            TeamFinish(teamName: "Lukas",    place: 4,  record: "8-4",  pointsFor: nil),
+            TeamFinish(teamName: "Jim",      place: 5,  record: "6-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jason",    place: 6,  record: "6-6",  pointsFor: nil),
+            TeamFinish(teamName: "Jared",    place: 7,  record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Vaswani",  place: 8,  record: "2-10", pointsFor: nil),
+            TeamFinish(teamName: "Kerry",    place: 9,  record: "4-8",  pointsFor: nil),
+            TeamFinish(teamName: "Chad",     place: 10, record: "7-5",  pointsFor: nil),
+            TeamFinish(teamName: "Bill",     place: 11, record: "6-6",  pointsFor: nil),
+            TeamFinish(teamName: "M. Zurek", place: 12, record: "4-8",  pointsFor: nil),
+        ], notableTrades: nil),
     ]
 
     func seedLeagueHistory(completion: @escaping (Result<String, Error>) -> Void) {

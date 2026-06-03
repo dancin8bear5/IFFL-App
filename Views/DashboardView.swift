@@ -50,6 +50,7 @@ struct DashboardView: View {
                                 .transition(.opacity.combined(with: .move(edge: .top)))
                             if appState.myMatchCount > 0 { matchNotificationCard }
                             leagueCapRankingsSection
+                            teamGridSection
                             if !recentTrades.isEmpty { recentTradesSection }
                             if !appState.messages.isEmpty { messagesSection }
                         } else {
@@ -261,6 +262,21 @@ struct DashboardView: View {
                 }
             }
             .iffCard()
+        }
+    }
+
+    // MARK: Team Grid
+
+    private var teamGridSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionHeader("All Teams", action: nil, actionLabel: nil)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 88))], spacing: 10) {
+                ForEach(fantasyTeams, id: \.name) { team in
+                    NavigationLink(destination: RosterDetailView(teamName: team.name)) {
+                        TeamIconView(team: team)
+                    }
+                }
+            }
         }
     }
 

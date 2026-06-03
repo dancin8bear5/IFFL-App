@@ -381,7 +381,7 @@ struct TradeHistorySection: View {
     private var completedSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("\(appState.activeSeason) Trades")
+                Text(String(appState.activeSeason) + " Trades")
                     .font(.headline).foregroundColor(.white)
                 Spacer()
                 NavigationLink(destination: HistoricalTradesView()) {

@@ -158,7 +158,7 @@ struct AdminDatabaseSection: View {
 
                 AdminCard(title: "Active Season", icon: "calendar") {
                     HStack {
-                        Text("Current: \(appState.activeSeason)")
+                        Text("Current: " + String(appState.activeSeason))
                             .foregroundColor(Color("TextColor"))
                         Spacer()
                         NavigationLink("Change") {

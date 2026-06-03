@@ -45,6 +45,12 @@ struct IFFLApp: App {
         UITabBar.appearance().scrollEdgeAppearance = tabBar
         UITabBar.appearance().tintColor            = UIColor(red: 0.902, green: 0.224, blue: 0.275, alpha: 1)
 
+        // Segmented controls (Market/League/Rosters tab pickers)
+        UISegmentedControl.appearance().setTitleTextAttributes(
+            [.foregroundColor: UIColor.white], for: .normal)
+        UISegmentedControl.appearance().setTitleTextAttributes(
+            [.foregroundColor: UIColor.black], for: .selected)
+
         // Navigation bar
         let navBar = UINavigationBarAppearance()
         navBar.configureWithOpaqueBackground()

@@ -301,6 +301,14 @@ class AuthenticationService: ObservableObject {
         }
     }
 
+    func signInWithEmail(_ email: String, password: String) {
+        Auth.auth().signIn(withEmail: email, password: password) { [weak self] _, error in
+            if let error = error {
+                DispatchQueue.main.async { self?.signInError = error.localizedDescription }
+            }
+        }
+    }
+
     func signOut() {
         GIDSignIn.sharedInstance.signOut()
         try? Auth.auth().signOut()
@@ -369,6 +377,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
 struct LoginView: View {
     @ObservedObject var authService: AuthenticationService
+    @State private var showEmailLogin = false
+    @State private var email = ""
+    @State private var password = ""
 
     var body: some View {
         ZStack {
@@ -418,10 +429,53 @@ struct LoginView: View {
                     }
                 }
 
-                Text("Access is limited to IFFL members.")
-                    .font(.caption)
-                    .foregroundColor(Color.iffSubtext)
-                    .padding(.bottom, 30)
+                VStack(spacing: 12) {
+                    Text("Access is limited to IFFL members.")
+                        .font(.caption)
+                        .foregroundColor(Color.iffSubtext)
+
+                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showEmailLogin.toggle() } }) {
+                        Text("Member sign-in")
+                            .font(.caption)
+                            .foregroundColor(Color.iffSubtext.opacity(0.6))
+                            .underline()
+                    }
+
+                    if showEmailLogin {
+                        VStack(spacing: 10) {
+                            TextField("Email", text: $email)
+                                .keyboardType(.emailAddress)
+                                .autocapitalization(.none)
+                                .textContentType(.username)
+                                .padding(12)
+                                .background(Color.iffSurface)
+                                .cornerRadius(10)
+                                .foregroundColor(.white)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.iffElevated, lineWidth: 1))
+
+                            SecureField("Password", text: $password)
+                                .textContentType(.password)
+                                .padding(12)
+                                .background(Color.iffSurface)
+                                .cornerRadius(10)
+                                .foregroundColor(.white)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.iffElevated, lineWidth: 1))
+
+                            Button(action: { authService.signInWithEmail(email, password: password) }) {
+                                Text("Sign In")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(12)
+                                    .background(Color.iffAccent)
+                                    .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.bottom, 30)
             }
         }
     }

@@ -4,6 +4,8 @@ import FirebaseMessaging
 import FirebaseAuth
 import FirebaseFirestore
 import GoogleSignIn
+import AuthenticationServices
+import CryptoKit
 
 // MARK: - AppState
 
@@ -309,6 +311,56 @@ class AuthenticationService: ObservableObject {
         }
     }
 
+    // MARK: - Sign in with Apple
+
+    private var currentNonce: String?
+
+    func prepareAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+    }
+
+    func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData  = credential.identityToken,
+                  let idToken    = String(data: tokenData, encoding: .utf8),
+                  let nonce      = currentNonce else {
+                DispatchQueue.main.async { self.signInError = "Sign in with Apple failed." }
+                return
+            }
+            let firebaseCredential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: nonce,
+                fullName: credential.fullName
+            )
+            Auth.auth().signIn(with: firebaseCredential) { _, error in
+                if let error = error {
+                    DispatchQueue.main.async { self.signInError = error.localizedDescription }
+                }
+            }
+        case .failure(let error):
+            let nsError = error as NSError
+            if nsError.code == ASAuthorizationError.canceled.rawValue { return }
+            DispatchQueue.main.async { self.signInError = error.localizedDescription }
+        }
+    }
+
+    private func randomNonceString(length: Int = 32) -> String {
+        var bytes = [UInt8](repeating: 0, count: length)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(bytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8))
+            .compactMap { String(format: "%02x", $0) }.joined()
+    }
+
     func signOut() {
         GIDSignIn.sharedInstance.signOut()
         try? Auth.auth().signOut()
@@ -405,6 +457,17 @@ struct LoginView: View {
                 Spacer()
 
                 VStack(spacing: 12) {
+                    SignInWithAppleButton(.signIn) { request in
+                        authService.prepareAppleRequest(request)
+                    } onCompletion: { result in
+                        authService.handleAppleResult(result)
+                    }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
                     Button(action: { authService.signInWithGoogle() }) {
                         HStack(spacing: 12) {
                             Image(systemName: "g.circle.fill")

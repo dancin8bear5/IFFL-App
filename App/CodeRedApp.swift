@@ -430,7 +430,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
 struct LoginView: View {
     @ObservedObject var authService: AuthenticationService
-    @State private var showEmailLogin = false
+    @State private var showEmailLogin = true
     @State private var email = ""
     @State private var password = ""
 
@@ -499,9 +499,9 @@ struct LoginView: View {
                         .foregroundColor(Color.iffSubtext)
 
                     Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showEmailLogin.toggle() } }) {
-                        Text("Member sign-in")
+                        Text(showEmailLogin ? "Hide email sign-in" : "Sign in with Email")
                             .font(.caption)
-                            .foregroundColor(Color.iffSubtext.opacity(0.6))
+                            .foregroundColor(Color.iffSubtext.opacity(0.8))
                             .underline()
                     }
 

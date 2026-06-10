@@ -37,6 +37,7 @@ class AppState: ObservableObject {
 
     @Published var selectedAssetForTrade: DisplayAsset? = nil
     @Published var triggerTradeProposal: Bool = false
+    @Published var tradePreset: TradePreset? = nil
 
     @Published var fmkSignals: [PlayerFMK] = []
     @Published var allLeagueFMK: [PlayerFMK] = []
@@ -840,45 +841,270 @@ struct TradeRowView: View {
 
 struct TradeDetailView: View {
     let trade: Trade
+    @EnvironmentObject var appState: AppState
+    @State private var showCounter = false
+    @State private var actionError = ""
+
+    private var isIncomingProposal: Bool {
+        trade.receivingTeamName == appState.userTeam && trade.status == .proposed
+    }
+
+    private var chainHistory: [Trade] {
+        var history: [Trade] = []
+        var currentId = trade.parentTradeId
+        while let pid = currentId {
+            if let parent = appState.trades.first(where: { $0.id == pid }) {
+                history.append(parent)
+                currentId = parent.parentTradeId
+            } else { break }
+        }
+        return history.reversed()
+    }
 
     var body: some View {
         ZStack {
             Color.iffBg.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 12) {
-                Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
-                    .font(.title2.bold()).foregroundColor(.white)
-                Text(trade.formattedDate).font(.subheadline).foregroundColor(Color.iffSubtext)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
+                        .font(.title2.bold()).foregroundColor(.white)
+                    Text(trade.formattedDate).font(.subheadline).foregroundColor(Color.iffSubtext)
 
-                Divider().background(Color.iffSubtext)
-
-                HStack(alignment: .top, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(trade.receivingTeamName) Gets:")
-                            .font(.headline).foregroundColor(.white)
-                        ForEach(trade.proposerAssetNames, id: \.self) {
-                            Text("• \($0)").foregroundColor(.white)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(trade.proposingTeamName) Gets:")
-                            .font(.headline).foregroundColor(.white)
-                        ForEach(trade.receiverAssetNames, id: \.self) {
-                            Text("• \($0)").foregroundColor(.white)
-                        }
-                    }
-                }
-
-                if let notes = trade.notes, !notes.isEmpty {
                     Divider().background(Color.iffSubtext)
-                    Text("Notes: \(notes)").foregroundColor(Color.iffSubtext)
-                }
 
-                Spacer()
+                    HStack(alignment: .top, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("\(trade.receivingTeamName) Gets:")
+                                .font(.headline).foregroundColor(.white)
+                            ForEach(trade.proposerAssetNames, id: \.self) {
+                                Text("• \($0)").foregroundColor(.white)
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("\(trade.proposingTeamName) Gets:")
+                                .font(.headline).foregroundColor(.white)
+                            ForEach(trade.receiverAssetNames, id: \.self) {
+                                Text("• \($0)").foregroundColor(.white)
+                            }
+                        }
+                    }
+
+                    if let msg = trade.message, !msg.isEmpty {
+                        Divider().background(Color.iffSubtext)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Note from \(trade.proposingTeamName)")
+                                .font(.caption).foregroundColor(Color.iffSubtext)
+                            Text(msg).foregroundColor(.white).font(.subheadline)
+                        }
+                    }
+
+                    if !chainHistory.isEmpty {
+                        Divider().background(Color.iffSubtext)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Negotiation History")
+                                .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                            ForEach(Array(chainHistory.enumerated()), id: \.offset) { idx, prior in
+                                HStack(spacing: 6) {
+                                    Text("Round \(idx + 1):")
+                                        .font(.caption).foregroundColor(Color.iffSubtext)
+                                    Text("\(prior.proposingTeamName) offered \(prior.proposerAssetNames.prefix(2).joined(separator: ", "))")
+                                        .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.8))
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                    }
+
+                    if !actionError.isEmpty {
+                        Text(actionError).foregroundColor(.red).font(.caption)
+                    }
+
+                    if isIncomingProposal {
+                        Divider().background(Color.iffSubtext)
+                        HStack(spacing: 12) {
+                            Button("Accept") {
+                                guard let id = trade.id else { return }
+                                appState.dataService.respondToTrade(tradeId: id, response: .yes) { err in
+                                    DispatchQueue.main.async {
+                                        actionError = err?.localizedDescription ?? ""
+                                    }
+                                }
+                            }
+                            .font(.headline).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding(12)
+                            .background(Color.green.opacity(0.8)).cornerRadius(10)
+
+                            Button("Decline") {
+                                guard let id = trade.id else { return }
+                                appState.dataService.respondToTrade(tradeId: id, response: .no) { err in
+                                    DispatchQueue.main.async {
+                                        actionError = err?.localizedDescription ?? ""
+                                    }
+                                }
+                            }
+                            .font(.headline).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding(12)
+                            .background(Color.red.opacity(0.7)).cornerRadius(10)
+
+                            Button("Counter") { showCounter = true }
+                                .font(.headline).foregroundColor(.white)
+                                .frame(maxWidth: .infinity).padding(12)
+                                .background(Color.iffGold.opacity(0.8)).cornerRadius(10)
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding()
             }
-            .padding()
         }
         .navigationTitle("Trade Details")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCounter) {
+            CounterOfferView(originalTrade: trade).environmentObject(appState)
+        }
+    }
+}
+
+// MARK: - Counter Offer View
+
+struct CounterOfferView: View {
+    let originalTrade: Trade
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedOfferedIds: Set<String>   = []
+    @State private var selectedRequestedIds: Set<String> = []
+    @State private var counterMessage = ""
+    @State private var showSuccess = false
+    @State private var errorMsg = ""
+
+    private var otherTeam: String { originalTrade.proposingTeamName }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.iffBg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Original Offer from \(otherTeam)")
+                                .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                            Text("\(otherTeam) gives: \(originalTrade.proposerAssetNames.joined(separator: ", "))")
+                                .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.8))
+                            Text("You give: \(originalTrade.receiverAssetNames.joined(separator: ", "))")
+                                .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.8))
+                        }
+                        .padding()
+                        .background(Color.iffElevated)
+                        .cornerRadius(10)
+
+                        let myAssets    = appState.allDisplayAssets.filter { $0.teamName == appState.userTeam }
+                        let theirAssets = appState.allDisplayAssets.filter { $0.teamName == otherTeam }
+
+                        assetPicker(title: "You Give", assets: myAssets, selectedIds: $selectedOfferedIds)
+                        assetPicker(title: "You Want (\(otherTeam))", assets: theirAssets, selectedIds: $selectedRequestedIds)
+
+                        TextField("Add a note (optional)", text: $counterMessage, axis: .vertical)
+                            .lineLimit(3)
+                            .padding(12)
+                            .background(Color.iffSurface)
+                            .cornerRadius(10)
+                            .foregroundColor(.white)
+
+                        if showSuccess {
+                            Text("✓ Counter sent!").foregroundColor(.green).font(.subheadline)
+                        }
+                        if !errorMsg.isEmpty {
+                            Text(errorMsg).foregroundColor(.red).font(.caption)
+                        }
+
+                        Button("Send Counter") { submitCounter() }
+                            .disabled(selectedOfferedIds.isEmpty || selectedRequestedIds.isEmpty)
+                            .buttonStyle(IFFLPrimaryButtonStyle())
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Counter Offer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(Color.iffSubtext)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func assetPicker(title: String, assets: [DisplayAsset], selectedIds: Binding<Set<String>>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline).foregroundColor(.white)
+            ForEach(assets.sorted { $0.currentPrice > $1.currentPrice }) { asset in
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(asset.name).foregroundColor(.white).font(.subheadline)
+                        Text(asset.isPick ? "Pick" : asset.position)
+                            .foregroundColor(Color.iffSubtext).font(.caption)
+                    }
+                    Spacer()
+                    Text(asset.formattedCurrentPrice).foregroundColor(Color.iffGold).font(.subheadline)
+                    if selectedIds.wrappedValue.contains(asset.id) {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.iffAccent)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if selectedIds.wrappedValue.contains(asset.id) {
+                        selectedIds.wrappedValue.remove(asset.id)
+                    } else {
+                        selectedIds.wrappedValue.insert(asset.id)
+                    }
+                }
+                .padding(.vertical, 4)
+                Divider().background(Color.iffSubtext.opacity(0.3))
+            }
+        }
+    }
+
+    private func submitCounter() {
+        guard let originalId = originalTrade.id else { return }
+        let allAssets = appState.allDisplayAssets
+        let offeredRefs = selectedOfferedIds.compactMap { id -> TradeAssetRef? in
+            guard let asset = allAssets.first(where: { $0.id == id }) else { return nil }
+            return TradeAssetRef(assetType: asset.assetType, assetId: asset.id,
+                                 displayName: asset.name, teamName: asset.teamName)
+        }
+        let requestedRefs = selectedRequestedIds.compactMap { id -> TradeAssetRef? in
+            guard let asset = allAssets.first(where: { $0.id == id }) else { return nil }
+            return TradeAssetRef(assetType: asset.assetType, assetId: asset.id,
+                                 displayName: asset.name, teamName: asset.teamName)
+        }
+        let counter = Trade(
+            id: nil, season: appState.activeSeason, date: Date(),
+            status: .proposed,
+            proposingTeamName: appState.userTeam,
+            receivingTeamName: otherTeam,
+            assetsFromProposer: offeredRefs,
+            assetsFromReceiver: requestedRefs,
+            notes: nil,
+            message: counterMessage.isEmpty ? nil : counterMessage,
+            parentTradeId: originalId,
+            completedAt: nil, response: nil, isHistorical: false,
+            historicalProposerAssets: nil, historicalReceiverAssets: nil
+        )
+        appState.dataService.counterOffer(originalTradeId: originalId, counter: counter) { error in
+            DispatchQueue.main.async {
+                if let e = error {
+                    errorMsg = e.localizedDescription
+                } else {
+                    showSuccess = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -943,6 +1169,7 @@ struct TradeProposalView: View {
     @State private var selectedOtherTeam: String? = nil
     @State private var selectedOfferedIds: Set<String>   = []
     @State private var selectedRequestedIds: Set<String> = []
+    @State private var proposalMessage = ""
     @State private var showSuccess = false
     @State private var errorMsg = ""
 
@@ -979,6 +1206,14 @@ struct TradeProposalView: View {
                 if !errorMsg.isEmpty {
                     Text(errorMsg).foregroundColor(.red).font(.caption)
                 }
+
+                TextField("Add a note (optional)", text: $proposalMessage, axis: .vertical)
+                    .lineLimit(3)
+                    .padding(12)
+                    .background(Color.iffSurface)
+                    .cornerRadius(10)
+                    .foregroundColor(.white)
+                    .padding(.horizontal)
 
                 Button("Propose Trade") { submitProposal() }
                     .disabled(selectedOtherTeam == nil || selectedOfferedIds.isEmpty || selectedRequestedIds.isEmpty)
@@ -1025,6 +1260,13 @@ struct TradeProposalView: View {
     }
 
     private func handleShortcut() {
+        if let preset = appState.tradePreset {
+            selectedOtherTeam     = preset.otherTeam
+            selectedOfferedIds    = preset.offeredIds
+            selectedRequestedIds  = preset.requestedIds
+            appState.tradePreset  = nil
+            return
+        }
         guard let asset = appState.selectedAssetForTrade, asset.teamName != appState.userTeam else { return }
         selectedOtherTeam = asset.teamName
         selectedRequestedIds.insert(asset.id)
@@ -1047,8 +1289,9 @@ struct TradeProposalView: View {
         let trade = Trade(id: nil, season: appState.activeSeason, date: Date(),
                           status: .proposed, proposingTeamName: appState.userTeam,
                           receivingTeamName: otherTeam, assetsFromProposer: offeredRefs,
-                          assetsFromReceiver: requestedRefs, notes: nil, completedAt: nil,
-                          response: nil, isHistorical: false,
+                          assetsFromReceiver: requestedRefs, notes: nil,
+                          message: proposalMessage.isEmpty ? nil : proposalMessage,
+                          completedAt: nil, response: nil, isHistorical: false,
                           historicalProposerAssets: nil, historicalReceiverAssets: nil)
         appState.dataService.proposeTrade(trade) { error in
             DispatchQueue.main.async {
@@ -1059,6 +1302,7 @@ struct TradeProposalView: View {
                     self.selectedOfferedIds.removeAll()
                     self.selectedRequestedIds.removeAll()
                     self.selectedOtherTeam = nil
+                    self.proposalMessage = ""
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.showSuccess = false }
                 }
             }

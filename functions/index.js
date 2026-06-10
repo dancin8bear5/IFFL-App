@@ -50,6 +50,9 @@ exports.onTradeWrite = functions.firestore
 
     // New trade created
     if (!before) {
+      // Counter-offers: the original trade's status→countered already notified the proposer.
+      // Suppress here to avoid a duplicate "Trade Offer" push.
+      if (after.parentTradeId) return null;
       await sendPush(
         receiver,
         `Trade Offer from ${proposer}`,

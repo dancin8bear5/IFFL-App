@@ -8,6 +8,7 @@ enum TradeStatus: String, Codable {
     case proposed    = "proposed"
     case accepted    = "accepted"
     case rejected    = "rejected"
+    case countered   = "countered"
     case completed   = "completed"
     case historical  = "historical"
     case unknown     = "unknown"
@@ -237,6 +238,8 @@ struct Trade: Identifiable, Codable {
     /// Assets the receiving team sends to the proposing team
     var assetsFromReceiver: [TradeAssetRef]
     var notes: String?
+    var message: String? = nil
+    var parentTradeId: String? = nil
     var completedAt: Date?
     var response: TradeResponse?
     /// true for trades migrated from Google Sheets history
@@ -270,6 +273,12 @@ struct TradeAssetRef: Codable, Hashable {
     var assetId: String
     var displayName: String
     var teamName: String
+}
+
+struct TradePreset {
+    var otherTeam: String
+    var offeredIds: Set<String>
+    var requestedIds: Set<String>
 }
 
 // MARK: - PlayerInterest (Firestore: "playerInterests" collection)

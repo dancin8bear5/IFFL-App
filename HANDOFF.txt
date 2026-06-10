@@ -1,0 +1,162 @@
+IFFL APP — CLAUDE HANDOFF BRIEF
+================================
+Date: 2026-06-09
+Branch: claude/insanity-league-ios-app-g73Jo
+Repo: dancin8bear5/IFFL-App
+Working directory (user's Mac): ~/Documents/Claude/Projects/IFFL-App
+Always open CodeRed.xcworkspace (NOT .xcodeproj) — CocoaPods/Firebase dependency
+
+
+SITUATION
+---------
+The IFFL iOS app (Version 2.0) was rejected from the App Store. Two issues
+require code changes and a new build. Two others are App Store Connect fixes
+that Jared is handling manually in parallel — do NOT worry about those.
+
+Current build number in project.pbxproj: CURRENT_PROJECT_VERSION = 6
+You must bump it to 7 as part of this work.
+
+
+REJECTIONS THAT NEED CODE FIXES
+---------------------------------
+
+TASK 1 — Guideline 4.8: Add Sign in with Apple (REQUIRED)
+Apple mandates that any app offering a third-party login (Google Sign-In)
+must also offer Sign in with Apple as an equivalent option. This is the
+primary rejection reason.
+
+What to build:
+- Add Sign in with Apple button to LoginView in App/CodeRedApp.swift
+  (alongside the existing Google button and "Member sign-in" disclosure)
+- Implement signInWithApple() in AuthenticationService (same file, ~line 255)
+  using ASAuthorizationAppleIDProvider + Firebase OAuthCredential
+- Add Sign in with Apple capability/entitlement to the Xcode project
+
+Implementation notes:
+- AuthenticationService is a class ObservableObject in App/CodeRedApp.swift
+- It already has: signInWithGoogle(), signInWithEmail(), signOut()
+- It already has: @Published var isLoggedIn, @Published var signInError
+- On successful SIWA, Firebase's addStateDidChangeListener fires automatically
+  and sets isLoggedIn = true — same flow as Google and email auth
+- Requires: import AuthenticationServices, import CryptoKit
+- Requires: private var currentNonce: String? stored on AuthenticationService
+
+Standard Sign in with Apple + Firebase pattern:
+  1. Generate a random nonce string (CryptoKit)
+  2. SHA256-hash it
+  3. Create ASAuthorizationAppleIDProvider().createRequest()
+     set requestedScopes = [.fullName, .email], set nonce = sha256Nonce
+  4. Present via ASAuthorizationController
+  5. In ASAuthorizationControllerDelegate.didCompleteWithAuthorization:
+     - Extract appleIDToken from credential.identityToken
+     - Build OAuthProvider.credential(providerID: .apple, idToken: token, rawNonce: currentNonce)
+     - Call Auth.auth().signIn(with: credential)
+  6. AuthenticationService must conform to:
+     ASAuthorizationControllerDelegate
+     ASAuthorizationControllerPresentationContextProviding
+
+Adding capability to Xcode project (project.pbxproj):
+- Check if a .entitlements file already exists; if not, create
+  CodeRed/CodeRed.entitlements with:
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" ...>
+    <plist version="1.0"><dict>
+      <key>com.apple.developer.applesignin</key>
+      <array><string>Default</string></array>
+    </dict></plist>
+- Add CODE_SIGN_ENTITLEMENTS = CodeRed/CodeRed.entitlements to both
+  Debug and Release configs in project.pbxproj
+- Add PBXFileReference + PBXBuildFile entries for the entitlements file
+  (it goes in Resources build phase, not Sources)
+
+Firebase Console prerequisite (Jared must do this — tell him if not done):
+  Firebase Console → Authentication → Sign-in methods → enable "Apple"
+
+LoginView UI (App/CodeRedApp.swift ~line 370):
+- Add Sign in with Apple button ABOVE the Google button (Apple's guidelines
+  require SIWA to be at least as prominent as other login options)
+- Use SignInWithAppleButton(.signIn, ...) from AuthenticationServices
+  OR a custom styled button calling authService.signInWithApple()
+- Style: white background, dark text, same width as Google button
+
+
+TASK 2 — Guideline 2.3.8: App name mismatch
+App Store listing name: "IFFL"
+Device home screen shows: "CodeRed"
+Apple requires these to be similar.
+
+Fix: Change the display name in the Xcode project to "IFFL"
+
+In CodeRed.xcodeproj/project.pbxproj, find all occurrences of:
+  INFOPLIST_KEY_CFBundleDisplayName
+If present, change value to "IFFL".
+If not present (it may be absent and defaulting to the target name "CodeRed"),
+add it to both Debug and Release build settings:
+  INFOPLIST_KEY_CFBundleDisplayName = IFFL;
+
+Also check Info.plist at repo root — if it has CFBundleDisplayName,
+update it there too.
+
+
+BUILD NUMBER
+------------
+After making both changes above, bump CURRENT_PROJECT_VERSION in
+CodeRed.xcodeproj/project.pbxproj from 6 to 7 (appears in 6 places — use
+sed or replace_all). MARKETING_VERSION stays 2.0.
+
+
+PROJECT ARCHITECTURE (need-to-know)
+-------------------------------------
+- @main: App/IFFLApp.swift
+- AuthenticationService + AppState + LoginView + TradeDetailView +
+  TradeProposalView + most shared views: App/CodeRedApp.swift
+- Feature views: Views/ folder (flat — no subdirectories)
+  DashboardView, RostersView, MarketView, LeagueView, AdminView,
+  SettingsView, FMKSwiperView, LeagueHistoryView, WebViewContainer
+- Data models: Models/DataModels.swift
+- Firestore service: Services/FirestoreDataService.swift
+- Theme/colors: App/IFFLTheme.swift
+  Key tokens: Color.iffBg, Color.iffSurface, Color.iffElevated,
+              Color.iffAccent (#E63946 red), Color.iffGold, Color.iffSubtext
+  Button style: IFFLPrimaryButtonStyle (use for Sign In buttons)
+
+Firebase project ID: iffl-auth
+Bundle ID: com.IFFLtest.CodeRed
+Dev team: LNHDZQ76WT
+
+Adding new Swift files to Xcode project requires 4 entries in project.pbxproj:
+  PBXBuildFile, PBXFileReference, parent PBXGroup children, PBXSourcesBuildPhase
+  (entitlements file goes in Resources not Sources)
+
+
+WHAT WAS DONE THIS SESSION (already committed + pushed to branch)
+------------------------------------------------------------------
+- Added email/password sign-in to AuthenticationService + LoginView
+  (subtle "Member sign-in" disclosure below Google button)
+- Bumped build number 5 → 6
+- Added Firebase Cloud Function for trade push notifications
+  (functions/index.js, firebase.json, .firebaserc — not yet deployed by user)
+- These are all pushed. Do not re-do them.
+
+
+COMMIT + PUSH INSTRUCTIONS
+---------------------------
+After making changes, commit to the same branch:
+  git add <files>
+  git commit -m "Add Sign in with Apple and fix display name; bump build to 7"
+  git push -u origin claude/insanity-league-ios-app-g73Jo
+
+Include this URL in the commit message:
+  https://claude.ai/code/session_013LiJCc6VqdEfv5CqWEJCH1
+
+
+VERIFICATION CHECKLIST
+-----------------------
+1. Build in Xcode (Cmd+B) — 0 errors, 0 warnings about entitlements
+2. LoginView shows Sign in with Apple button above Google button
+3. Tapping Sign in with Apple presents the native Apple auth sheet
+4. Successful SIWA → app logs in, lands on correct team dashboard
+5. Google Sign-In still works unchanged
+6. Email/password "Member sign-in" still works unchanged
+7. Home screen icon shows "IFFL" not "CodeRed"
+8. project.pbxproj shows CURRENT_PROJECT_VERSION = 7 in all 6 configs

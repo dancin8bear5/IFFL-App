@@ -241,10 +241,14 @@ struct MatchesView: View {
         let userIsA = match.teamA == appState.userTeam
         let userIsB = match.teamB == appState.userTeam
         guard userIsA || userIsB else { return }
-        let theirCandidates = userIsA ? match.aWants : match.bWants
-        if let first = theirCandidates.first {
-            appState.selectedAssetForTrade = first.asset
-        }
+        let otherTeam      = userIsA ? match.teamB : match.teamA
+        let theyWant       = userIsA ? match.bWants : match.aWants  // what other team wants from me (I give)
+        let iWant          = userIsA ? match.aWants : match.bWants  // what I want from them
+        appState.tradePreset = TradePreset(
+            otherTeam:    otherTeam,
+            offeredIds:   Set(theyWant.map { $0.asset.id }),
+            requestedIds: Set(iWant.map   { $0.asset.id })
+        )
     }
 }
 
@@ -369,10 +373,17 @@ struct TradeHistorySection: View {
     }
 
     private func statusBadge(_ status: TradeStatus) -> some View {
-        Text(status == .proposed ? "Proposed" : "Accepted")
+        let label: String
+        let color: Color
+        switch status {
+        case .accepted:  label = "Accepted";  color = Color.green.opacity(0.7)
+        case .countered: label = "Countered"; color = Color.iffAccent.opacity(0.8)
+        default:         label = "Proposed";  color = Color.iffGold.opacity(0.8)
+        }
+        return Text(label)
             .font(.caption2.bold()).foregroundColor(.white)
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(status == .accepted ? Color.green.opacity(0.7) : Color.iffGold.opacity(0.8))
+            .background(color)
             .clipShape(Capsule())
     }
 

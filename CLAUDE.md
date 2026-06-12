@@ -102,6 +102,7 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 
 ## Backlog
 
+- [ ] **Custom app icon selector** — allow each user to choose their app icon from a set of presets (iOS alternate icons via `CFBundleAlternateIcons`). Add picker in Settings > Appearance.
 - [ ] **Fastlane release automation** — one command (`fastlane beta`) to increment build number, archive, and upload to TestFlight. `fastlane/` folder already in `.gitignore`.
 - [ ] **Merge open branches** — `claude/repo-cleanup-and-security` and `claude/claude-md-init` into main once build is confirmed working on device.
 - [ ] **Rotate serviceAccountKey.json** — old key was committed to git history; rotate in Google Cloud Console.

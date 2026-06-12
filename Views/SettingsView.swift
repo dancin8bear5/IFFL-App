@@ -28,6 +28,7 @@ struct SettingsView: View {
                     leagueSection
                     notificationsSection
                     aboutSection
+                    signOutSection
                 }
                 .scrollContentBackground(.hidden)
             }
@@ -176,6 +177,24 @@ struct SettingsView: View {
                     Spacer()
                     Image(systemName: "arrow.up.right")
                         .font(.caption).foregroundColor(Color.iffSubtext)
+                }
+            }
+        }
+        .listRowBackground(Color.iffSurface)
+    }
+
+    // MARK: Sign Out
+
+    private var signOutSection: some View {
+        Section {
+            Button(role: .destructive) {
+                try? Auth.auth().signOut()
+            } label: {
+                HStack {
+                    Spacer()
+                    Text("Sign Out")
+                        .font(.headline)
+                    Spacer()
                 }
             }
         }

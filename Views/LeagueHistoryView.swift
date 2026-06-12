@@ -23,6 +23,7 @@ struct LeagueHistoryView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
+                        trophyCaseBanner
                         ForEach(appState.leagueHistory) { entry in
                             SeasonHistoryCard(
                                 entry: entry,
@@ -39,6 +40,32 @@ struct LeagueHistoryView: View {
             }
         }
         .onAppear { appState.loadLeagueHistory() }
+    }
+
+    private var trophyCaseBanner: some View {
+        NavigationLink {
+            TrophyCaseView().environmentObject(appState)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color.iffGold.opacity(0.18)).frame(width: 44, height: 44)
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 20)).foregroundColor(Color.iffGold)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Trophy Case")
+                        .font(.headline).foregroundColor(.white)
+                    Text("Career stats, belts & finishes")
+                        .font(.caption).foregroundColor(Color.iffSubtext)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundColor(Color.iffSubtext)
+            }
+            .padding()
+            .iffCard()
+        }
+        .buttonStyle(.plain)
     }
 }
 

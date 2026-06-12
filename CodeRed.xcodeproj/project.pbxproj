@@ -26,6 +26,7 @@
 		BB0400002000000000000016 /* FMKSwiperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000016 /* FMKSwiperView.swift */; };
 		BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000017 /* LeagueHistoryView.swift */; };
 		BB0400002000000000000018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000018 /* SettingsView.swift */; };
+		BB0400002000000000000019 /* TrophyCaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000019 /* TrophyCaseView.swift */; };
 		BB0500002000000000000011 /* MarketEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0500001000000000000011 /* MarketEngine.swift */; };
 /* End PBXBuildFile section */
 
@@ -72,6 +73,7 @@
 		BB0400001000000000000016 /* FMKSwiperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMKSwiperView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000017 /* LeagueHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueHistoryView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000019 /* TrophyCaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrophyCaseView.swift; sourceTree = "<group>"; };
 		BB0500001000000000000011 /* MarketEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketEngine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -204,6 +206,7 @@
 				BB0400001000000000000016 /* FMKSwiperView.swift */,
 				BB0400001000000000000017 /* LeagueHistoryView.swift */,
 				BB0400001000000000000018 /* SettingsView.swift */,
+				BB0400001000000000000019 /* TrophyCaseView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -410,6 +413,7 @@
 				BB0400002000000000000016 /* FMKSwiperView.swift in Sources */,
 				BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */,
 				BB0400002000000000000018 /* SettingsView.swift in Sources */,
+				BB0400002000000000000019 /* TrophyCaseView.swift in Sources */,
 				BB0500002000000000000011 /* MarketEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -574,7 +578,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CodeRed.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
@@ -613,7 +617,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CodeRed.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
@@ -647,7 +651,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -666,7 +670,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -684,7 +688,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 3.0;
@@ -701,7 +705,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 3.0;

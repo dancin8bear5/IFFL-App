@@ -84,21 +84,22 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - **Rosters** — horizontal chip team switcher, player row shows position only (not "WR · Jared"), NFL team row in player detail, Settings gear on every tab
 - **League tab** — History tab (SeasonHistoryCard expand/collapse), off-season overlay on standings/scores when `isOffSeason = true`
 - **Admin** — Jared-only gate (`email == "jaredrogtaylor@gmail.com"`, email check only — no isCommissioner dependency), Sync NFL Teams action, Seed League History action, Season Mode toggle
-- **Settings page** — all users; profile (name read-only, ESPN team picker, nickname), appearance (logo icon presets), league prefs (default tab, show trade values, FMK privacy), notifications placeholder
-- **Data model** — `FMKSignal`, `PlayerFMK`, `UserSettings`, `SeasonHistory`/`TeamFinish`, `nflTeam` on Player/DisplayAsset, `isOffSeason` on LeagueConfig, `beltWins` on FantasyTeam (all = 0)
-- **Bug fixes (post-device-test)** — player detail subtitle shows position only; trade proposal flow auto-pushes `TradeProposalView` when triggered from player detail; Settings ESPN Team is a picker so wrong team mapping can be self-corrected
+- **Settings page** — all users; profile (name read-only, ESPN team picker, nickname), appearance (logo icon presets), league prefs (default tab, show trade values, FMK privacy), sign out button, privacy policy link
+- **Trade Portal** — full negotiate loop shipped: Accept/Decline/Counter buttons in TradeDetailView, CounterOfferView, counter-offer service (batch Firestore write), proposal notes, FMK → TradePreset pre-fills both sides of trade builder, chain history display, statusBadge with .countered case, Cloud Function (onTradeWrite, 2nd Gen Node 22) deployed to `iffl-auth` — push notifications live
+- **Data model** — `FMKSignal`, `PlayerFMK`, `UserSettings`, `SeasonHistory`/`TeamFinish`, `nflTeam` on Player/DisplayAsset, `isOffSeason` on LeagueConfig, `beltWins` on FantasyTeam, `TradePreset`, `Trade.message`, `Trade.parentTradeId`, `TradeStatus.countered`
+- **Privacy & legal** — `IFFLLegal.privacyPolicyURL` constant, consent notice on login screen, Privacy Policy link in Settings → About, policy hosted at `iffl-auth.web.app/privacy.html`
+- **League history data** — ALL 17 seasons (2009–2025) seeded in `DataSeeder.historySeeds` including standings, records, notable trades. Run "Seed League History" from Admin > Database to push to Firestore.
+- **Belt wins** — hardcoded in `DataModels.swift`: Jared 3, Bill 2, Ryan 2, Abad/Cantone/Faybik/M.Zurek/Wayne 1 each, others 0
 
-### Needs user data before features are live
-- **League history** — `DataSeeder.historySeeds` is an empty array. Jared must provide year-by-year champions/standings/notable trades; then run "Seed League History" from Admin > Database.
-- **NFL team mapping** — `DataSeeder.nflTeamMapping` has a starter dict; run "Sync NFL Teams" from Admin > Database to apply. Refresh 2-3x/year.
-- **Belt wins** — `beltWins: Int = 0` for all 12 teams in `DataModels.swift`. Fill in once league history is loaded (or hardcode from memory).
+### Current build
+- **MARKETING_VERSION = 3.0, CURRENT_PROJECT_VERSION = 12** (build 12 submitted to App Store review June 2026)
 
 ### Pending / next session
-- [ ] **Push notifications for trade proposals** — receiving team needs FCM notification when a trade is proposed. Firestore write already happens; just needs Cloud Function trigger + FCM send.
-- [ ] **Trade Portal UX review** — test accept/decline flow on device; confirm pending trades are surfaced clearly
+- [ ] **Trade Portal UX review** — test accept/decline/counter flow on device once build 12 clears review
 - [ ] **Retire legacy `PlayerInterest` collection** — old star-flag interest system superseded by FMK; remove once FMK is fully adopted
 - [ ] **Firestore security rules** — add composite indexes for `playerFMK` (userId, assetId) and `leagueHistory` (year desc)
 - [ ] **Honor `showTradeValues`** — toggle saved in UserSettings but not yet used to hide/show price columns in Rosters/Market
+- [ ] **Cap threshold support** — data model and UI need to support a minimum cap floor in addition to the $300 cap ceiling. No minimum currently but coming. `LeagueConfig` will need a `capFloor` field.
 
 ## Backlog
 
@@ -114,13 +115,14 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - [ ] **FMK CARD ANIMATIONS** — let user pick swipe animation style: Tinder snap, fade, or spin-out. Add picker in Settings > Appearance.
 - [ ] **TEAM COLOR THEME** — user picks primary color; app fully re-skins to that color across all surfaces, badges, and tab highlights.
 - [ ] **DYNAMIC DASHBOARD WALLPAPER** — team's current record/rank generates a live gradient on the My Team card (winning = green glow, losing = red). Needs live ESPN scores integration (see below).
-- [ ] **TROPHY CASE SCREEN** — personal stats page: trades made all-time, players held longest, cap spent, win record by season, belt wins shown as physical belt icons. Pull from Firestore history.
+- [ ] **TROPHY CASE SCREEN** — personal stats page: career W-L record, championships, playoff record, total trades, best/worst seasons, belt wins as belt icons. Data source: `leagueHistory` Firestore collection (all 17 seasons seeded). Historical ESPN data + trade history 2022-2025 uploaded to session context.
 - [ ] **Player card art (FMK)** — pull NFL headshots or generate pixel/illustrated art per player for the FMK swipe deck. Start with headshots from a public NFL image API; stretch goal: AI-generated art.
 - [ ] **Text size preference** — small / medium / large font scale saved in UserSettings.
 
 ### Dashboard
-- [ ] **CAP SPENDING CHART** — bar or line chart on Dashboard showing user's total cap spend per season (2009–present). Use Swift Charts (iOS 16+, no extra dependency). Pull from `players` collection `prices` map. Replace or sit below the My Team stat cells.
-- [ ] **LIVE SCORES** — when season is active (`isOffSeason == false`), fetch live ESPN scores via their public API and show current week matchup score on Dashboard. No ESPN API key required for public endpoints.
+- [ ] **IN-SEASON CHART** — when `isOffSeason == false`: previous week high scores across league, rolling avg points per game, top scorer at each position (QB/RB/WR/TE — no DST). Use Swift Charts (iOS 16+, no extra dependency). Data pulled from ESPN public API.
+- [ ] **OFF-SEASON CHART** — when `isOffSeason == true`: historical season summary data — W-L trend over career, championship timeline, playoff appearances. Source: `leagueHistory` Firestore collection.
+- [ ] **LIVE SCORES** — when `isOffSeason == false`, fetch live ESPN scores via their free public API (no key required) and show current week matchup score on Dashboard My Team card.
 
 ### Infrastructure
 - [ ] **Fastlane release automation** — one command (`fastlane beta`) to increment build number, archive, and upload to TestFlight. `fastlane/` folder already in `.gitignore`.

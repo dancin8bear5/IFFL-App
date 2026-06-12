@@ -102,7 +102,27 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 
 ## Backlog
 
+### Customization
 - [ ] **Custom app icon selector** — allow each user to choose their app icon from a set of presets (iOS alternate icons via `CFBundleAlternateIcons`). Add picker in Settings > Appearance.
+- [ ] **ACCENT COLOR PICKER** — user picks their team color; entire app re-skins (cards, badges, tab bar glow, CTAs). Store in `UserSettings.accentColorName`.
+- [ ] **Team banner image** — user uploads/picks a custom photo shown behind their team card on Dashboard. Store in Firebase Storage.
+- [ ] **Custom team nickname** — displayed everywhere in the app instead of last name. Already in UserSettings model (`displayNickname`), just needs to propagate to all views.
+- [ ] **Dark mode intensity** — pure black / current navy / charcoal slider in Settings > Appearance.
+- [ ] **Dashboard layout + reorder** — toggle grid vs list for team cards; drag-to-reorder dashboard sections (My Team, Calendar, Trades, Messages, etc.).
+- [ ] **Stat columns** — user chooses which columns appear on their roster view (salary, contract years, position, NFL team, etc.).
+- [ ] **Trade card style** — compact vs expanded view in trades list.
+- [ ] **FMK CARD ANIMATIONS** — let user pick swipe animation style: Tinder snap, fade, or spin-out. Add picker in Settings > Appearance.
+- [ ] **TEAM COLOR THEME** — user picks primary color; app fully re-skins to that color across all surfaces, badges, and tab highlights.
+- [ ] **DYNAMIC DASHBOARD WALLPAPER** — team's current record/rank generates a live gradient on the My Team card (winning = green glow, losing = red). Needs live ESPN scores integration (see below).
+- [ ] **TROPHY CASE SCREEN** — personal stats page: trades made all-time, players held longest, cap spent, win record by season, belt wins shown as physical belt icons. Pull from Firestore history.
+- [ ] **Player card art (FMK)** — pull NFL headshots or generate pixel/illustrated art per player for the FMK swipe deck. Start with headshots from a public NFL image API; stretch goal: AI-generated art.
+- [ ] **Text size preference** — small / medium / large font scale saved in UserSettings.
+
+### Dashboard
+- [ ] **CAP SPENDING CHART** — bar or line chart on Dashboard showing user's total cap spend per season (2009–present). Use Swift Charts (iOS 16+, no extra dependency). Pull from `players` collection `prices` map. Replace or sit below the My Team stat cells.
+- [ ] **LIVE SCORES** — when season is active (`isOffSeason == false`), fetch live ESPN scores via their public API and show current week matchup score on Dashboard. No ESPN API key required for public endpoints.
+
+### Infrastructure
 - [ ] **Fastlane release automation** — one command (`fastlane beta`) to increment build number, archive, and upload to TestFlight. `fastlane/` folder already in `.gitignore`.
 - [ ] **Merge open branches** — `claude/repo-cleanup-and-security` and `claude/claude-md-init` into main once build is confirmed working on device.
 - [ ] **Rotate serviceAccountKey.json** — old key was committed to git history; rotate in Google Cloud Console.

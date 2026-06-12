@@ -2,6 +2,22 @@
 
 > **Always open `CodeRed.xcworkspace`** — not `CodeRed.xcodeproj`, not any other workspace file. The workspace is what links CocoaPods (Firebase, Google Sign-In). Opening the bare project gives "Firebase module not found".
 
+## Pinned Commands
+
+```bash
+# Pull latest + pod install + open Xcode (run this before every archive)
+cd ~/Documents/Claude/Projects/IFFL-App && pod install && open CodeRed.xcworkspace
+
+# Deploy Cloud Functions
+cd ~/Documents/Claude/Projects/IFFL-App && firebase deploy --only functions
+
+# Deploy privacy policy / hosting
+cd ~/Documents/Claude/Projects/IFFL-App && firebase deploy --only hosting
+
+# Pull from active branch
+cd ~/Documents/Claude/Projects/IFFL-App && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
+```
+
 ## Project at a glance
 - SwiftUI iOS app (iOS 17.0+), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.
 - Xcode project: `CodeRed.xcodeproj` — but **always open `CodeRed.xcworkspace`**.

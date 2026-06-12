@@ -27,6 +27,7 @@ struct SettingsView: View {
                     appearanceSection
                     leagueSection
                     notificationsSection
+                    aboutSection
                 }
                 .scrollContentBackground(.hidden)
             }
@@ -157,6 +158,25 @@ struct SettingsView: View {
                     .foregroundColor(Color.iffSubtext)
                 Text("Push notifications — coming soon")
                     .font(.subheadline).foregroundColor(Color.iffSubtext)
+            }
+        }
+        .listRowBackground(Color.iffSurface)
+    }
+
+    // MARK: About
+
+    private var aboutSection: some View {
+        Section("About") {
+            Link(destination: IFFLLegal.privacyPolicyURL) {
+                HStack(spacing: 10) {
+                    Image(systemName: "hand.raised.fill")
+                        .foregroundColor(Color.iffAccent)
+                    Text("Privacy Policy")
+                        .font(.subheadline).foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption).foregroundColor(Color.iffSubtext)
+                }
             }
         }
         .listRowBackground(Color.iffSurface)

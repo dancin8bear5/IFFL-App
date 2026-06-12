@@ -7,7 +7,17 @@ import GoogleSignIn
 import AuthenticationServices
 import CryptoKit
 
+// MARK: - Legal / Privacy
+
+enum IFFLLegal {
+    /// Public privacy policy URL. Must match the Privacy Policy URL set in
+    /// App Store Connect → App Information. Required by App Store guideline 5.1.2.
+    /// Replace with the live hosted URL (Google Doc "Publish to web" or website).
+    static let privacyPolicyURL = URL(string: "https://iffl-auth.web.app/privacy.html")!
+}
+
 // MARK: - AppState
+
 
 class AppState: ObservableObject {
 
@@ -497,6 +507,17 @@ struct LoginView: View {
                     Text("Access is limited to IFFL members.")
                         .font(.caption)
                         .foregroundColor(Color.iffSubtext)
+
+                    VStack(spacing: 2) {
+                        Text("By signing in, you agree that your account info and league activity are stored to run the app.")
+                            .font(.caption2)
+                            .foregroundColor(Color.iffSubtext)
+                            .multilineTextAlignment(.center)
+                        Link("View our Privacy Policy", destination: IFFLLegal.privacyPolicyURL)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundColor(Color.iffAccent)
+                    }
+                    .padding(.horizontal, 24)
 
                     Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showEmailLogin.toggle() } }) {
                         Text(showEmailLogin ? "Hide email sign-in" : "Sign in with Email")

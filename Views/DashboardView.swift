@@ -63,6 +63,7 @@ struct DashboardView: View {
                         if appState.isInitialLoadComplete {
                             myTeamCard
                                 .transition(.opacity.combined(with: .move(edge: .top)))
+                            trophyRoomLink
                             if appState.myMatchCount > 0 { matchNotificationCard }
                             if !upcomingMilestones.isEmpty { keeperCalendarSection }
                             teamGridSection
@@ -107,6 +108,34 @@ struct DashboardView: View {
                 .tracking(4)
         }
         .padding(.top, 16)
+    }
+
+    // MARK: Trophy Room
+
+    private var trophyRoomLink: some View {
+        NavigationLink {
+            TrophyCaseView().environmentObject(appState)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color.iffGold.opacity(0.18)).frame(width: 44, height: 44)
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 20)).foregroundColor(Color.iffGold)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("League Trophy Room")
+                        .font(.headline).foregroundColor(.white)
+                    Text("Career stats, belts & finishes for every team")
+                        .font(.caption).foregroundColor(Color.iffSubtext)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundColor(Color.iffSubtext)
+            }
+            .padding()
+            .iffCard()
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: My Team Card

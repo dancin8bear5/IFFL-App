@@ -29,6 +29,7 @@ struct SettingsView: View {
                     notificationsSection
                     aboutSection
                     signOutSection
+                    versionFooter
                 }
                 .scrollContentBackground(.hidden)
             }
@@ -199,6 +200,27 @@ struct SettingsView: View {
             }
         }
         .listRowBackground(Color.iffSurface)
+    }
+
+    // MARK: Version Footer
+
+    private var appVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "IFFL \(v) (\(b))"
+    }
+
+    private var versionFooter: some View {
+        Section {
+            HStack {
+                Spacer()
+                Text(appVersion)
+                    .font(.caption2)
+                    .foregroundColor(Color.iffSubtext)
+                Spacer()
+            }
+        }
+        .listRowBackground(Color.clear)
     }
 
     // MARK: Save

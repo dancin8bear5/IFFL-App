@@ -9,7 +9,7 @@ import CryptoKit
 
 // MARK: - Legal / Privacy
 
-enum IFFLLegal {
+enum BeltLegal {
     /// Public privacy policy URL. Must match the Privacy Policy URL set in
     /// App Store Connect → App Information. Required by App Store guideline 5.1.2.
     /// Replace with the live hosted URL (Google Doc "Publish to web" or website).
@@ -172,7 +172,7 @@ class AppState: ObservableObject {
 
     func toggleInterest(for asset: DisplayAsset, completion: @escaping (Error?) -> Void) {
         guard let uid = currentUserUID else {
-            completion(NSError(domain: "IFFL", code: -1))
+            completion(NSError(domain: "TheBelt", code: -1))
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -201,7 +201,7 @@ class AppState: ObservableObject {
     }
 
     func setFMKSignal(for asset: DisplayAsset, signal: FMKSignal, completion: @escaping (Error?) -> Void) {
-        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        guard let uid = currentUserUID else { completion(NSError(domain: "TheBelt", code: -1)); return }
         let existing = fmkSignals.first(where: { $0.assetId == asset.assetId })
         let fmk = PlayerFMK(
             id: nil, userId: uid, teamName: userTeam,
@@ -223,7 +223,7 @@ class AppState: ObservableObject {
     }
 
     func removeFMKSignal(for asset: DisplayAsset, completion: @escaping (Error?) -> Void) {
-        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        guard let uid = currentUserUID else { completion(NSError(domain: "TheBelt", code: -1)); return }
         dataService.removeFMKSignal(userId: uid, assetId: asset.assetId) { [weak self] error in
             if error == nil {
                 DispatchQueue.main.async { self?.fmkSignals.removeAll { $0.assetId == asset.assetId } }
@@ -249,7 +249,7 @@ class AppState: ObservableObject {
     }
 
     func saveUserSettings(completion: @escaping (Error?) -> Void) {
-        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        guard let uid = currentUserUID else { completion(NSError(domain: "TheBelt", code: -1)); return }
         dataService.saveUserSettings(userSettings, userId: uid, completion: completion)
     }
 
@@ -384,10 +384,10 @@ struct CustomTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .padding()
-            .background(Color.iffSurface)
+            .background(Color.beltSurface)
             .cornerRadius(10)
             .foregroundColor(.white)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.iffAccent, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.beltAccent, lineWidth: 1))
     }
 }
 
@@ -395,7 +395,7 @@ struct CustomButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding()
-            .background(Color.iffAccent)
+            .background(Color.beltAccent)
             .foregroundColor(.white)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
@@ -446,22 +446,22 @@ struct LoginView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color.iffBg, Color.iffSurface], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Color.beltBg, Color.beltSurface], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
             VStack(spacing: 40) {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    Text("IFFL")
+                    Text("The Belt")
                         .font(.system(size: 72, weight: .black, design: .rounded))
-                        .foregroundColor(Color.iffAccent)
-                    Text("Insanity Fantasy Football League")
+                        .foregroundColor(Color.beltAccent)
+                    Text("Fantasy Football League")
                         .font(.subheadline)
-                        .foregroundColor(Color.iffSubtext)
+                        .foregroundColor(Color.beltSubtext)
                     Text("EST. 2008")
                         .font(.caption2.weight(.semibold))
-                        .foregroundColor(Color.iffSubtext.opacity(0.6))
+                        .foregroundColor(Color.beltSubtext.opacity(0.6))
                         .tracking(3)
                 }
 
@@ -504,25 +504,25 @@ struct LoginView: View {
                 }
 
                 VStack(spacing: 12) {
-                    Text("Access is limited to IFFL members.")
+                    Text("Access is limited to league members.")
                         .font(.caption)
-                        .foregroundColor(Color.iffSubtext)
+                        .foregroundColor(Color.beltSubtext)
 
                     VStack(spacing: 2) {
                         Text("By signing in, you agree that your account info and league activity are stored to run the app.")
                             .font(.caption2)
-                            .foregroundColor(Color.iffSubtext)
+                            .foregroundColor(Color.beltSubtext)
                             .multilineTextAlignment(.center)
-                        Link("View our Privacy Policy", destination: IFFLLegal.privacyPolicyURL)
+                        Link("View our Privacy Policy", destination: BeltLegal.privacyPolicyURL)
                             .font(.caption2.weight(.semibold))
-                            .foregroundColor(Color.iffAccent)
+                            .foregroundColor(Color.beltAccent)
                     }
                     .padding(.horizontal, 24)
 
                     Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showEmailLogin.toggle() } }) {
                         Text(showEmailLogin ? "Hide email sign-in" : "Sign in with Email")
                             .font(.caption)
-                            .foregroundColor(Color.iffSubtext.opacity(0.8))
+                            .foregroundColor(Color.beltSubtext.opacity(0.8))
                             .underline()
                     }
 
@@ -533,18 +533,18 @@ struct LoginView: View {
                                 .autocapitalization(.none)
                                 .textContentType(.username)
                                 .padding(12)
-                                .background(Color.iffSurface)
+                                .background(Color.beltSurface)
                                 .cornerRadius(10)
                                 .foregroundColor(.white)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.iffElevated, lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.beltElevated, lineWidth: 1))
 
                             SecureField("Password", text: $password)
                                 .textContentType(.password)
                                 .padding(12)
-                                .background(Color.iffSurface)
+                                .background(Color.beltSurface)
                                 .cornerRadius(10)
                                 .foregroundColor(.white)
-                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.iffElevated, lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.beltElevated, lineWidth: 1))
 
                             Button(action: { authService.signInWithEmail(email, password: password) }) {
                                 Text("Sign In")
@@ -552,7 +552,7 @@ struct LoginView: View {
                                     .foregroundColor(.white)
                                     .frame(maxWidth: .infinity)
                                     .padding(12)
-                                    .background(Color.iffAccent)
+                                    .background(Color.beltAccent)
                                     .cornerRadius(10)
                             }
                         }
@@ -572,7 +572,7 @@ struct CardView<Content: View>: View {
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        content.padding().background(Color.iffSurface).cornerRadius(12).shadow(radius: 4)
+        content.padding().background(Color.beltSurface).cornerRadius(12).shadow(radius: 4)
     }
 }
 
@@ -586,12 +586,12 @@ struct TeamIconView: View {
                 ForEach(0..<team.beltWins, id: \.self) { _ in
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 9))
-                        .foregroundColor(Color.iffGold)
+                        .foregroundColor(Color.beltGold)
                 }
             }
             .frame(height: 12)
         }
-        .frame(maxWidth: .infinity).padding(10).iffCard()
+        .frame(maxWidth: .infinity).padding(10).beltCard()
     }
 }
 
@@ -610,7 +610,7 @@ struct AssetRow: View {
                     .foregroundColor(.white)
                 Text("  \(item.isPick ? "Round \(item.rookieRound ?? 0) · \(item.teamName)" : item.position)")
                     .font(.system(size: 13 * scale))
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
@@ -619,7 +619,7 @@ struct AssetRow: View {
                     .foregroundColor(.green)
                 Text("$\(item.price(forSeason: activeSeason + 1))")
                     .font(.system(size: 12 * scale, weight: .semibold))
-                    .foregroundColor(Color.iffGold)
+                    .foregroundColor(Color.beltGold)
             }
         }
         .padding(.vertical, 12)
@@ -689,8 +689,8 @@ struct ChipView: View {
         Text(text)
             .font(.caption.bold())
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(isSelected ? Color.iffAccent : Color.iffSurface)
-            .foregroundColor(isSelected ? .white : Color.iffSubtext)
+            .background(isSelected ? Color.beltAccent : Color.beltSurface)
+            .foregroundColor(isSelected ? .white : Color.beltSubtext)
             .clipShape(Capsule())
             .onTapGesture(perform: action)
     }
@@ -707,7 +707,7 @@ struct FMKSignalPicker: View {
     var body: some View {
         HStack(spacing: 8) {
             Text("Your Signal:")
-                .font(.caption).foregroundColor(Color.iffSubtext)
+                .font(.caption).foregroundColor(Color.beltSubtext)
             ForEach(signals, id: \.self) { signal in
                 let isCurrent = appState.currentFMKSignal(for: asset) == signal
                 Button {
@@ -719,9 +719,9 @@ struct FMKSignalPicker: View {
                 } label: {
                     Text("\(signal.emoji) \(signal.label)")
                         .font(.caption.bold())
-                        .foregroundColor(isCurrent ? .white : Color.iffSubtext)
+                        .foregroundColor(isCurrent ? .white : Color.beltSubtext)
                         .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(isCurrent ? signal.signalColor.opacity(0.8) : Color.iffElevated)
+                        .background(isCurrent ? signal.signalColor.opacity(0.8) : Color.beltElevated)
                         .clipShape(Capsule())
                 }
             }
@@ -746,7 +746,7 @@ struct AssetDetailView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -755,7 +755,7 @@ struct AssetDetailView: View {
                     Text(asset.isPick
                          ? "Draft Pick · \(asset.teamName)"
                          : "\(asset.position) · \(asset.teamName.isEmpty ? "Free Agent" : asset.teamName)")
-                        .font(.subheadline).foregroundColor(Color.iffSubtext)
+                        .font(.subheadline).foregroundColor(Color.beltSubtext)
 
                     let summary = fmkSummary
                     if summary.marry + summary.fuck + summary.kill > 0 {
@@ -768,12 +768,12 @@ struct AssetDetailView: View {
 
                     FMKSignalPicker(asset: asset)
 
-                    Divider().background(Color.iffSubtext)
+                    Divider().background(Color.beltSubtext)
 
                     Group {
                         priceRow(label: "\(appState.activeSeason) Price",
                                  value: "$\(asset.price(forSeason: appState.activeSeason))",
-                                 color: Color.iffGold)
+                                 color: Color.beltGold)
                         priceRow(label: "\(appState.activeSeason + 1) Price",
                                  value: "$\(asset.price(forSeason: appState.activeSeason + 1))")
                         priceRow(label: "\(appState.activeSeason + 2) Price",
@@ -783,7 +783,7 @@ struct AssetDetailView: View {
                         }
                     }
 
-                    Divider().background(Color.iffSubtext)
+                    Divider().background(Color.beltSubtext)
 
                     if !asset.isPick {
                         Group {
@@ -803,7 +803,7 @@ struct AssetDetailView: View {
                     }
 
                     if !asset.tradeHistory.isEmpty {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         Text("Trade History").font(.headline).foregroundColor(.white)
                         ForEach(Array(asset.tradeHistory.enumerated()), id: \.offset) { _, note in
                             Text("• \(note)").font(.body).foregroundColor(.white)
@@ -811,7 +811,7 @@ struct AssetDetailView: View {
                     }
 
                     if asset.teamName != appState.userTeam {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         Button("Propose Trade for \(asset.name)") {
                             appState.selectedAssetForTrade = asset
                             appState.triggerTradeProposal = true
@@ -831,7 +831,7 @@ struct AssetDetailView: View {
 
     private func priceRow(label: String, value: String, color: Color = .white) -> some View {
         HStack {
-            Text(label).foregroundColor(Color.iffSubtext)
+            Text(label).foregroundColor(Color.beltSubtext)
             Spacer()
             Text(value).bold().foregroundColor(color)
         }
@@ -839,7 +839,7 @@ struct AssetDetailView: View {
 
     private func infoRow(label: String, value: String) -> some View {
         HStack {
-            Text(label).foregroundColor(Color.iffSubtext)
+            Text(label).foregroundColor(Color.beltSubtext)
             Spacer()
             Text(value).foregroundColor(.white)
         }
@@ -884,14 +884,14 @@ struct TradeDetailView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
                         .font(.title2.bold()).foregroundColor(.white)
-                    Text(trade.formattedDate).font(.subheadline).foregroundColor(Color.iffSubtext)
+                    Text(trade.formattedDate).font(.subheadline).foregroundColor(Color.beltSubtext)
 
-                    Divider().background(Color.iffSubtext)
+                    Divider().background(Color.beltSubtext)
 
                     HStack(alignment: .top, spacing: 24) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -911,25 +911,25 @@ struct TradeDetailView: View {
                     }
 
                     if let msg = trade.message, !msg.isEmpty {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Note from \(trade.proposingTeamName)")
-                                .font(.caption).foregroundColor(Color.iffSubtext)
+                                .font(.caption).foregroundColor(Color.beltSubtext)
                             Text(msg).foregroundColor(.white).font(.subheadline)
                         }
                     }
 
                     if !chainHistory.isEmpty {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Negotiation History")
-                                .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                                .font(.caption.bold()).foregroundColor(Color.beltSubtext)
                             ForEach(Array(chainHistory.enumerated()), id: \.offset) { idx, prior in
                                 HStack(spacing: 6) {
                                     Text("Round \(idx + 1):")
-                                        .font(.caption).foregroundColor(Color.iffSubtext)
+                                        .font(.caption).foregroundColor(Color.beltSubtext)
                                     Text("\(prior.proposingTeamName) offered \(prior.proposerAssetNames.prefix(2).joined(separator: ", "))")
-                                        .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.8))
+                                        .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.8))
                                         .lineLimit(1)
                                 }
                             }
@@ -941,7 +941,7 @@ struct TradeDetailView: View {
                     }
 
                     if isIncomingProposal {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         HStack(spacing: 12) {
                             Button("Accept") {
                                 guard let id = trade.id else { return }
@@ -970,7 +970,7 @@ struct TradeDetailView: View {
                             Button("Counter") { showCounter = true }
                                 .font(.headline).foregroundColor(.white)
                                 .frame(maxWidth: .infinity).padding(12)
-                                .background(Color.iffGold.opacity(0.8)).cornerRadius(10)
+                                .background(Color.beltGold.opacity(0.8)).cornerRadius(10)
                         }
                     }
 
@@ -1005,19 +1005,19 @@ struct CounterOfferView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.iffBg.ignoresSafeArea()
+                Color.beltBg.ignoresSafeArea()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Original Offer from \(otherTeam)")
-                                .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                                .font(.caption.bold()).foregroundColor(Color.beltSubtext)
                             Text("\(otherTeam) gives: \(originalTrade.proposerAssetNames.joined(separator: ", "))")
-                                .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.8))
+                                .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.8))
                             Text("You give: \(originalTrade.receiverAssetNames.joined(separator: ", "))")
-                                .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.8))
+                                .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.8))
                         }
                         .padding()
-                        .background(Color.iffElevated)
+                        .background(Color.beltElevated)
                         .cornerRadius(10)
 
                         let myAssets    = appState.allDisplayAssets.filter { $0.teamName == appState.userTeam }
@@ -1029,7 +1029,7 @@ struct CounterOfferView: View {
                         TextField("Add a note (optional)", text: $counterMessage, axis: .vertical)
                             .lineLimit(3)
                             .padding(12)
-                            .background(Color.iffSurface)
+                            .background(Color.beltSurface)
                             .cornerRadius(10)
                             .foregroundColor(.white)
 
@@ -1042,7 +1042,7 @@ struct CounterOfferView: View {
 
                         Button("Send Counter") { submitCounter() }
                             .disabled(selectedOfferedIds.isEmpty || selectedRequestedIds.isEmpty)
-                            .buttonStyle(IFFLPrimaryButtonStyle())
+                            .buttonStyle(BeltPrimaryButtonStyle())
                             .frame(maxWidth: .infinity)
                     }
                     .padding()
@@ -1053,7 +1053,7 @@ struct CounterOfferView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Color.iffSubtext)
+                        .foregroundColor(Color.beltSubtext)
                 }
             }
         }
@@ -1068,12 +1068,12 @@ struct CounterOfferView: View {
                     VStack(alignment: .leading) {
                         Text(asset.name).foregroundColor(.white).font(.subheadline)
                         Text(asset.isPick ? "Pick" : asset.position)
-                            .foregroundColor(Color.iffSubtext).font(.caption)
+                            .foregroundColor(Color.beltSubtext).font(.caption)
                     }
                     Spacer()
-                    Text(asset.formattedCurrentPrice).foregroundColor(Color.iffGold).font(.subheadline)
+                    Text(asset.formattedCurrentPrice).foregroundColor(Color.beltGold).font(.subheadline)
                     if selectedIds.wrappedValue.contains(asset.id) {
-                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.iffAccent)
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.beltAccent)
                     }
                 }
                 .contentShape(Rectangle())
@@ -1085,7 +1085,7 @@ struct CounterOfferView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                Divider().background(Color.iffSubtext.opacity(0.3))
+                Divider().background(Color.beltSubtext.opacity(0.3))
             }
         }
     }
@@ -1138,7 +1138,7 @@ struct HistoricalTradesView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             List {
                 ForEach(seasons, id: \.self) { season in
                     let trades = appState.trades.filter {
@@ -1148,7 +1148,7 @@ struct HistoricalTradesView: View {
                         NavigationLink(destination: SeasonTradesView(season: season, trades: trades)) {
                             Text(String(season)).foregroundColor(.white)
                         }
-                        .listRowBackground(Color.iffSurface)
+                        .listRowBackground(Color.beltSurface)
                     }
                 }
             }
@@ -1166,13 +1166,13 @@ struct SeasonTradesView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             List {
                 ForEach(trades.sorted { $0.date > $1.date }) { trade in
                     NavigationLink(destination: TradeDetailView(trade: trade)) {
                         TradeRowView(trade: trade)
                     }
-                    .listRowBackground(Color.iffSurface)
+                    .listRowBackground(Color.beltSurface)
                 }
             }
             .listStyle(.plain)
@@ -1196,7 +1196,7 @@ struct TradeProposalView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
 
             VStack(spacing: 20) {
                 Picker("Select other team", selection: $selectedOtherTeam) {
@@ -1231,14 +1231,14 @@ struct TradeProposalView: View {
                 TextField("Add a note (optional)", text: $proposalMessage, axis: .vertical)
                     .lineLimit(3)
                     .padding(12)
-                    .background(Color.iffSurface)
+                    .background(Color.beltSurface)
                     .cornerRadius(10)
                     .foregroundColor(.white)
                     .padding(.horizontal)
 
                 Button("Propose Trade") { submitProposal() }
                     .disabled(selectedOtherTeam == nil || selectedOfferedIds.isEmpty || selectedRequestedIds.isEmpty)
-                    .buttonStyle(IFFLPrimaryButtonStyle())
+                    .buttonStyle(BeltPrimaryButtonStyle())
 
                 Spacer()
             }
@@ -1258,12 +1258,12 @@ struct TradeProposalView: View {
                     VStack(alignment: .leading) {
                         Text(asset.name).foregroundColor(.white).font(.subheadline)
                         Text(asset.isPick ? "Pick" : asset.position)
-                            .foregroundColor(Color.iffSubtext).font(.caption)
+                            .foregroundColor(Color.beltSubtext).font(.caption)
                     }
                     Spacer()
-                    Text(asset.formattedCurrentPrice).foregroundColor(Color.iffGold).font(.subheadline)
+                    Text(asset.formattedCurrentPrice).foregroundColor(Color.beltGold).font(.subheadline)
                     if selectedIds.wrappedValue.contains(asset.id) {
-                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.iffAccent)
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.beltAccent)
                     }
                 }
                 .contentShape(Rectangle())
@@ -1275,7 +1275,7 @@ struct TradeProposalView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                Divider().background(Color.iffSubtext.opacity(0.3))
+                Divider().background(Color.beltSubtext.opacity(0.3))
             }
         }
     }

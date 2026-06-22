@@ -8,16 +8,15 @@
 
 /* Begin PBXBuildFile section */
 		17C08B042DB5E1310003B594 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 17C08AFF2DB5E1310003B594 /* Assets.xcassets */; };
-		17C08B052DB5E1310003B594 /* 2025 IFFL Keeper Master.csv in Resources */ = {isa = PBXBuildFile; fileRef = 17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */; };
+		17C08B052DB5E1310003B594 /* 2025 Keeper Master.csv in Resources */ = {isa = PBXBuildFile; fileRef = 17C08AFE2DB5E1310003B594 /* 2025 Keeper Master.csv */; };
 		17C08B062DB5E1310003B594 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 17C08B012DB5E1310003B594 /* GoogleService-Info.plist */; };
 		17C08B072DB5E1310003B594 /* CodeRedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17C08B002DB5E1310003B594 /* CodeRedApp.swift */; };
 		AA01B0072DB5E1310003B594 /* DataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA01B0012DB5E1310003B594 /* DataModels.swift */; };
 		AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */; };
 		AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA03B0012DB5E1310003B594 /* AdminView.swift */; };
 		AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA04B0012DB5E1310003B594 /* DataSeeder.swift */; };
-		E22EB39D4F24EF4E6ABFD667 /* Pods_CodeRed.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */; };
-		BB0100002000000000000011 /* IFFLApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0100001000000000000011 /* IFFLApp.swift */; };
-		BB0100002000000000000012 /* IFFLTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0100001000000000000012 /* IFFLTheme.swift */; };
+		BB0100002000000000000011 /* BeltApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0100001000000000000011 /* BeltApp.swift */; };
+		BB0100002000000000000012 /* BeltTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0100001000000000000012 /* BeltTheme.swift */; };
 		BB0400002000000000000011 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000011 /* DashboardView.swift */; };
 		BB0400002000000000000012 /* RostersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000012 /* RostersView.swift */; };
 		BB0400002000000000000013 /* MarketView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000013 /* MarketView.swift */; };
@@ -27,6 +26,7 @@
 		BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000017 /* LeagueHistoryView.swift */; };
 		BB0400002000000000000018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000018 /* SettingsView.swift */; };
 		BB0500002000000000000011 /* MarketEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0500001000000000000011 /* MarketEngine.swift */; };
+		E22EB39D4F24EF4E6ABFD667 /* Pods_CodeRed.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,7 +51,7 @@
 		17C08ABE2DB5DEF80003B594 /* CodeRed.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodeRed.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		17C08AD02DB5DEF90003B594 /* CodeRedTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodeRedTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		17C08ADA2DB5DEF90003B594 /* CodeRedUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodeRedUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "2025 IFFL Keeper Master.csv"; sourceTree = "<group>"; };
+		17C08AFE2DB5E1310003B594 /* 2025 Keeper Master.csv */ = {isa = PBXFileReference; lastKnownFileType = text; path = "2025 Keeper Master.csv"; sourceTree = "<group>"; };
 		17C08AFF2DB5E1310003B594 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		17C08B002DB5E1310003B594 /* CodeRedApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodeRedApp.swift; sourceTree = "<group>"; };
 		17C08B012DB5E1310003B594 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -61,9 +61,8 @@
 		AA02B0012DB5E1310003B594 /* FirestoreDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirestoreDataService.swift; sourceTree = "<group>"; };
 		AA03B0012DB5E1310003B594 /* AdminView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminView.swift; sourceTree = "<group>"; };
 		AA04B0012DB5E1310003B594 /* DataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSeeder.swift; sourceTree = "<group>"; };
-		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
-		BB0100001000000000000011 /* IFFLApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IFFLApp.swift; sourceTree = "<group>"; };
-		BB0100001000000000000012 /* IFFLTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IFFLTheme.swift; sourceTree = "<group>"; };
+		BB0100001000000000000011 /* BeltApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltApp.swift; sourceTree = "<group>"; };
+		BB0100001000000000000012 /* BeltTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeltTheme.swift; sourceTree = "<group>"; };
 		BB0400001000000000000011 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000012 /* RostersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RostersView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000013 /* MarketView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketView.swift; sourceTree = "<group>"; };
@@ -73,6 +72,7 @@
 		BB0400001000000000000017 /* LeagueHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueHistoryView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		BB0500001000000000000011 /* MarketEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketEngine.swift; sourceTree = "<group>"; };
+		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -125,7 +125,7 @@
 				BB02000000000000000000AA /* Models */,
 				BB03000000000000000000AA /* Services */,
 				BB04000000000000000000AA /* Views */,
-				17C08AFE2DB5E1310003B594 /* 2025 IFFL Keeper Master.csv */,
+				17C08AFE2DB5E1310003B594 /* 2025 Keeper Master.csv */,
 				17C08AFF2DB5E1310003B594 /* Assets.xcassets */,
 				17C08B012DB5E1310003B594 /* GoogleService-Info.plist */,
 				17C08B082DB5E1380003B594 /* CodeRed-Bridging-Header.h */,
@@ -168,8 +168,8 @@
 			isa = PBXGroup;
 			children = (
 				17C08B002DB5E1310003B594 /* CodeRedApp.swift */,
-				BB0100001000000000000011 /* IFFLApp.swift */,
-				BB0100001000000000000012 /* IFFLTheme.swift */,
+				BB0100001000000000000011 /* BeltApp.swift */,
+				BB0100001000000000000012 /* BeltTheme.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -327,7 +327,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				17C08B042DB5E1310003B594 /* Assets.xcassets in Resources */,
-				17C08B052DB5E1310003B594 /* 2025 IFFL Keeper Master.csv in Resources */,
+				17C08B052DB5E1310003B594 /* 2025 Keeper Master.csv in Resources */,
 				17C08B062DB5E1310003B594 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -400,8 +400,8 @@
 				AA02B0072DB5E1310003B594 /* FirestoreDataService.swift in Sources */,
 				AA03B0072DB5E1310003B594 /* AdminView.swift in Sources */,
 				AA04B0072DB5E1310003B594 /* DataSeeder.swift in Sources */,
-				BB0100002000000000000011 /* IFFLApp.swift in Sources */,
-				BB0100002000000000000012 /* IFFLTheme.swift in Sources */,
+				BB0100002000000000000011 /* BeltApp.swift in Sources */,
+				BB0100002000000000000012 /* BeltTheme.swift in Sources */,
 				BB0400002000000000000011 /* DashboardView.swift in Sources */,
 				BB0400002000000000000012 /* RostersView.swift in Sources */,
 				BB0400002000000000000013 /* MarketView.swift in Sources */,
@@ -574,13 +574,14 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CodeRed.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = IFFL;
+				INFOPLIST_KEY_CFBundleDisplayName = "The Belt";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports-games";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -592,8 +593,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRed;
+				MARKETING_VERSION = 3.01;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thebelt.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REVERSED_CLIENT_ID = "com.googleusercontent.apps.876749980452-oibgt1c35fdla5rufbrslapqg8kf6fsd";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -613,13 +614,14 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = CodeRed.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_ASSET_PATHS = "\"$(SRCROOT)/Preview Content/Preview Assets.xcassets\"";
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = IFFL;
+				INFOPLIST_KEY_CFBundleDisplayName = "The Belt";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.sports-games";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -631,8 +633,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRed;
+				MARKETING_VERSION = 3.01;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thebelt.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REVERSED_CLIENT_ID = "com.googleusercontent.apps.876749980452-oibgt1c35fdla5rufbrslapqg8kf6fsd";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -652,7 +654,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRedTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thebelt.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -671,7 +673,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
 				MARKETING_VERSION = 3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRedTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thebelt.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -688,7 +690,7 @@
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRedUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thebelt.app.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;
@@ -705,7 +707,7 @@
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.IFFLtest.CodeRedUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.thebelt.app.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_VERSION = 5.0;

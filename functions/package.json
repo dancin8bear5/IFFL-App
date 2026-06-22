@@ -1,6 +1,6 @@
 {
-  "name": "iffl-functions",
-  "description": "Firebase Cloud Functions for IFFL App",
+  "name": "the-belt-functions",
+  "description": "Firebase Cloud Functions for The Belt App",
   "scripts": {
     "deploy": "firebase deploy --only functions"
   },

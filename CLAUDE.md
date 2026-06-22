@@ -1,4 +1,6 @@
-# IFFL App — Working Notes
+# The Belt App — Working Notes
+
+> **App name is "The Belt"** (Fantasy Football League). The old "IFFL" / "CodeRed" branding has been scrubbed from user-facing surfaces and code symbols. The internal Xcode target/workspace is still named `CodeRed` (invisible to users — deliberately not renamed to avoid breaking CocoaPods). The Firebase project id is still `iffl-auth` (project ids can't be renamed; backend migration deferred).
 
 > **Always open `CodeRed.xcworkspace`** — not `CodeRed.xcodeproj`, not any other workspace file. The workspace is what links CocoaPods (Firebase, Google Sign-In). Opening the bare project gives "Firebase module not found".
 
@@ -21,7 +23,7 @@ cd ~/Documents/Claude/Projects/IFFL-App && git pull --no-rebase origin claude/in
 ## Project at a glance
 - SwiftUI iOS app (iOS 17.0+), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.
 - Xcode project: `CodeRed.xcodeproj` — but **always open `CodeRed.xcworkspace`**.
-- Bundle ID: `com.IFFLtest.CodeRed`. Dev team: `LNHDZQ76WT`.
+- Bundle ID: `com.thebelt.app` (was `com.IFFLtest.CodeRed`; changed in The Belt rebrand → a NEW App Store Connect record). Dev team: `LNHDZQ76WT`.
 - Firebase project: **IFFL Auth** (id `iffl-auth`, sender `876749980452`). The archived `codered-2b3b4` project is dead — never reference it.
 - User's Mac path: `~/Documents/Claude/Projects/IFFL-App`.
 - Branch protection on `main` — pushes are rejected, PRs required.
@@ -32,11 +34,11 @@ cd ~/Documents/Claude/Projects/IFFL-App && git pull --no-rebase origin claude/in
 - `AuthenticationService` separate `ObservableObject` for auth only.
 - `MarketEngine` pure struct with static methods (zero Firebase deps, used for mutual-interest matching).
 - One `NavigationStack` per tab — never nest NavigationStacks inside sheets.
-- `@main` lives in `App/IFFLApp.swift`. `App/CodeRedApp.swift` holds AppState, AuthenticationService, AppDelegate, LoginView, and shared subviews — no `@main`.
+- `@main` lives in `App/BeltApp.swift`. `App/CodeRedApp.swift` holds AppState, AuthenticationService, AppDelegate, LoginView, and shared subviews — no `@main`.
 
 ## Folder structure (current — Views/ is still flat)
 ```
-App/             IFFLApp.swift, IFFLTheme.swift, CodeRedApp.swift
+App/             BeltApp.swift, BeltTheme.swift, CodeRedApp.swift
 Models/          DataModels.swift
 Services/        FirestoreDataService.swift, DataSeeder.swift, MarketEngine.swift
 Views/           AdminView.swift, DashboardView.swift, RostersView.swift, MarketView.swift,
@@ -47,8 +49,8 @@ GoogleService-Info.plist   NOT in git — local only on Mac
 serviceAccountKey.json     NOT in git — server credentials, must never ship in iOS bundle
 ```
 
-## Design system (`IFFLTheme.swift`)
-Color tokens (hex → use): `iffBg #0A0D1A` (screens), `iffSurface #141827` (cards), `iffElevated #1E2235` (modals), `iffAccent #E63946` (CTAs/active), `iffGold #F4A261` (prices), `iffText #FFFFFF`, `iffSubtext #9EA8B8`. xcassets colorsets are aligned to the same hex values so AdminView's `Color("BackgroundColor")` calls produce identical output to `Color.iffBg`.
+## Design system (`BeltTheme.swift`)
+Color tokens (hex → use): `beltBg #0A0D1A` (screens), `beltSurface #141827` (cards), `beltElevated #1E2235` (modals), `beltAccent #E63946` (CTAs/active), `beltGold #F4A261` (prices), `beltText #FFFFFF`, `beltSubtext #9EA8B8`. xcassets colorsets are aligned to the same hex values so AdminView's `Color("BackgroundColor")` calls produce identical output to `Color.beltBg`.
 
 ## Hard-won lessons (read before touching these areas)
 
@@ -112,12 +114,12 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 2. `Product → Archive` (2-3 min)
 3. Organizer opens → **Distribute App → App Store Connect → Upload** → keep all defaults → Upload
 4. Wait 5–15 min for Apple to finish processing the build
-5. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → find the **existing** IFFL app (bundle ID `com.IFFLtest.CodeRed`) — do NOT create a new app, it already exists
+5. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → select **The Belt** app (bundle ID `com.thebelt.app`). NOTE: the rebrand changed the bundle ID, so this is a **new** app record — create it (name "The Belt", subtitle "Fantasy Football League") if it doesn't exist yet. The old IFFL record (`com.IFFLtest.CodeRed`) is abandoned.
 6. **TestFlight** tab → **Internal Testing** → add yourself as tester → Save
 7. Check email for TestFlight invite, or open the TestFlight app on iPhone directly
 
-**Lessons learned (first TestFlight upload):**
-- The app record already existed in App Store Connect — creating a new one fails because `com.IFFLtest.CodeRed` is already taken. Always look for the existing record first.
+**Lessons learned (first TestFlight upload — under the old IFFL bundle id):**
+- Register `com.thebelt.app` in developer.apple.com Identifiers (with Sign in with Apple capability) before it appears in App Store Connect's dropdown.
 - "You need an invite from a developer" in TestFlight = you haven't added yourself as a tester yet in App Store Connect.
 - Bundle ID must be registered in developer.apple.com Identifiers before it appears in App Store Connect's dropdown.
 
@@ -136,14 +138,14 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 │  🏆🏆🏆  │   │    🏆    │   │          │
 └──────────┘   └──────────┘   └──────────┘
 ```
-- Icon: `crown.fill` SF Symbol in `iffGold` (#F4A261), ~12pt
+- Icon: `crown.fill` SF Symbol in `beltGold` (#F4A261), ~12pt
 - One icon per belt won, displayed as a horizontal row
 - Fixed reserved space below team name so card height stays consistent
 
 **Open questions before building:**
 1. **Data source** — where does belt history live? Not in current data model. Options: hardcode in `DataModels.swift` alongside `fantasyTeams`, or add a `beltWinners` collection to Firestore.
 2. **Belt icon** — `crown.fill` SF Symbol, `trophy.fill`, or a custom belt image asset you upload?
-3. **Which belt** — league championship only, or is there a specific IFFL "title belt" concept (wrestling-style)?
+3. **Which belt** — league championship only, or is there a specific "title belt" concept (wrestling-style)?
 
 ---
 
@@ -170,4 +172,4 @@ Current state: league messages shown as a horizontal scroll carousel on the Dash
 
 ## User context
 - User is not a developer by trade. Explain git operations and Xcode steps with full paths and exact commands.
-- User's repo also contains an unrelated Auto Show Notifier project on a separate branch — keep work scoped to IFFL.
+- User's repo also contains an unrelated Auto Show Notifier project on a separate branch — keep work scoped to The Belt.

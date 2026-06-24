@@ -25,6 +25,7 @@
 		BB0400002000000000000016 /* FMKSwiperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000016 /* FMKSwiperView.swift */; };
 		BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000017 /* LeagueHistoryView.swift */; };
 		BB0400002000000000000018 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000018 /* SettingsView.swift */; };
+		BB0400002000000000000019 /* TrophyCaseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0400001000000000000019 /* TrophyCaseView.swift */; };
 		BB0500002000000000000011 /* MarketEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0500001000000000000011 /* MarketEngine.swift */; };
 		E22EB39D4F24EF4E6ABFD667 /* Pods_CodeRed.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 101B51DF65AFD53EC5258EFA /* Pods_CodeRed.framework */; };
 /* End PBXBuildFile section */
@@ -71,6 +72,7 @@
 		BB0400001000000000000016 /* FMKSwiperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FMKSwiperView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000017 /* LeagueHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueHistoryView.swift; sourceTree = "<group>"; };
 		BB0400001000000000000018 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		BB0400001000000000000019 /* TrophyCaseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrophyCaseView.swift; sourceTree = "<group>"; };
 		BB0500001000000000000011 /* MarketEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketEngine.swift; sourceTree = "<group>"; };
 		FA0CE5B6352F7C2A89DEDE83 /* Pods-CodeRed.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CodeRed.debug.xcconfig"; path = "Target Support Files/Pods-CodeRed/Pods-CodeRed.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -204,6 +206,7 @@
 				BB0400001000000000000016 /* FMKSwiperView.swift */,
 				BB0400001000000000000017 /* LeagueHistoryView.swift */,
 				BB0400001000000000000018 /* SettingsView.swift */,
+				BB0400001000000000000019 /* TrophyCaseView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -410,6 +413,7 @@
 				BB0400002000000000000016 /* FMKSwiperView.swift in Sources */,
 				BB0400002000000000000017 /* LeagueHistoryView.swift in Sources */,
 				BB0400002000000000000018 /* SettingsView.swift in Sources */,
+				BB0400002000000000000019 /* TrophyCaseView.swift in Sources */,
 				BB0500002000000000000011 /* MarketEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -649,7 +653,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -668,7 +672,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
@@ -686,7 +690,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 3.0;
@@ -703,7 +707,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 13;
 				DEVELOPMENT_TEAM = LNHDZQ76WT;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 3.0;

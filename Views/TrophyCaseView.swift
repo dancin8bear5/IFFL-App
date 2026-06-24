@@ -17,7 +17,7 @@ struct TrophyCaseView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 16) {
                     teamSwitcher
@@ -50,10 +50,10 @@ struct TrophyCaseView: View {
                     } label: {
                         Text(name)
                             .font(.caption.bold())
-                            .foregroundColor(selectedTeam == name ? .white : Color.iffSubtext)
+                            .foregroundColor(selectedTeam == name ? .white : Color.beltSubtext)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(selectedTeam == name ? Color.iffAccent : Color.iffSurface)
+                            .background(selectedTeam == name ? Color.beltAccent : Color.beltSurface)
                             .clipShape(Capsule())
                     }
                 }
@@ -75,19 +75,19 @@ struct TrophyCaseView: View {
                     ForEach(0..<stats.championships, id: \.self) { _ in
                         Image(systemName: "trophy.fill")
                             .font(.system(size: 22))
-                            .foregroundColor(Color.iffGold)
+                            .foregroundColor(Color.beltGold)
                     }
                 }
                 Text("\(stats.championships)× League Champion")
                     .font(.subheadline.bold())
-                    .foregroundColor(Color.iffGold)
+                    .foregroundColor(Color.beltGold)
             } else {
                 Image(systemName: "trophy")
                     .font(.system(size: 22))
-                    .foregroundColor(Color.iffSubtext.opacity(0.5))
+                    .foregroundColor(Color.beltSubtext.opacity(0.5))
                 Text("Still chasing the first belt")
                     .font(.subheadline)
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
             }
         }
         .frame(maxWidth: .infinity)
@@ -95,12 +95,12 @@ struct TrophyCaseView: View {
         .background(
             LinearGradient(
                 colors: stats.championships > 0
-                    ? [Color.iffGold.opacity(0.18), Color.iffSurface]
-                    : [Color.iffSurface, Color.iffSurface],
+                    ? [Color.beltGold.opacity(0.18), Color.beltSurface]
+                    : [Color.beltSurface, Color.beltSurface],
                 startPoint: .top, endPoint: .bottom
             )
         )
-        .iffCard()
+        .beltCard()
     }
 
     // MARK: Stat Grid
@@ -123,18 +123,18 @@ struct TrophyCaseView: View {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.caption)
-                    .foregroundColor(gold ? Color.iffGold : Color.iffAccent)
+                    .foregroundColor(gold ? Color.beltGold : Color.beltAccent)
                 Text(label)
                     .font(.caption2)
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
             }
             Text(value)
                 .font(.system(size: 22, weight: .bold))
-                .foregroundColor(gold && value != "0" ? Color.iffGold : .white)
+                .foregroundColor(gold && value != "0" ? Color.beltGold : .white)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .iffCard()
+        .beltCard()
     }
 
     // MARK: Championship Years
@@ -142,22 +142,22 @@ struct TrophyCaseView: View {
     private var championshipYearsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Championship Years")
-                .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                .font(.caption.bold()).foregroundColor(Color.beltSubtext)
             HStack(spacing: 8) {
                 ForEach(stats.championshipYears, id: \.self) { year in
                     Text(String(year))
                         .font(.subheadline.bold())
-                        .foregroundColor(Color.iffGold)
+                        .foregroundColor(Color.beltGold)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Color.iffGold.opacity(0.15))
+                        .background(Color.beltGold.opacity(0.15))
                         .clipShape(Capsule())
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .iffCard()
+        .beltCard()
     }
 
     // MARK: Season By Season
@@ -165,7 +165,7 @@ struct TrophyCaseView: View {
     private var seasonBySeasonCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Season by Season")
-                .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                .font(.caption.bold()).foregroundColor(Color.beltSubtext)
                 .padding(.bottom, 8)
             ForEach(stats.finishes) { finish in
                 HStack(spacing: 12) {
@@ -181,22 +181,22 @@ struct TrophyCaseView: View {
                     if let record = finish.record {
                         Text(record)
                             .font(.subheadline.monospacedDigit())
-                            .foregroundColor(Color.iffSubtext)
+                            .foregroundColor(Color.beltSubtext)
                     }
                 }
                 .padding(.vertical, 8)
-                Divider().background(Color.iffElevated)
+                Divider().background(Color.beltElevated)
             }
         }
         .padding()
-        .iffCard()
+        .beltCard()
     }
 
     private func placeBadge(_ place: Int) -> some View {
-        let color: Color = place == 1 ? Color.iffGold
+        let color: Color = place == 1 ? Color.beltGold
             : place == 2 ? Color(white: 0.75)
             : place == 3 ? Color(red: 0.80, green: 0.50, blue: 0.20)
-            : Color.iffSubtext
+            : Color.beltSubtext
         return HStack(spacing: 4) {
             if place <= 3 {
                 Image(systemName: "medal.fill").font(.caption2).foregroundColor(color)

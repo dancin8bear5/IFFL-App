@@ -199,7 +199,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .listRowBackground(Color.iffSurface)
+        .listRowBackground(Color.beltSurface)
     }
 
     // MARK: Version Footer
@@ -207,7 +207,7 @@ struct SettingsView: View {
     private var appVersion: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "IFFL \(v) (\(b))"
+        return "The Belt \(v) (\(b))"
     }
 
     private var versionFooter: some View {
@@ -216,7 +216,7 @@ struct SettingsView: View {
                 Spacer()
                 Text(appVersion)
                     .font(.caption2)
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
                 Spacer()
             }
         }

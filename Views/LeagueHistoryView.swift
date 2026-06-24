@@ -48,22 +48,22 @@ struct LeagueHistoryView: View {
         } label: {
             HStack(spacing: 14) {
                 ZStack {
-                    Circle().fill(Color.iffGold.opacity(0.18)).frame(width: 44, height: 44)
+                    Circle().fill(Color.beltGold.opacity(0.18)).frame(width: 44, height: 44)
                     Image(systemName: "trophy.fill")
-                        .font(.system(size: 20)).foregroundColor(Color.iffGold)
+                        .font(.system(size: 20)).foregroundColor(Color.beltGold)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Trophy Case")
                         .font(.headline).foregroundColor(.white)
                     Text("Career stats, belts & finishes")
-                        .font(.caption).foregroundColor(Color.iffSubtext)
+                        .font(.caption).foregroundColor(Color.beltSubtext)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.caption).foregroundColor(Color.iffSubtext)
+                    .font(.caption).foregroundColor(Color.beltSubtext)
             }
             .padding()
-            .iffCard()
+            .beltCard()
         }
         .buttonStyle(.plain)
     }

@@ -59,7 +59,7 @@ Do **not** embed XML as a string in `INFOPLIST_KEY_CFBundleURLTypes` (or any nes
 **Fix pattern:** real `Info.plist` at repo root with the nested key, plus `INFOPLIST_FILE = Info.plist` in both Debug and Release. Keep `GENERATE_INFOPLIST_FILE = YES` so Xcode still merges in the scalar `INFOPLIST_KEY_*` values (orientations, scene manifest, etc.).
 
 ### `REVERSED_CLIENT_ID` is a build variable
-`Info.plist` references `$(REVERSED_CLIENT_ID)`. The actual value lives as a user-defined build setting in `project.pbxproj` for both Debug and Release: `com.googleusercontent.apps.876749980452-oibgt1c35fdla5rufbrslapqg8kf6fsd`. If this drifts from `GoogleService-Info.plist`'s `REVERSED_CLIENT_ID`, Firebase Auth returns `CONFIGURATION_NOT_FOUND` (code 17999).
+`Info.plist` references `$(REVERSED_CLIENT_ID)`. The actual value lives as a user-defined build setting in `project.pbxproj` for both Debug and Release: `com.googleusercontent.apps.876749980452-l07n7gh17nq6apnf8u7uc6ceia8dlg3r` (updated for the `com.thebelt.app` iOS app added to `iffl-auth`). If this drifts from `GoogleService-Info.plist`'s `REVERSED_CLIENT_ID`, Firebase Auth returns `CONFIGURATION_NOT_FOUND` (code 17999).
 
 ### CocoaPods workflow on Mac
 - After cloning or pulling: run `pod install`, then open `CodeRed.xcworkspace`.

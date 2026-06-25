@@ -97,7 +97,7 @@ struct DashboardView: View {
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text("The Belt")
+            Text("Insanity League")
                 .font(.system(size: 56, weight: .black, design: .rounded))
                 .foregroundColor(Color.beltAccent)
             Text("Fantasy Football League")

@@ -453,8 +453,8 @@ struct LoginView: View {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    Text("The Belt")
-                        .font(.system(size: 72, weight: .black, design: .rounded))
+                    Text("Insanity League")
+                        .font(.system(size: 56, weight: .black, design: .rounded))
                         .foregroundColor(Color.beltAccent)
                     Text("Fantasy Football League")
                         .font(.subheadline)

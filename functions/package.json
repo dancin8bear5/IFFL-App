@@ -1,6 +1,6 @@
 {
   "name": "the-belt-functions",
-  "description": "Firebase Cloud Functions for The Belt App",
+  "description": "Firebase Cloud Functions for Insanity League App",
   "scripts": {
     "deploy": "firebase deploy --only functions"
   },

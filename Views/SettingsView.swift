@@ -207,7 +207,7 @@ struct SettingsView: View {
     private var appVersion: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "The Belt \(v) (\(b))"
+        return "Insanity League \(v) (\(b))"
     }
 
     private var versionFooter: some View {

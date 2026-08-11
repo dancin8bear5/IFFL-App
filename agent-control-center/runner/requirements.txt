@@ -1,0 +1,7 @@
+# The runner is intentionally STDLIB-ONLY so it runs on a bare Synology Python
+# (sqlite3, urllib, http.server) with no pip/ABI pain on the DS216play's ARMv7.
+#
+# The single OPTIONAL convenience below lets config.py auto-load runner/.env.
+# Without it, just export the env vars yourself (see .env.example). Install with:
+#   python3 -m pip install -r requirements.txt
+python-dotenv>=1.0.0 ; python_version >= "3.8"

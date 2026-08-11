@@ -1,0 +1,26 @@
+{
+  "id": "morning-briefing",
+  "name": "Morning Briefing",
+  "description": "Agent #2. Daily self-healing digest. DISABLED until connectors are solved: needs Gmail/Calendar/Todoist, which the connector-free nas-python runner cannot provide. Set runner to 'cloud' (or add a connector integration) before enabling.",
+  "enabled": false,
+  "schedule": {
+    "cron": "0 6 * * *",
+    "timezone": "America/Denver",
+    "catchUpOnWake": false
+  },
+  "runner": "cloud",
+  "task": {
+    "type": "prompt",
+    "prompt": "Summarize my day: unread priority email, today's calendar, and due Todoist tasks. Flag anything urgent. Keep it tight.",
+    "model": "claude-opus-4-8",
+    "connectors": ["gmail", "gcal", "todoist"],
+    "timeoutSec": 300,
+    "maxRetries": 1
+  },
+  "secrets": ["ANTHROPIC_API_KEY", "GMAIL_OAUTH", "GCAL_OAUTH", "TODOIST_TOKEN"],
+  "output": {
+    "destination": "inbox",
+    "notifyOn": "onChange",
+    "target": "jarrtayl@gmail.com"
+  }
+}

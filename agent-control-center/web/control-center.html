@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Control Center</title>
+<style>
+  :root{
+    --bg:#0A0D1A; --surface:#141827; --elevated:#1E2235; --border:#2a3047;
+    --text:#FFFFFF; --subtext:#9EA8B8; --accent:#E63946; --gold:#F4A261;
+    --ok:#3ddc97; --err:#ff5c6c; --run:#5b8def; --muted:#6b7488;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f6fb; --surface:#ffffff; --elevated:#ffffff; --border:#e2e6ef;
+      --text:#12151f; --subtext:#5b6472; --muted:#9aa2b1; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--text)}
+  header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;
+    align-items:center;gap:12px;position:sticky;top:0;background:var(--bg);z-index:2}
+  header h1{font-size:16px;margin:0;font-weight:650}
+  header .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  header .dot.up{background:var(--ok)} header .dot.down{background:var(--err)}
+  .filters{margin-left:auto;display:flex;gap:6px;font-size:12px}
+  .chip{padding:3px 9px;border:1px solid var(--border);border-radius:999px;color:var(--subtext)}
+  .chip.soon{opacity:.45}
+  main{display:grid;grid-template-columns:340px 1fr;min-height:calc(100vh - 49px)}
+  @media (max-width:720px){ main{grid-template-columns:1fr} #detail{display:none} main.show #list{display:none} main.show #detail{display:block} }
+  #list{border-right:1px solid var(--border)}
+  .agent{padding:12px 14px 12px 16px;border-bottom:1px solid var(--border);cursor:pointer;position:relative}
+  .agent:hover{background:var(--surface)}
+  .agent.sel{background:var(--surface)}
+  .agent .stripe{position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--muted)}
+  .agent .stripe.success{background:var(--ok)} .agent .stripe.error{background:var(--err)}
+  .agent .stripe.running{background:var(--run)}
+  .agent .top{display:flex;align-items:center;gap:8px}
+  .agent .name{font-weight:600}
+  .agent .badge{margin-left:auto;background:var(--accent);color:#fff;border-radius:999px;
+    font-size:11px;padding:1px 7px;font-weight:600}
+  .agent .meta{color:var(--subtext);font-size:12px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+  .runner-chip{border:1px solid var(--border);border-radius:6px;padding:0 6px;font-size:11px}
+  .off{color:var(--muted)}
+  #detail{padding:18px 20px}
+  #detail h2{margin:0 0 2px}
+  .desc{color:var(--subtext);margin:0 0 14px}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:12px}
+  .tab{padding:8px 12px;cursor:pointer;color:var(--subtext);border-bottom:2px solid transparent}
+  .tab.sel{color:var(--text);border-bottom-color:var(--accent)}
+  pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;
+    overflow:auto;white-space:pre-wrap;word-break:break-word}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{color:var(--subtext);font-weight:600}
+  .s-success{color:var(--ok)} .s-error{color:var(--err)} .s-running{color:var(--run)}
+  .back{display:none;color:var(--subtext);cursor:pointer;margin-right:6px}
+  @media (max-width:720px){ .back{display:inline} }
+  .empty{color:var(--muted);padding:20px 0}
+  kbd{background:var(--elevated);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <span id="health" class="dot"></span>
+  <h1>Agent Control Center</h1>
+  <div class="filters">
+    <span class="chip">nas-python</span>
+    <span class="chip">cloud</span>
+    <span class="chip soon">mac mini · soon</span>
+  </div>
+</header>
+<main id="main">
+  <div id="list"><div class="empty" style="padding:16px">Loading…</div></div>
+  <div id="detail"><div class="empty">Select an agent.</div></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let JOBS = [], selected = null, tab = "config";
+
+function fmt(t){ if(!t) return "—"; return String(t).replace("T"," ").replace("Z"," UTC"); }
+function statusClass(s){ return "s-"+(s||"").toLowerCase(); }
+
+async function api(path){
+  const r = await fetch(path);
+  if(!r.ok) throw new Error(path+" -> "+r.status);
+  return r.json();
+}
+
+async function loadHealth(){
+  try{ await api("/api/health"); $("#health").className="dot up"; }
+  catch(e){ $("#health").className="dot down"; }
+}
+
+async function loadList(){
+  try{
+    const data = await api("/api/jobs");
+    JOBS = data.jobs || [];
+    renderList();
+    if(!selected && JOBS.length) select(JOBS[0].id);
+  }catch(e){ $("#list").innerHTML = '<div class="empty" style="padding:16px">API unreachable</div>'; }
+}
+
+function renderList(){
+  if(!JOBS.length){ $("#list").innerHTML='<div class="empty" style="padding:16px">No agents seeded yet.</div>'; return; }
+  $("#list").innerHTML = JOBS.map(j=>{
+    const st = (j.last_status||"").toLowerCase();
+    const cron = (j.config.schedule&&j.config.schedule.cron)||"manual";
+    const unread = j.unread_count||0;
+    return `<div class="agent ${selected===j.id?'sel':''}" onclick="select('${j.id}')">
+      <div class="stripe ${st}"></div>
+      <div class="top">
+        <span class="name ${j.enabled?'':'off'}">${escape(j.name)}</span>
+        ${unread?`<span class="badge">${unread} new</span>`:''}
+      </div>
+      <div class="meta">
+        <span>${escape(cron)}</span>
+        <span class="runner-chip">${escape(j.runner)}</span>
+        <span>${j.enabled?'enabled':'<span class="off">disabled</span>'}</span>
+        <span>last: <span class="${statusClass(j.last_status)}">${escape(j.last_status||'never')}</span></span>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function select(id){
+  selected = id; tab = "config";
+  renderList();
+  $("#main").classList.add("show");
+  try{
+    const j = await api("/api/jobs/"+id);
+    renderDetail(j);
+  }catch(e){ $("#detail").innerHTML='<div class="empty">Failed to load agent.</div>'; }
+}
+
+function renderDetail(j){
+  const runs = j.runs||[], results = j.results||[];
+  const tabs = ["config","runs","results"];
+  const body = {
+    config: `<pre>${escape(JSON.stringify(j.config, null, 2))}</pre>`,
+    runs: runs.length ? `<table><tr><th>#</th><th>when</th><th>status</th><th>ms</th><th>trigger</th></tr>`+
+      runs.map(r=>`<tr><td>${r.id}</td><td>${fmt(r.started_at)}</td>
+      <td class="${statusClass(r.status)}">${escape(r.status)}</td>
+      <td>${r.duration_ms==null?'—':r.duration_ms}</td><td>${escape(r.trigger_source)}</td></tr>`).join("")+
+      `</table>` : `<div class="empty">No runs yet. Try <kbd>python3 tick.py ${escape(j.id)} --dry-run</kbd></div>`,
+    results: results.length ? results.map(r=>`<div style="border-bottom:1px solid var(--border);padding:8px 0">
+      <div><b>${escape(r.title||'')}</b> <span class="off" style="font-size:12px">${fmt(r.time)}</span></div>
+      <div style="color:var(--subtext);font-size:13px">${escape(r.preview||'')}</div></div>`).join("")
+      : `<div class="empty">No results yet.</div>`,
+  };
+  $("#detail").innerHTML = `
+    <div><span class="back" onclick="document.getElementById('main').classList.remove('show')">‹ back</span></div>
+    <h2>${escape(j.name)}</h2>
+    <p class="desc">${escape(j.config.description||'')}</p>
+    <div class="tabs">${tabs.map(t=>`<div class="tab ${tab===t?'sel':''}" onclick="setTab('${t}')">${t}</div>`).join("")}</div>
+    <div id="tabbody">${body[tab]}</div>`;
+  window.__detail = j; window.__body = body;
+}
+function setTab(t){ tab=t; const j=window.__detail; renderDetail(j); }
+
+function escape(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+loadHealth(); loadList();
+setInterval(()=>{ loadHealth(); loadList(); }, 15000);
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "id": "daily-note",
+  "name": "Daily Note",
+  "description": "Connector-free first brick: proves the full pipeline (SQLite -> tick -> nas-python -> dashboard). Uses only the Anthropic API.",
+  "enabled": true,
+  "schedule": {
+    "cron": "0 6 * * *",
+    "timezone": "America/Denver",
+    "catchUpOnWake": false
+  },
+  "runner": "nas-python",
+  "task": {
+    "type": "prompt",
+    "prompt": "Write a short, upbeat daily note for Jared (2-3 sentences): one grounding thought for the day plus one concrete tiny action to consider. No preamble, just the note.",
+    "model": "claude-opus-4-8",
+    "connectors": [],
+    "timeoutSec": 120,
+    "maxRetries": 1
+  },
+  "secrets": ["ANTHROPIC_API_KEY"],
+  "output": {
+    "destination": "inbox",
+    "notifyOn": "always",
+    "target": "jarrtayl@gmail.com"
+  }
+}

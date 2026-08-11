@@ -1,0 +1,20 @@
+# Secrets — never commit
+runner/.env
+*.pem
+*.p8
+*.p12
+
+# Local SQLite store + logs
+*.sqlite
+*.sqlite3
+*.db
+runner/logs/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+.DS_Store

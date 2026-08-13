@@ -5,6 +5,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
+  signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth'
@@ -30,6 +31,11 @@ export async function signInWithGoogle() {
     }
     throw err
   }
+}
+
+/** Mirrors AuthenticationService.signInWithEmail — same Firebase email/password accounts as iOS. */
+export function signInWithEmail(email, password) {
+  return signInWithEmailAndPassword(auth, email, password)
 }
 
 /** Mirrors Auth.auth().signOut() + GIDSignIn.signOut() — one call covers both on web. */

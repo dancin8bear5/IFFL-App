@@ -55,7 +55,8 @@ export function AppProvider({ children }) {
 
   const unsubsRef = useRef([])
 
-  const isAdmin = user?.email === 'jaredrogtaylor@gmail.com'
+  // Admin gate — same email check as AppState.isAdmin (preview mode: enabled for UI testing)
+  const isAdmin = DEV_PREVIEW || user?.email === 'jaredrogtaylor@gmail.com'
 
   // ── Auth listener ───────────────────────────────────────────
   useEffect(() => {

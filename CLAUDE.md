@@ -115,7 +115,8 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 
 ### Pending / next session
 - [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/Documents/Claude/Projects/IFFL/"iOS App"` (space in name — quotes required). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
-- [ ] **Trade Portal UX review** — test accept/decline/counter flow on device once build 12 clears review
+- [x] **TRADE PORTAL v2 + GROUPME NOTIFICATIONS** — ✅ SHIPPED & VERIFIED LIVE Aug 13, 2026 (web). Incoming-offer badges + Dashboard banners, offer notes, counter-offer loop w/ chain history, ESPN execution checklist (players swap in ESPN / picks app-only), GroupMe DMs on propose/accept/decline/counter/execute via onTradeWrite (GROUPME_TOKEN secret in Secret Manager; team→GroupMe mapping in `config/groupme`, managed from web Admin → GroupMe). Jared confirmed end-to-end GroupMe test successful.
+- [ ] **Trade Portal UX review** — superseded by web Trade Portal v2 (above); iOS flow unchanged
 - [ ] **Retire legacy `PlayerInterest` collection** — old star-flag interest system superseded by FMK; remove once FMK is fully adopted
 - [ ] **Firestore security rules** — add composite indexes for `playerFMK` (userId, assetId) and `leagueHistory` (year desc)
 - [ ] **Honor `showTradeValues`** — toggle saved in UserSettings but not yet used to hide/show price columns in Rosters/Market

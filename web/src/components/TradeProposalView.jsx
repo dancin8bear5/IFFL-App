@@ -1,18 +1,37 @@
-// TradeProposalView — port of TradeProposalView in CodeRedApp.swift.
-// Pick the other team, select assets from both sides, send the proposal.
+// TradeProposalView — port of TradeProposalView + CounterOfferView in
+// CodeRedApp.swift. Pick the other team, select assets from both sides,
+// attach a note, send. With `counterOf`, opens pre-filled and swapped as a
+// counter to that trade.
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams } from '../data/staticData'
 import { DetailOverlay, PosBadge } from './shared'
 
-export default function TradeProposalView({ onClose }) {
-  const { userTeam, allDisplayAssets, activeSeason, proposeTrade, selectedAssetForTrade, setSelectedAssetForTrade } = useApp()
+export default function TradeProposalView({ onClose, counterOf = null }) {
+  const {
+    userTeam, allDisplayAssets, activeSeason, proposeTrade, counterTrade,
+    selectedAssetForTrade, setSelectedAssetForTrade,
+  } = useApp()
 
-  const [otherTeam, setOtherTeam] = useState(selectedAssetForTrade?.teamName ?? '')
-  const [mySelected, setMySelected] = useState(new Set())
-  const [theirSelected, setTheirSelected] = useState(
-    () => new Set(selectedAssetForTrade ? [selectedAssetForTrade.id] : []),
+  const [otherTeam, setOtherTeam] = useState(
+    counterOf?.proposingTeamName ?? selectedAssetForTrade?.teamName ?? '',
   )
+  // Counter mode pre-fill: I keep what they asked of me on my side (editable),
+  // and what they offered stays on their side (editable) — swapped perspective.
+  const [mySelected, setMySelected] = useState(
+    () => new Set((counterOf?.assetsFromReceiver ?? []).map((a) => a.assetId)),
+  )
+  const [theirSelected, setTheirSelected] = useState(
+    () =>
+      new Set(
+        counterOf
+          ? (counterOf.assetsFromProposer ?? []).map((a) => a.assetId)
+          : selectedAssetForTrade
+            ? [selectedAssetForTrade.id]
+            : [],
+      ),
+  )
+  const [notes, setNotes] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
 
@@ -43,14 +62,17 @@ export default function TradeProposalView({ onClose }) {
   async function send() {
     setSending(true)
     try {
-      await proposeTrade({
+      const trade = {
         season: activeSeason,
         proposingTeamName: userTeam,
         receivingTeamName: otherTeam,
         assetsFromProposer: myAssets.filter((a) => mySelected.has(a.id)).map(toRef),
         assetsFromReceiver: theirAssets.filter((a) => theirSelected.has(a.id)).map(toRef),
+        notes: notes.trim() || null,
         isHistorical: false,
-      })
+      }
+      if (counterOf) await counterTrade(counterOf.id, trade)
+      else await proposeTrade(trade)
       setSent(true)
       setSelectedAssetForTrade(null)
       setTimeout(onClose, 900)
@@ -62,27 +84,38 @@ export default function TradeProposalView({ onClose }) {
   const sumOf = (assets, sel) => assets.filter((a) => sel.has(a.id)).reduce((s, a) => s + a.currentPrice, 0)
 
   return (
-    <DetailOverlay title="Propose Trade" onBack={onClose}>
+    <DetailOverlay title={counterOf ? 'Counter Offer' : 'Propose Trade'} onBack={onClose}>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {sent ? (
           <div className="empty-state">
             <div className="glyph">📨</div>
-            <div className="title">Trade Proposed</div>
+            <div className="title">{counterOf ? 'Counter Sent' : 'Trade Proposed'}</div>
             <div>{otherTeam} will see it in their Trades tab.</div>
           </div>
         ) : (
           <>
-            {/* Opponent picker */}
+            {counterOf && (
+              <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.5, padding: '0 2px' }}>
+                Countering {counterOf.proposingTeamName}'s offer — their original terms are
+                pre-selected below. Adjust either side, then send.
+              </div>
+            )}
+
+            {/* Opponent picker (locked when countering) */}
             <div className="iff-card" style={{ padding: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
                 Trade With
               </div>
-              <select value={otherTeam} onChange={(e) => { setOtherTeam(e.target.value); setTheirSelected(new Set()) }}>
-                <option value="">Select team…</option>
-                {fantasyTeams.filter((t) => t.name !== userTeam).map((t) => (
-                  <option key={t.name} value={t.name}>{t.name}</option>
-                ))}
-              </select>
+              {counterOf ? (
+                <div style={{ fontSize: 15, fontWeight: 700 }}>{otherTeam}</div>
+              ) : (
+                <select value={otherTeam} onChange={(e) => { setOtherTeam(e.target.value); setTheirSelected(new Set()) }}>
+                  <option value="">Select team…</option>
+                  {fantasyTeams.filter((t) => t.name !== userTeam).map((t) => (
+                    <option key={t.name} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             {/* My side */}
@@ -105,8 +138,22 @@ export default function TradeProposalView({ onClose }) {
               />
             )}
 
+            {/* Note to the other manager */}
+            <div className="iff-card" style={{ padding: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                Add a Note (optional)
+              </div>
+              <textarea
+                rows={2}
+                placeholder="e.g. Open to swapping the pick for a later round…"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                style={{ resize: 'vertical' }}
+              />
+            </div>
+
             <button className="btn-primary" disabled={!canSend} onClick={send}>
-              {sending ? 'Sending…' : 'Propose Trade'}
+              {sending ? 'Sending…' : counterOf ? 'Send Counter Offer' : 'Propose Trade'}
             </button>
           </>
         )}

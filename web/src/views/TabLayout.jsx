@@ -18,10 +18,11 @@ const TABS = [
 ]
 
 export default function TabLayout({ tab, setTab }) {
-  const { isAdmin, myMatchCount } = useApp()
+  const { isAdmin, incomingTradeCount } = useApp()
   const isDesktop = useIsDesktop()
   const tabs = isAdmin ? [...TABS, { label: 'Admin', glyph: '🔧' }] : TABS
-  const matchCount = myMatchCount
+  // Badge = trade offers awaiting YOUR response (ESPN-style action signal)
+  const matchCount = incomingTradeCount
 
   const screens = (
     <>

@@ -153,6 +153,23 @@ export function respondToTrade(tradeId, response) {
 }
 
 /**
+ * Atomic counter-offer: mark the original trade 'countered' and create the
+ * new swapped offer linked back via parentTradeId. Mirrors the iOS
+ * counter-offer service (batch write).
+ */
+export function counterTrade(originalTradeId, newTrade) {
+  const batch = writeBatch(db)
+  batch.update(doc(db, COL.trades, originalTradeId), { status: 'countered' })
+  batch.set(doc(collection(db, COL.trades)), {
+    ...newTrade,
+    status: 'proposed',
+    parentTradeId: originalTradeId,
+    date: Timestamp.fromDate(newTrade.date ?? new Date()),
+  })
+  return batch.commit()
+}
+
+/**
  * Atomic: transfer every asset on both sides, then mark the trade completed.
  * Mirrors executeTrade + applyTransfer.
  */

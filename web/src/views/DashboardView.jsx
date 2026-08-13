@@ -9,16 +9,19 @@ import { fantasyTeams, teamByName, milestones } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
 import AssetDetailView from '../components/AssetDetailView'
+import TradeDetailView from '../components/TradeDetailView'
 import SettingsView from './SettingsView'
 
 export default function DashboardView({ setTab }) {
   const {
     userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
+    incomingOffers,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
+  const [detailTrade, setDetailTrade] = useState(null)
 
   const myAssets = useMemo(
     () => allDisplayAssets.filter((a) => a.teamName === userTeam),
@@ -112,6 +115,38 @@ export default function DashboardView({ setTab }) {
         <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
         <button className="btn-outline" onClick={() => setTab(2)}>⇄ Market</button>
       </div>
+    </div>
+  )
+
+  // Incoming trade offers — the ESPN-style "you've got an offer" alert
+  const offerBanners = incomingOffers.length > 0 && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {incomingOffers.map((t) => (
+        <button
+          key={t.id}
+          className="iff-card offer-banner"
+          onClick={() => setDetailTrade(t)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+            textAlign: 'left', width: '100%',
+            border: '1.5px solid rgba(230,57,70,0.45)',
+            background: 'linear-gradient(135deg, rgba(230,57,70,0.14), var(--iff-surface) 55%)',
+          }}
+        >
+          <span style={{ width: 42, height: 42, background: 'rgba(230,57,70,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>📨</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 800 }}>
+              {t.proposingTeamName} sent you a trade offer
+            </span>
+            <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              You get: {(t.assetsFromProposer ?? []).map((a) => a.displayName).join(', ') || '—'}
+            </span>
+          </span>
+          <span className="btn-outline" style={{ fontSize: 11, padding: '5px 12px', pointerEvents: 'none' }}>
+            Respond
+          </span>
+        </button>
+      ))}
     </div>
   )
 
@@ -255,6 +290,7 @@ export default function DashboardView({ setTab }) {
           desktop="panel"
         />
       )}
+      {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
     </>
   )
 
@@ -272,6 +308,7 @@ export default function DashboardView({ setTab }) {
         ) : (
           <div className="dash-grid">
             <div className="dash-main">
+              {offerBanners}
               {teamCard}
               {calendar}
               {teamsGrid}
@@ -315,6 +352,7 @@ export default function DashboardView({ setTab }) {
         <LoadingList count={4} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
+          {offerBanners}
           {teamCard}
           {trophyLink}
           {matchBanner}

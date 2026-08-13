@@ -68,7 +68,7 @@ service cloud.firestore {
       allow update: if isCommissioner() || (
         isMember() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response', 'status']) &&
-        request.resource.data.status in ['accepted', 'rejected']
+        request.resource.data.status in ['accepted', 'rejected', 'countered']
       );
       allow delete: if isCommissioner();
     }

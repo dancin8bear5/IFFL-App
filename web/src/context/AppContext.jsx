@@ -185,6 +185,13 @@ export function AppProvider({ children }) {
     [matches, userTeam],
   )
 
+  // Offers sitting in MY inbox — ESPN-style "action needed" signal
+  const incomingOffers = useMemo(
+    () => trades.filter((t) => t.status === 'proposed' && t.receivingTeamName === userTeam),
+    [trades, userTeam],
+  )
+  const incomingTradeCount = incomingOffers.length
+
   // ── Actions (AppState methods) ──────────────────────────────
   const currentFMKSignal = useCallback(
     (assetId) => fmkSignals.find((s) => s.assetId === assetId)?.signal ?? null,
@@ -290,6 +297,24 @@ export function AppProvider({ children }) {
     await fs.respondToTrade(tradeId, response)
   }, [])
 
+  /** Counter an offer: original → 'countered', new swapped offer linked via parentTradeId. */
+  const counterTrade = useCallback(async (originalTradeId, newTrade) => {
+    if (DEV_PREVIEW) {
+      setTrades((prev) => [
+        {
+          ...newTrade,
+          id: `preview-counter-${prev.length}`,
+          status: 'proposed',
+          parentTradeId: originalTradeId,
+          date: new Date(),
+        },
+        ...prev.map((t) => (t.id === originalTradeId ? { ...t, status: 'countered' } : t)),
+      ])
+      return
+    }
+    await fs.counterTrade(originalTradeId, newTrade)
+  }, [])
+
   const value = {
     // auth
     user, authReady, isAdmin, isCommissioner,
@@ -311,7 +336,8 @@ export function AppProvider({ children }) {
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,
-    proposeTrade, respondToTrade,
+    proposeTrade, respondToTrade, counterTrade,
+    incomingOffers, incomingTradeCount,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

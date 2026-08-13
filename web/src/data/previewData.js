@@ -45,6 +45,19 @@ export const previewTrades = [
     assetsFromReceiver: [{ assetType: 'draftPick', assetId: 'dp3', displayName: '2027 Round 1', teamName: 'Foley' }],
     isHistorical: false,
   },
+  // Incoming offer TO Jared — exercises the offer banner, accept/counter flow,
+  // and the mixed player+pick ESPN checklist
+  {
+    id: 't4', season: 2026, date: new Date(2026, 7, 12), status: 'proposed',
+    proposingTeamName: 'Bill', receivingTeamName: 'Jared',
+    assetsFromProposer: [{ assetType: 'player', assetId: 'p6', displayName: 'Justin Jefferson', teamName: 'Bill' }],
+    assetsFromReceiver: [
+      { assetType: 'player', assetId: 'p1', displayName: 'Patrick Mahomes', teamName: 'Jared' },
+      { assetType: 'draftPick', assetId: 'dp2', displayName: '2027 Round 2', teamName: 'Jared' },
+    ],
+    notes: 'Jefferson for Mahomes plus your 2027 2nd. He wants out of Minny anyway.',
+    isHistorical: false,
+  },
 ]
 
 export const previewMessages = [

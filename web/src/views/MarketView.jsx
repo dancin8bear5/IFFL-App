@@ -229,6 +229,7 @@ export default function MarketView({ setTab }) {
 const STATUS_BADGE = {
   proposed:  { label: 'Proposed',  color: 'var(--iff-gold)', bg: 'rgba(244,162,97,0.15)' },
   accepted:  { label: 'Accepted',  color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  countered: { label: 'Countered', color: '#38BDF8', bg: 'rgba(56,189,248,0.15)' },
   completed: { label: 'Completed', color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
   historical:{ label: 'History',   color: 'var(--iff-subtext)', bg: 'var(--iff-elevated)' },
   rejected:  { label: 'Declined',  color: '#EF4444', bg: 'rgba(239,68,68,0.15)' },

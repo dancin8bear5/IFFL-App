@@ -17,7 +17,7 @@ struct MarketView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.iffBg.ignoresSafeArea()
+                Color.beltBg.ignoresSafeArea()
                 VStack(spacing: 0) {
                     sectionPicker
                     switch section {
@@ -34,12 +34,12 @@ struct MarketView: View {
                     HStack(spacing: 12) {
                         Button { showTradeProposal = true } label: {
                             Image(systemName: "plus.circle.fill")
-                                .foregroundColor(Color.iffAccent)
+                                .foregroundColor(Color.beltAccent)
                                 .font(.title3)
                         }
                         Button { showSettings = true } label: {
                             Image(systemName: "gearshape.fill")
-                                .foregroundColor(Color.iffSubtext)
+                                .foregroundColor(Color.beltSubtext)
                         }
                     }
                 }
@@ -66,7 +66,7 @@ struct MarketView: View {
         }
         .pickerStyle(.segmented)
         .padding()
-        .background(Color.iffBg)
+        .background(Color.beltBg)
     }
 }
 
@@ -127,27 +127,27 @@ struct InterestBoardView: View {
                     Button { filter = f } label: {
                         Text(f.rawValue)
                             .font(.caption.bold())
-                            .foregroundColor(filter == f ? .white : Color.iffSubtext)
+                            .foregroundColor(filter == f ? .white : Color.beltSubtext)
                             .padding(.horizontal, 12).padding(.vertical, 6)
-                            .background(filter == f ? Color.iffAccent : Color.iffSurface)
+                            .background(filter == f ? Color.beltAccent : Color.beltSurface)
                             .clipShape(Capsule())
                     }
                 }
             }
             .padding(.horizontal).padding(.vertical, 8)
         }
-        .background(Color.iffBg)
+        .background(Color.beltBg)
     }
 
     private var emptyState: some View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "star.slash")
-                .font(.system(size: 44)).foregroundColor(Color.iffSubtext)
+                .font(.system(size: 44)).foregroundColor(Color.beltSubtext)
             Text("No interest flagged yet")
-                .font(.headline).foregroundColor(Color.iffSubtext)
+                .font(.headline).foregroundColor(Color.beltSubtext)
             Text("Swipe left on any player in Rosters to mark interest.")
-                .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.7))
+                .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.7))
                 .multilineTextAlignment(.center).padding(.horizontal)
             Spacer()
         }
@@ -167,11 +167,11 @@ struct InterestRow: View {
                         Text(asset.name)
                             .font(.subheadline.bold()).foregroundColor(.white)
                         Text("\(asset.isPick ? "Pick" : asset.position) · \(asset.teamName)")
-                            .font(.caption).foregroundColor(Color.iffSubtext)
+                            .font(.caption).foregroundColor(Color.beltSubtext)
                     }
                     Spacer()
                     Text(asset.formattedCurrentPrice)
-                        .font(.subheadline.bold()).foregroundColor(Color.iffGold)
+                        .font(.subheadline.bold()).foregroundColor(Color.beltGold)
                 }
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -179,9 +179,9 @@ struct InterestRow: View {
                         ForEach(interestedTeams, id: \.self) { team in
                             Text(team)
                                 .font(.caption2.bold())
-                                .foregroundColor(team == appState.userTeam ? .black : Color.iffSubtext)
+                                .foregroundColor(team == appState.userTeam ? .black : Color.beltSubtext)
                                 .padding(.horizontal, 8).padding(.vertical, 3)
-                                .background(team == appState.userTeam ? Color.iffAccent : Color.iffElevated)
+                                .background(team == appState.userTeam ? Color.beltAccent : Color.beltElevated)
                                 .clipShape(Capsule())
                         }
                     }
@@ -189,7 +189,7 @@ struct InterestRow: View {
             }
             .padding()
         }
-        .iffCard()
+        .beltCard()
     }
 }
 
@@ -213,11 +213,11 @@ struct MatchesView: View {
                 VStack(spacing: 14) {
                     Spacer()
                     Image(systemName: "arrow.left.arrow.right.circle")
-                        .font(.system(size: 48)).foregroundColor(Color.iffSubtext)
+                        .font(.system(size: 48)).foregroundColor(Color.beltSubtext)
                     Text("No matches yet")
-                        .font(.headline).foregroundColor(Color.iffSubtext)
+                        .font(.headline).foregroundColor(Color.beltSubtext)
                     Text("Matches appear when two teams both have\nFuck/Marry signals on each other's players\nat similar trade value.")
-                        .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.7))
+                        .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.7))
                         .multilineTextAlignment(.center).padding(.horizontal)
                     Spacer()
                 }
@@ -241,10 +241,14 @@ struct MatchesView: View {
         let userIsA = match.teamA == appState.userTeam
         let userIsB = match.teamB == appState.userTeam
         guard userIsA || userIsB else { return }
-        let theirCandidates = userIsA ? match.aWants : match.bWants
-        if let first = theirCandidates.first {
-            appState.selectedAssetForTrade = first.asset
-        }
+        let otherTeam      = userIsA ? match.teamB : match.teamA
+        let theyWant       = userIsA ? match.bWants : match.aWants  // what other team wants from me (I give)
+        let iWant          = userIsA ? match.aWants : match.bWants  // what I want from them
+        appState.tradePreset = TradePreset(
+            otherTeam:    otherTeam,
+            offeredIds:   Set(theyWant.map { $0.asset.id }),
+            requestedIds: Set(iWant.map   { $0.asset.id })
+        )
     }
 }
 
@@ -260,9 +264,9 @@ struct MatchCard: View {
                 Spacer()
                 VStack(spacing: 2) {
                     Image(systemName: "arrow.left.arrow.right")
-                        .foregroundColor(Color.iffSubtext)
+                        .foregroundColor(Color.beltSubtext)
                     Text("Match Score: \(match.matchScore)")
-                        .font(.caption2).foregroundColor(Color.iffSubtext)
+                        .font(.caption2).foregroundColor(Color.beltSubtext)
                 }
                 Spacer()
                 teamLabel(match.teamB)
@@ -278,23 +282,23 @@ struct MatchCard: View {
                 Text("Propose Trade")
                     .font(.caption.bold()).foregroundColor(.white)
                     .frame(maxWidth: .infinity).padding(.vertical, 8)
-                    .background(Color.iffAccent).cornerRadius(8)
+                    .background(Color.beltAccent).cornerRadius(8)
             }
         }
         .padding()
-        .iffCard()
+        .beltCard()
     }
 
     private func teamLabel(_ name: String) -> some View {
         Text(name)
             .font(.subheadline.bold())
-            .foregroundColor(name == appState.userTeam ? Color.iffAccent : .white)
+            .foregroundColor(name == appState.userTeam ? Color.beltAccent : .white)
     }
 
     @ViewBuilder
     private func candidateList(title: String, candidates: [MarketEngine.MatchCandidate], aligned: HorizontalAlignment) -> some View {
         VStack(alignment: aligned, spacing: 4) {
-            Text(title).font(.caption).foregroundColor(Color.iffSubtext)
+            Text(title).font(.caption).foregroundColor(Color.beltSubtext)
             ForEach(candidates, id: \.asset.id) { candidate in
                 HStack(spacing: 3) {
                     Text(candidate.signal.emoji).font(.caption)
@@ -356,23 +360,30 @@ struct TradeHistorySection: View {
                             Text("\(trade.proposingTeamName) → \(trade.receivingTeamName)")
                                 .font(.subheadline.bold()).foregroundColor(.white)
                             Text(trade.proposerAssetNames.prefix(2).joined(separator: ", "))
-                                .font(.caption).foregroundColor(Color.iffSubtext).lineLimit(1)
+                                .font(.caption).foregroundColor(Color.beltSubtext).lineLimit(1)
                         }
                         Spacer()
                         statusBadge(trade.status)
                     }
                     .padding()
-                    .iffCard()
+                    .beltCard()
                 }
             }
         }
     }
 
     private func statusBadge(_ status: TradeStatus) -> some View {
-        Text(status == .proposed ? "Proposed" : "Accepted")
+        let label: String
+        let color: Color
+        switch status {
+        case .accepted:  label = "Accepted";  color = Color.green.opacity(0.7)
+        case .countered: label = "Countered"; color = Color.beltAccent.opacity(0.8)
+        default:         label = "Proposed";  color = Color.beltGold.opacity(0.8)
+        }
+        return Text(label)
             .font(.caption2.bold()).foregroundColor(.white)
             .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(status == .accepted ? Color.green.opacity(0.7) : Color.iffGold.opacity(0.8))
+            .background(color)
             .clipShape(Capsule())
     }
 
@@ -385,22 +396,22 @@ struct TradeHistorySection: View {
                     .font(.headline).foregroundColor(.white)
                 Spacer()
                 NavigationLink(destination: HistoricalTradesView()) {
-                    Text("History").font(.caption.bold()).foregroundColor(Color.iffAccent)
+                    Text("History").font(.caption.bold()).foregroundColor(Color.beltAccent)
                 }
             }
 
             HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass").foregroundColor(Color.iffSubtext)
+                Image(systemName: "magnifyingglass").foregroundColor(Color.beltSubtext)
                 TextField("Search", text: $searchQuery)
                     .foregroundColor(.white).autocapitalization(.none)
             }
             .padding(8)
-            .background(Color.iffSurface)
+            .background(Color.beltSurface)
             .cornerRadius(8)
 
             if completed.isEmpty {
                 Text("No trades this season.")
-                    .font(.caption).foregroundColor(Color.iffSubtext).padding(.top, 8)
+                    .font(.caption).foregroundColor(Color.beltSubtext).padding(.top, 8)
             } else {
                 ForEach(completed) { trade in
                     NavigationLink(destination: TradeDetailView(trade: trade)) {
@@ -409,13 +420,13 @@ struct TradeHistorySection: View {
                                 Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
                                     .font(.subheadline.bold()).foregroundColor(.white)
                                 Text(trade.proposerAssetNames.prefix(2).joined(separator: ", "))
-                                    .font(.caption).foregroundColor(Color.iffSubtext).lineLimit(1)
+                                    .font(.caption).foregroundColor(Color.beltSubtext).lineLimit(1)
                             }
                             Spacer()
-                            Text(trade.formattedDate).font(.caption).foregroundColor(Color.iffSubtext)
+                            Text(trade.formattedDate).font(.caption).foregroundColor(Color.beltSubtext)
                         }
                         .padding()
-                        .iffCard()
+                        .beltCard()
                     }
                 }
             }

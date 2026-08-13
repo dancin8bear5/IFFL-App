@@ -21,12 +21,15 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.iffBg.ignoresSafeArea()
+                Color.beltBg.ignoresSafeArea()
                 Form {
                     profileSection
                     appearanceSection
                     leagueSection
                     notificationsSection
+                    aboutSection
+                    signOutSection
+                    versionFooter
                 }
                 .scrollContentBackground(.hidden)
             }
@@ -35,12 +38,12 @@ struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Color.iffAccent)
+                        .foregroundColor(Color.beltAccent)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving…" : "Save") { save() }
                         .disabled(isSaving)
-                        .foregroundColor(Color.iffAccent)
+                        .foregroundColor(Color.beltAccent)
                 }
             }
             .onAppear {
@@ -55,16 +58,16 @@ struct SettingsView: View {
     private var profileSection: some View {
         Section("Profile") {
             HStack {
-                Text("Name").foregroundColor(Color.iffSubtext)
+                Text("Name").foregroundColor(Color.beltSubtext)
                 Spacer()
                 Text(Auth.auth().currentUser?.displayName ?? "—")
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
             }
             HStack {
-                Text("Email").foregroundColor(Color.iffSubtext)
+                Text("Email").foregroundColor(Color.beltSubtext)
                 Spacer()
                 Text(Auth.auth().currentUser?.email ?? "—")
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
                     .font(.caption)
             }
             Picker("ESPN Team", selection: $selectedTeam) {
@@ -73,7 +76,7 @@ struct SettingsView: View {
                 }
             }
             .pickerStyle(.menu)
-            .tint(Color.iffAccent)
+            .tint(Color.beltAccent)
             HStack {
                 Text("Nickname").foregroundColor(.white)
                 Spacer()
@@ -86,7 +89,7 @@ struct SettingsView: View {
                 .autocapitalization(.words)
             }
         }
-        .listRowBackground(Color.iffSurface)
+        .listRowBackground(Color.beltSurface)
     }
 
     // MARK: Appearance
@@ -95,7 +98,7 @@ struct SettingsView: View {
         Section("Appearance") {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Team Logo Icon")
-                    .font(.caption).foregroundColor(Color.iffSubtext)
+                    .font(.caption).foregroundColor(Color.beltSubtext)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
                         ForEach(logoPresets, id: \.self) { symbol in
@@ -104,9 +107,9 @@ struct SettingsView: View {
                             } label: {
                                 Image(systemName: symbol)
                                     .font(.title2)
-                                    .foregroundColor(settings.teamLogoName == symbol ? Color.iffAccent : Color.iffSubtext)
+                                    .foregroundColor(settings.teamLogoName == symbol ? Color.beltAccent : Color.beltSubtext)
                                     .frame(width: 44, height: 44)
-                                    .background(settings.teamLogoName == symbol ? Color.iffAccent.opacity(0.2) : Color.iffElevated)
+                                    .background(settings.teamLogoName == symbol ? Color.beltAccent.opacity(0.2) : Color.beltElevated)
                                     .clipShape(Circle())
                             }
                         }
@@ -118,10 +121,10 @@ struct SettingsView: View {
             HStack {
                 Text("Theme").foregroundColor(.white)
                 Spacer()
-                Text("Dark").font(.caption).foregroundColor(Color.iffSubtext)
+                Text("Dark").font(.caption).foregroundColor(Color.beltSubtext)
             }
         }
-        .listRowBackground(Color.iffSurface)
+        .listRowBackground(Color.beltSurface)
     }
 
     // MARK: League
@@ -135,17 +138,17 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
             .foregroundColor(.white)
-            .tint(Color.iffAccent)
+            .tint(Color.beltAccent)
 
             Toggle("Show Trade Values", isOn: $settings.showTradeValues)
-                .tint(Color.iffAccent)
+                .tint(Color.beltAccent)
                 .foregroundColor(.white)
 
             Toggle("Share My FMK Ratings", isOn: $settings.fmkPublic)
-                .tint(Color.iffAccent)
+                .tint(Color.beltAccent)
                 .foregroundColor(.white)
         }
-        .listRowBackground(Color.iffSurface)
+        .listRowBackground(Color.beltSurface)
     }
 
     // MARK: Notifications
@@ -154,12 +157,70 @@ struct SettingsView: View {
         Section("Notifications") {
             HStack(spacing: 10) {
                 Image(systemName: "bell.badge")
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
                 Text("Push notifications — coming soon")
-                    .font(.subheadline).foregroundColor(Color.iffSubtext)
+                    .font(.subheadline).foregroundColor(Color.beltSubtext)
             }
         }
-        .listRowBackground(Color.iffSurface)
+        .listRowBackground(Color.beltSurface)
+    }
+
+    // MARK: About
+
+    private var aboutSection: some View {
+        Section("About") {
+            Link(destination: BeltLegal.privacyPolicyURL) {
+                HStack(spacing: 10) {
+                    Image(systemName: "hand.raised.fill")
+                        .foregroundColor(Color.beltAccent)
+                    Text("Privacy Policy")
+                        .font(.subheadline).foregroundColor(.white)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption).foregroundColor(Color.beltSubtext)
+                }
+            }
+        }
+        .listRowBackground(Color.beltSurface)
+    }
+
+    // MARK: Sign Out
+
+    private var signOutSection: some View {
+        Section {
+            Button(role: .destructive) {
+                try? Auth.auth().signOut()
+            } label: {
+                HStack {
+                    Spacer()
+                    Text("Sign Out")
+                        .font(.headline)
+                    Spacer()
+                }
+            }
+        }
+        .listRowBackground(Color.beltSurface)
+    }
+
+    // MARK: Version Footer
+
+    private var appVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "Insanity League \(v) (\(b))"
+    }
+
+    private var versionFooter: some View {
+        Section {
+            HStack {
+                Spacer()
+                Text(appVersion)
+                    .font(.caption2)
+                    .foregroundColor(Color.beltSubtext)
+                Spacer()
+            }
+        }
+        .listRowBackground(Color.clear)
     }
 
     // MARK: Save

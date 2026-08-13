@@ -4,8 +4,20 @@ import FirebaseMessaging
 import FirebaseAuth
 import FirebaseFirestore
 import GoogleSignIn
+import AuthenticationServices
+import CryptoKit
+
+// MARK: - Legal / Privacy
+
+enum BeltLegal {
+    /// Public privacy policy URL. Must match the Privacy Policy URL set in
+    /// App Store Connect → App Information. Required by App Store guideline 5.1.2.
+    /// Replace with the live hosted URL (Google Doc "Publish to web" or website).
+    static let privacyPolicyURL = URL(string: "https://iffl-auth.web.app/privacy.html")!
+}
 
 // MARK: - AppState
+
 
 class AppState: ObservableObject {
 
@@ -35,6 +47,7 @@ class AppState: ObservableObject {
 
     @Published var selectedAssetForTrade: DisplayAsset? = nil
     @Published var triggerTradeProposal: Bool = false
+    @Published var tradePreset: TradePreset? = nil
 
     @Published var fmkSignals: [PlayerFMK] = []
     @Published var allLeagueFMK: [PlayerFMK] = []
@@ -159,7 +172,7 @@ class AppState: ObservableObject {
 
     func toggleInterest(for asset: DisplayAsset, completion: @escaping (Error?) -> Void) {
         guard let uid = currentUserUID else {
-            completion(NSError(domain: "IFFL", code: -1))
+            completion(NSError(domain: "TheBelt", code: -1))
             return
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -188,7 +201,7 @@ class AppState: ObservableObject {
     }
 
     func setFMKSignal(for asset: DisplayAsset, signal: FMKSignal, completion: @escaping (Error?) -> Void) {
-        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        guard let uid = currentUserUID else { completion(NSError(domain: "TheBelt", code: -1)); return }
         let existing = fmkSignals.first(where: { $0.assetId == asset.assetId })
         let fmk = PlayerFMK(
             id: nil, userId: uid, teamName: userTeam,
@@ -210,7 +223,7 @@ class AppState: ObservableObject {
     }
 
     func removeFMKSignal(for asset: DisplayAsset, completion: @escaping (Error?) -> Void) {
-        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        guard let uid = currentUserUID else { completion(NSError(domain: "TheBelt", code: -1)); return }
         dataService.removeFMKSignal(userId: uid, assetId: asset.assetId) { [weak self] error in
             if error == nil {
                 DispatchQueue.main.async { self?.fmkSignals.removeAll { $0.assetId == asset.assetId } }
@@ -236,7 +249,7 @@ class AppState: ObservableObject {
     }
 
     func saveUserSettings(completion: @escaping (Error?) -> Void) {
-        guard let uid = currentUserUID else { completion(NSError(domain: "IFFL", code: -1)); return }
+        guard let uid = currentUserUID else { completion(NSError(domain: "TheBelt", code: -1)); return }
         dataService.saveUserSettings(userSettings, userId: uid, completion: completion)
     }
 
@@ -301,6 +314,64 @@ class AuthenticationService: ObservableObject {
         }
     }
 
+    func signInWithEmail(_ email: String, password: String) {
+        Auth.auth().signIn(withEmail: email, password: password) { [weak self] _, error in
+            if let error = error {
+                DispatchQueue.main.async { self?.signInError = error.localizedDescription }
+            }
+        }
+    }
+
+    // MARK: - Sign in with Apple
+
+    private var currentNonce: String?
+
+    func prepareAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
+        let nonce = randomNonceString()
+        currentNonce = nonce
+        request.requestedScopes = [.fullName, .email]
+        request.nonce = sha256(nonce)
+    }
+
+    func handleAppleResult(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let auth):
+            guard let credential = auth.credential as? ASAuthorizationAppleIDCredential,
+                  let tokenData  = credential.identityToken,
+                  let idToken    = String(data: tokenData, encoding: .utf8),
+                  let nonce      = currentNonce else {
+                DispatchQueue.main.async { self.signInError = "Sign in with Apple failed." }
+                return
+            }
+            let firebaseCredential = OAuthProvider.appleCredential(
+                withIDToken: idToken,
+                rawNonce: nonce,
+                fullName: credential.fullName
+            )
+            Auth.auth().signIn(with: firebaseCredential) { _, error in
+                if let error = error {
+                    DispatchQueue.main.async { self.signInError = error.localizedDescription }
+                }
+            }
+        case .failure(let error):
+            let nsError = error as NSError
+            if nsError.code == ASAuthorizationError.canceled.rawValue { return }
+            DispatchQueue.main.async { self.signInError = error.localizedDescription }
+        }
+    }
+
+    private func randomNonceString(length: Int = 32) -> String {
+        var bytes = [UInt8](repeating: 0, count: length)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
+        return String(bytes.map { charset[Int($0) % charset.count] })
+    }
+
+    private func sha256(_ input: String) -> String {
+        SHA256.hash(data: Data(input.utf8))
+            .compactMap { String(format: "%02x", $0) }.joined()
+    }
+
     func signOut() {
         GIDSignIn.sharedInstance.signOut()
         try? Auth.auth().signOut()
@@ -313,10 +384,10 @@ struct CustomTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .padding()
-            .background(Color.iffSurface)
+            .background(Color.beltSurface)
             .cornerRadius(10)
             .foregroundColor(.white)
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.iffAccent, lineWidth: 1))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.beltAccent, lineWidth: 1))
     }
 }
 
@@ -324,7 +395,7 @@ struct CustomButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .padding()
-            .background(Color.iffAccent)
+            .background(Color.beltAccent)
             .foregroundColor(.white)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
@@ -369,31 +440,45 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
 struct LoginView: View {
     @ObservedObject var authService: AuthenticationService
+    @State private var showEmailLogin = true
+    @State private var email = ""
+    @State private var password = ""
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color.iffBg, Color.iffSurface], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Color.beltBg, Color.beltSurface], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
 
             VStack(spacing: 40) {
                 Spacer()
 
                 VStack(spacing: 8) {
-                    Text("IFFL")
-                        .font(.system(size: 72, weight: .black, design: .rounded))
-                        .foregroundColor(Color.iffAccent)
-                    Text("Insanity Fantasy Football League")
+                    Text("Insanity League")
+                        .font(.system(size: 56, weight: .black, design: .rounded))
+                        .foregroundColor(Color.beltAccent)
+                    Text("Fantasy Football League")
                         .font(.subheadline)
-                        .foregroundColor(Color.iffSubtext)
+                        .foregroundColor(Color.beltSubtext)
                     Text("EST. 2008")
                         .font(.caption2.weight(.semibold))
-                        .foregroundColor(Color.iffSubtext.opacity(0.6))
+                        .foregroundColor(Color.beltSubtext.opacity(0.6))
                         .tracking(3)
                 }
 
                 Spacer()
 
                 VStack(spacing: 12) {
+                    SignInWithAppleButton(.signIn) { request in
+                        authService.prepareAppleRequest(request)
+                    } onCompletion: { result in
+                        authService.handleAppleResult(result)
+                    }
+                    .signInWithAppleButtonStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+
                     Button(action: { authService.signInWithGoogle() }) {
                         HStack(spacing: 12) {
                             Image(systemName: "g.circle.fill")
@@ -418,10 +503,64 @@ struct LoginView: View {
                     }
                 }
 
-                Text("Access is limited to IFFL members.")
-                    .font(.caption)
-                    .foregroundColor(Color.iffSubtext)
-                    .padding(.bottom, 30)
+                VStack(spacing: 12) {
+                    Text("Access is limited to league members.")
+                        .font(.caption)
+                        .foregroundColor(Color.beltSubtext)
+
+                    VStack(spacing: 2) {
+                        Text("By signing in, you agree that your account info and league activity are stored to run the app.")
+                            .font(.caption2)
+                            .foregroundColor(Color.beltSubtext)
+                            .multilineTextAlignment(.center)
+                        Link("View our Privacy Policy", destination: BeltLegal.privacyPolicyURL)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundColor(Color.beltAccent)
+                    }
+                    .padding(.horizontal, 24)
+
+                    Button(action: { withAnimation(.easeInOut(duration: 0.2)) { showEmailLogin.toggle() } }) {
+                        Text(showEmailLogin ? "Hide email sign-in" : "Sign in with Email")
+                            .font(.caption)
+                            .foregroundColor(Color.beltSubtext.opacity(0.8))
+                            .underline()
+                    }
+
+                    if showEmailLogin {
+                        VStack(spacing: 10) {
+                            TextField("Email", text: $email)
+                                .keyboardType(.emailAddress)
+                                .autocapitalization(.none)
+                                .textContentType(.username)
+                                .padding(12)
+                                .background(Color.beltSurface)
+                                .cornerRadius(10)
+                                .foregroundColor(.white)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.beltElevated, lineWidth: 1))
+
+                            SecureField("Password", text: $password)
+                                .textContentType(.password)
+                                .padding(12)
+                                .background(Color.beltSurface)
+                                .cornerRadius(10)
+                                .foregroundColor(.white)
+                                .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.beltElevated, lineWidth: 1))
+
+                            Button(action: { authService.signInWithEmail(email, password: password) }) {
+                                Text("Sign In")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(12)
+                                    .background(Color.beltAccent)
+                                    .cornerRadius(10)
+                            }
+                        }
+                        .padding(.horizontal)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.bottom, 30)
             }
         }
     }
@@ -433,7 +572,7 @@ struct CardView<Content: View>: View {
     let content: Content
     init(@ViewBuilder content: () -> Content) { self.content = content() }
     var body: some View {
-        content.padding().background(Color.iffSurface).cornerRadius(12).shadow(radius: 4)
+        content.padding().background(Color.beltSurface).cornerRadius(12).shadow(radius: 4)
     }
 }
 
@@ -447,12 +586,12 @@ struct TeamIconView: View {
                 ForEach(0..<team.beltWins, id: \.self) { _ in
                     Image(systemName: "trophy.fill")
                         .font(.system(size: 9))
-                        .foregroundColor(Color.iffGold)
+                        .foregroundColor(Color.beltGold)
                 }
             }
             .frame(height: 12)
         }
-        .frame(maxWidth: .infinity).padding(10).iffCard()
+        .frame(maxWidth: .infinity).padding(10).beltCard()
     }
 }
 
@@ -471,7 +610,7 @@ struct AssetRow: View {
                     .foregroundColor(.white)
                 Text("  \(item.isPick ? "Round \(item.rookieRound ?? 0) · \(item.teamName)" : item.position)")
                     .font(.system(size: 13 * scale))
-                    .foregroundColor(Color.iffSubtext)
+                    .foregroundColor(Color.beltSubtext)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
@@ -480,7 +619,7 @@ struct AssetRow: View {
                     .foregroundColor(.green)
                 Text("$\(item.price(forSeason: activeSeason + 1))")
                     .font(.system(size: 12 * scale, weight: .semibold))
-                    .foregroundColor(Color.iffGold)
+                    .foregroundColor(Color.beltGold)
             }
         }
         .padding(.vertical, 12)
@@ -550,8 +689,8 @@ struct ChipView: View {
         Text(text)
             .font(.caption.bold())
             .padding(.horizontal, 10).padding(.vertical, 6)
-            .background(isSelected ? Color.iffAccent : Color.iffSurface)
-            .foregroundColor(isSelected ? .white : Color.iffSubtext)
+            .background(isSelected ? Color.beltAccent : Color.beltSurface)
+            .foregroundColor(isSelected ? .white : Color.beltSubtext)
             .clipShape(Capsule())
             .onTapGesture(perform: action)
     }
@@ -568,7 +707,7 @@ struct FMKSignalPicker: View {
     var body: some View {
         HStack(spacing: 8) {
             Text("Your Signal:")
-                .font(.caption).foregroundColor(Color.iffSubtext)
+                .font(.caption).foregroundColor(Color.beltSubtext)
             ForEach(signals, id: \.self) { signal in
                 let isCurrent = appState.currentFMKSignal(for: asset) == signal
                 Button {
@@ -580,9 +719,9 @@ struct FMKSignalPicker: View {
                 } label: {
                     Text("\(signal.emoji) \(signal.label)")
                         .font(.caption.bold())
-                        .foregroundColor(isCurrent ? .white : Color.iffSubtext)
+                        .foregroundColor(isCurrent ? .white : Color.beltSubtext)
                         .padding(.horizontal, 10).padding(.vertical, 5)
-                        .background(isCurrent ? signal.signalColor.opacity(0.8) : Color.iffElevated)
+                        .background(isCurrent ? signal.signalColor.opacity(0.8) : Color.beltElevated)
                         .clipShape(Capsule())
                 }
             }
@@ -607,7 +746,7 @@ struct AssetDetailView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
@@ -616,7 +755,7 @@ struct AssetDetailView: View {
                     Text(asset.isPick
                          ? "Draft Pick · \(asset.teamName)"
                          : "\(asset.position) · \(asset.teamName.isEmpty ? "Free Agent" : asset.teamName)")
-                        .font(.subheadline).foregroundColor(Color.iffSubtext)
+                        .font(.subheadline).foregroundColor(Color.beltSubtext)
 
                     let summary = fmkSummary
                     if summary.marry + summary.fuck + summary.kill > 0 {
@@ -629,12 +768,12 @@ struct AssetDetailView: View {
 
                     FMKSignalPicker(asset: asset)
 
-                    Divider().background(Color.iffSubtext)
+                    Divider().background(Color.beltSubtext)
 
                     Group {
                         priceRow(label: "\(appState.activeSeason) Price",
                                  value: "$\(asset.price(forSeason: appState.activeSeason))",
-                                 color: Color.iffGold)
+                                 color: Color.beltGold)
                         priceRow(label: "\(appState.activeSeason + 1) Price",
                                  value: "$\(asset.price(forSeason: appState.activeSeason + 1))")
                         priceRow(label: "\(appState.activeSeason + 2) Price",
@@ -644,7 +783,7 @@ struct AssetDetailView: View {
                         }
                     }
 
-                    Divider().background(Color.iffSubtext)
+                    Divider().background(Color.beltSubtext)
 
                     if !asset.isPick {
                         Group {
@@ -664,7 +803,7 @@ struct AssetDetailView: View {
                     }
 
                     if !asset.tradeHistory.isEmpty {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         Text("Trade History").font(.headline).foregroundColor(.white)
                         ForEach(Array(asset.tradeHistory.enumerated()), id: \.offset) { _, note in
                             Text("• \(note)").font(.body).foregroundColor(.white)
@@ -672,7 +811,7 @@ struct AssetDetailView: View {
                     }
 
                     if asset.teamName != appState.userTeam {
-                        Divider().background(Color.iffSubtext)
+                        Divider().background(Color.beltSubtext)
                         Button("Propose Trade for \(asset.name)") {
                             appState.selectedAssetForTrade = asset
                             appState.triggerTradeProposal = true
@@ -692,7 +831,7 @@ struct AssetDetailView: View {
 
     private func priceRow(label: String, value: String, color: Color = .white) -> some View {
         HStack {
-            Text(label).foregroundColor(Color.iffSubtext)
+            Text(label).foregroundColor(Color.beltSubtext)
             Spacer()
             Text(value).bold().foregroundColor(color)
         }
@@ -700,7 +839,7 @@ struct AssetDetailView: View {
 
     private func infoRow(label: String, value: String) -> some View {
         HStack {
-            Text(label).foregroundColor(Color.iffSubtext)
+            Text(label).foregroundColor(Color.beltSubtext)
             Spacer()
             Text(value).foregroundColor(.white)
         }
@@ -723,45 +862,270 @@ struct TradeRowView: View {
 
 struct TradeDetailView: View {
     let trade: Trade
+    @EnvironmentObject var appState: AppState
+    @State private var showCounter = false
+    @State private var actionError = ""
+
+    private var isIncomingProposal: Bool {
+        trade.receivingTeamName == appState.userTeam && trade.status == .proposed
+    }
+
+    private var chainHistory: [Trade] {
+        var history: [Trade] = []
+        var currentId = trade.parentTradeId
+        while let pid = currentId {
+            if let parent = appState.trades.first(where: { $0.id == pid }) {
+                history.append(parent)
+                currentId = parent.parentTradeId
+            } else { break }
+        }
+        return history.reversed()
+    }
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
-            VStack(alignment: .leading, spacing: 12) {
-                Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
-                    .font(.title2.bold()).foregroundColor(.white)
-                Text(trade.formattedDate).font(.subheadline).foregroundColor(Color.iffSubtext)
+            Color.beltBg.ignoresSafeArea()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
+                        .font(.title2.bold()).foregroundColor(.white)
+                    Text(trade.formattedDate).font(.subheadline).foregroundColor(Color.beltSubtext)
 
-                Divider().background(Color.iffSubtext)
+                    Divider().background(Color.beltSubtext)
 
-                HStack(alignment: .top, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(trade.receivingTeamName) Gets:")
-                            .font(.headline).foregroundColor(.white)
-                        ForEach(trade.proposerAssetNames, id: \.self) {
-                            Text("• \($0)").foregroundColor(.white)
+                    HStack(alignment: .top, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("\(trade.receivingTeamName) Gets:")
+                                .font(.headline).foregroundColor(.white)
+                            ForEach(trade.proposerAssetNames, id: \.self) {
+                                Text("• \($0)").foregroundColor(.white)
+                            }
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("\(trade.proposingTeamName) Gets:")
+                                .font(.headline).foregroundColor(.white)
+                            ForEach(trade.receiverAssetNames, id: \.self) {
+                                Text("• \($0)").foregroundColor(.white)
+                            }
                         }
                     }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("\(trade.proposingTeamName) Gets:")
-                            .font(.headline).foregroundColor(.white)
-                        ForEach(trade.receiverAssetNames, id: \.self) {
-                            Text("• \($0)").foregroundColor(.white)
+
+                    if let msg = trade.message, !msg.isEmpty {
+                        Divider().background(Color.beltSubtext)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Note from \(trade.proposingTeamName)")
+                                .font(.caption).foregroundColor(Color.beltSubtext)
+                            Text(msg).foregroundColor(.white).font(.subheadline)
                         }
                     }
-                }
 
-                if let notes = trade.notes, !notes.isEmpty {
-                    Divider().background(Color.iffSubtext)
-                    Text("Notes: \(notes)").foregroundColor(Color.iffSubtext)
-                }
+                    if !chainHistory.isEmpty {
+                        Divider().background(Color.beltSubtext)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Negotiation History")
+                                .font(.caption.bold()).foregroundColor(Color.beltSubtext)
+                            ForEach(Array(chainHistory.enumerated()), id: \.offset) { idx, prior in
+                                HStack(spacing: 6) {
+                                    Text("Round \(idx + 1):")
+                                        .font(.caption).foregroundColor(Color.beltSubtext)
+                                    Text("\(prior.proposingTeamName) offered \(prior.proposerAssetNames.prefix(2).joined(separator: ", "))")
+                                        .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.8))
+                                        .lineLimit(1)
+                                }
+                            }
+                        }
+                    }
 
-                Spacer()
+                    if !actionError.isEmpty {
+                        Text(actionError).foregroundColor(.red).font(.caption)
+                    }
+
+                    if isIncomingProposal {
+                        Divider().background(Color.beltSubtext)
+                        HStack(spacing: 12) {
+                            Button("Accept") {
+                                guard let id = trade.id else { return }
+                                appState.dataService.respondToTrade(tradeId: id, response: .yes) { err in
+                                    DispatchQueue.main.async {
+                                        actionError = err?.localizedDescription ?? ""
+                                    }
+                                }
+                            }
+                            .font(.headline).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding(12)
+                            .background(Color.green.opacity(0.8)).cornerRadius(10)
+
+                            Button("Decline") {
+                                guard let id = trade.id else { return }
+                                appState.dataService.respondToTrade(tradeId: id, response: .no) { err in
+                                    DispatchQueue.main.async {
+                                        actionError = err?.localizedDescription ?? ""
+                                    }
+                                }
+                            }
+                            .font(.headline).foregroundColor(.white)
+                            .frame(maxWidth: .infinity).padding(12)
+                            .background(Color.red.opacity(0.7)).cornerRadius(10)
+
+                            Button("Counter") { showCounter = true }
+                                .font(.headline).foregroundColor(.white)
+                                .frame(maxWidth: .infinity).padding(12)
+                                .background(Color.beltGold.opacity(0.8)).cornerRadius(10)
+                        }
+                    }
+
+                    Spacer()
+                }
+                .padding()
             }
-            .padding()
         }
         .navigationTitle("Trade Details")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showCounter) {
+            CounterOfferView(originalTrade: trade).environmentObject(appState)
+        }
+    }
+}
+
+// MARK: - Counter Offer View
+
+struct CounterOfferView: View {
+    let originalTrade: Trade
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedOfferedIds: Set<String>   = []
+    @State private var selectedRequestedIds: Set<String> = []
+    @State private var counterMessage = ""
+    @State private var showSuccess = false
+    @State private var errorMsg = ""
+
+    private var otherTeam: String { originalTrade.proposingTeamName }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.beltBg.ignoresSafeArea()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Original Offer from \(otherTeam)")
+                                .font(.caption.bold()).foregroundColor(Color.beltSubtext)
+                            Text("\(otherTeam) gives: \(originalTrade.proposerAssetNames.joined(separator: ", "))")
+                                .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.8))
+                            Text("You give: \(originalTrade.receiverAssetNames.joined(separator: ", "))")
+                                .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.8))
+                        }
+                        .padding()
+                        .background(Color.beltElevated)
+                        .cornerRadius(10)
+
+                        let myAssets    = appState.allDisplayAssets.filter { $0.teamName == appState.userTeam }
+                        let theirAssets = appState.allDisplayAssets.filter { $0.teamName == otherTeam }
+
+                        assetPicker(title: "You Give", assets: myAssets, selectedIds: $selectedOfferedIds)
+                        assetPicker(title: "You Want (\(otherTeam))", assets: theirAssets, selectedIds: $selectedRequestedIds)
+
+                        TextField("Add a note (optional)", text: $counterMessage, axis: .vertical)
+                            .lineLimit(3)
+                            .padding(12)
+                            .background(Color.beltSurface)
+                            .cornerRadius(10)
+                            .foregroundColor(.white)
+
+                        if showSuccess {
+                            Text("✓ Counter sent!").foregroundColor(.green).font(.subheadline)
+                        }
+                        if !errorMsg.isEmpty {
+                            Text(errorMsg).foregroundColor(.red).font(.caption)
+                        }
+
+                        Button("Send Counter") { submitCounter() }
+                            .disabled(selectedOfferedIds.isEmpty || selectedRequestedIds.isEmpty)
+                            .buttonStyle(BeltPrimaryButtonStyle())
+                            .frame(maxWidth: .infinity)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Counter Offer")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundColor(Color.beltSubtext)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func assetPicker(title: String, assets: [DisplayAsset], selectedIds: Binding<Set<String>>) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.headline).foregroundColor(.white)
+            ForEach(assets.sorted { $0.currentPrice > $1.currentPrice }) { asset in
+                HStack {
+                    VStack(alignment: .leading) {
+                        Text(asset.name).foregroundColor(.white).font(.subheadline)
+                        Text(asset.isPick ? "Pick" : asset.position)
+                            .foregroundColor(Color.beltSubtext).font(.caption)
+                    }
+                    Spacer()
+                    Text(asset.formattedCurrentPrice).foregroundColor(Color.beltGold).font(.subheadline)
+                    if selectedIds.wrappedValue.contains(asset.id) {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.beltAccent)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if selectedIds.wrappedValue.contains(asset.id) {
+                        selectedIds.wrappedValue.remove(asset.id)
+                    } else {
+                        selectedIds.wrappedValue.insert(asset.id)
+                    }
+                }
+                .padding(.vertical, 4)
+                Divider().background(Color.beltSubtext.opacity(0.3))
+            }
+        }
+    }
+
+    private func submitCounter() {
+        guard let originalId = originalTrade.id else { return }
+        let allAssets = appState.allDisplayAssets
+        let offeredRefs = selectedOfferedIds.compactMap { id -> TradeAssetRef? in
+            guard let asset = allAssets.first(where: { $0.id == id }) else { return nil }
+            return TradeAssetRef(assetType: asset.assetType, assetId: asset.id,
+                                 displayName: asset.name, teamName: asset.teamName)
+        }
+        let requestedRefs = selectedRequestedIds.compactMap { id -> TradeAssetRef? in
+            guard let asset = allAssets.first(where: { $0.id == id }) else { return nil }
+            return TradeAssetRef(assetType: asset.assetType, assetId: asset.id,
+                                 displayName: asset.name, teamName: asset.teamName)
+        }
+        let counter = Trade(
+            id: nil, season: appState.activeSeason, date: Date(),
+            status: .proposed,
+            proposingTeamName: appState.userTeam,
+            receivingTeamName: otherTeam,
+            assetsFromProposer: offeredRefs,
+            assetsFromReceiver: requestedRefs,
+            notes: nil,
+            message: counterMessage.isEmpty ? nil : counterMessage,
+            parentTradeId: originalId,
+            completedAt: nil, response: nil, isHistorical: false,
+            historicalProposerAssets: nil, historicalReceiverAssets: nil
+        )
+        appState.dataService.counterOffer(originalTradeId: originalId, counter: counter) { error in
+            DispatchQueue.main.async {
+                if let e = error {
+                    errorMsg = e.localizedDescription
+                } else {
+                    showSuccess = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { dismiss() }
+                }
+            }
+        }
     }
 }
 
@@ -774,7 +1138,7 @@ struct HistoricalTradesView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             List {
                 ForEach(seasons, id: \.self) { season in
                     let trades = appState.trades.filter {
@@ -784,7 +1148,7 @@ struct HistoricalTradesView: View {
                         NavigationLink(destination: SeasonTradesView(season: season, trades: trades)) {
                             Text(String(season)).foregroundColor(.white)
                         }
-                        .listRowBackground(Color.iffSurface)
+                        .listRowBackground(Color.beltSurface)
                     }
                 }
             }
@@ -802,13 +1166,13 @@ struct SeasonTradesView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             List {
                 ForEach(trades.sorted { $0.date > $1.date }) { trade in
                     NavigationLink(destination: TradeDetailView(trade: trade)) {
                         TradeRowView(trade: trade)
                     }
-                    .listRowBackground(Color.iffSurface)
+                    .listRowBackground(Color.beltSurface)
                 }
             }
             .listStyle(.plain)
@@ -826,12 +1190,13 @@ struct TradeProposalView: View {
     @State private var selectedOtherTeam: String? = nil
     @State private var selectedOfferedIds: Set<String>   = []
     @State private var selectedRequestedIds: Set<String> = []
+    @State private var proposalMessage = ""
     @State private var showSuccess = false
     @State private var errorMsg = ""
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
 
             VStack(spacing: 20) {
                 Picker("Select other team", selection: $selectedOtherTeam) {
@@ -863,9 +1228,17 @@ struct TradeProposalView: View {
                     Text(errorMsg).foregroundColor(.red).font(.caption)
                 }
 
+                TextField("Add a note (optional)", text: $proposalMessage, axis: .vertical)
+                    .lineLimit(3)
+                    .padding(12)
+                    .background(Color.beltSurface)
+                    .cornerRadius(10)
+                    .foregroundColor(.white)
+                    .padding(.horizontal)
+
                 Button("Propose Trade") { submitProposal() }
                     .disabled(selectedOtherTeam == nil || selectedOfferedIds.isEmpty || selectedRequestedIds.isEmpty)
-                    .buttonStyle(IFFLPrimaryButtonStyle())
+                    .buttonStyle(BeltPrimaryButtonStyle())
 
                 Spacer()
             }
@@ -885,12 +1258,12 @@ struct TradeProposalView: View {
                     VStack(alignment: .leading) {
                         Text(asset.name).foregroundColor(.white).font(.subheadline)
                         Text(asset.isPick ? "Pick" : asset.position)
-                            .foregroundColor(Color.iffSubtext).font(.caption)
+                            .foregroundColor(Color.beltSubtext).font(.caption)
                     }
                     Spacer()
-                    Text(asset.formattedCurrentPrice).foregroundColor(Color.iffGold).font(.subheadline)
+                    Text(asset.formattedCurrentPrice).foregroundColor(Color.beltGold).font(.subheadline)
                     if selectedIds.wrappedValue.contains(asset.id) {
-                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.iffAccent)
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(Color.beltAccent)
                     }
                 }
                 .contentShape(Rectangle())
@@ -902,12 +1275,19 @@ struct TradeProposalView: View {
                     }
                 }
                 .padding(.vertical, 4)
-                Divider().background(Color.iffSubtext.opacity(0.3))
+                Divider().background(Color.beltSubtext.opacity(0.3))
             }
         }
     }
 
     private func handleShortcut() {
+        if let preset = appState.tradePreset {
+            selectedOtherTeam     = preset.otherTeam
+            selectedOfferedIds    = preset.offeredIds
+            selectedRequestedIds  = preset.requestedIds
+            appState.tradePreset  = nil
+            return
+        }
         guard let asset = appState.selectedAssetForTrade, asset.teamName != appState.userTeam else { return }
         selectedOtherTeam = asset.teamName
         selectedRequestedIds.insert(asset.id)
@@ -930,8 +1310,9 @@ struct TradeProposalView: View {
         let trade = Trade(id: nil, season: appState.activeSeason, date: Date(),
                           status: .proposed, proposingTeamName: appState.userTeam,
                           receivingTeamName: otherTeam, assetsFromProposer: offeredRefs,
-                          assetsFromReceiver: requestedRefs, notes: nil, completedAt: nil,
-                          response: nil, isHistorical: false,
+                          assetsFromReceiver: requestedRefs, notes: nil,
+                          message: proposalMessage.isEmpty ? nil : proposalMessage,
+                          completedAt: nil, response: nil, isHistorical: false,
                           historicalProposerAssets: nil, historicalReceiverAssets: nil)
         appState.dataService.proposeTrade(trade) { error in
             DispatchQueue.main.async {
@@ -942,6 +1323,7 @@ struct TradeProposalView: View {
                     self.selectedOfferedIds.removeAll()
                     self.selectedRequestedIds.removeAll()
                     self.selectedOtherTeam = nil
+                    self.proposalMessage = ""
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2) { self.showSuccess = false }
                 }
             }

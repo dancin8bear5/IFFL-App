@@ -4,12 +4,12 @@ import Foundation
 // MARK: - Color Tokens
 
 extension Color {
-    static let iffBg       = Color(hex: "0A0D1A")
-    static let iffSurface  = Color(hex: "141827")
-    static let iffElevated = Color(hex: "1E2235")
-    static let iffAccent   = Color(hex: "E63946")
-    static let iffGold     = Color(hex: "F4A261")
-    static let iffSubtext  = Color(hex: "9EA8B8")
+    static let beltBg       = Color(hex: "0A0D1A")
+    static let beltSurface  = Color(hex: "141827")
+    static let beltElevated = Color(hex: "1E2235")
+    static let beltAccent   = Color(hex: "E63946")
+    static let beltGold     = Color(hex: "F4A261")
+    static let beltSubtext  = Color(hex: "9EA8B8")
 
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
@@ -32,43 +32,43 @@ extension Color {
 
 // MARK: - Card Modifier
 
-struct IFFLCardModifier: ViewModifier {
+struct BeltCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.iffSurface)
+            .background(Color.beltSurface)
             .cornerRadius(14)
             .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
     }
 }
 
 extension View {
-    func iffCard() -> some View { modifier(IFFLCardModifier()) }
+    func beltCard() -> some View { modifier(BeltCardModifier()) }
 }
 
 // MARK: - Button Styles
 
-struct IFFLPrimaryButtonStyle: ButtonStyle {
+struct BeltPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 16, weight: .semibold))
             .foregroundColor(.white)
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
-            .background(Color.iffAccent)
+            .background(Color.beltAccent)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
             .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
-struct IFFLOutlineButtonStyle: ButtonStyle {
+struct BeltOutlineButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 14, weight: .semibold))
-            .foregroundColor(Color.iffAccent)
+            .foregroundColor(Color.beltAccent)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
-            .overlay(Capsule().stroke(Color.iffAccent, lineWidth: 1.5))
+            .overlay(Capsule().stroke(Color.beltAccent, lineWidth: 1.5))
             .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
     }
 }
@@ -106,15 +106,15 @@ struct SkeletonRow: View {
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.iffElevated)
+                .fill(Color.beltElevated)
                 .frame(width: 44, height: 44)
             VStack(alignment: .leading, spacing: 6) {
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.iffElevated)
+                    .fill(Color.beltElevated)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 14)
                 RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.iffElevated)
+                    .fill(Color.beltElevated)
                     .frame(width: 130, height: 11)
             }
             Spacer()
@@ -131,7 +131,7 @@ struct LoadingView: View {
         LazyVStack(spacing: 0) {
             ForEach(0..<count, id: \.self) { _ in
                 SkeletonRow()
-                Divider().background(Color.iffElevated)
+                Divider().background(Color.beltElevated)
             }
         }
         .padding(.top, 8)

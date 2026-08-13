@@ -455,7 +455,7 @@ function TeamsSection() {
   const [team, setTeam] = useState(fantasyTeams[0].name)
   const [busy, setBusy] = useState(false)
 
-  const reload = () => fs.fetchLeagueConfig().then(setConfig).catch(() => setConfig(null))
+  const reload = () => fs.fetchLeagueConfig().then((c) => setConfig(c ?? {})).catch(() => setConfig({}))
   useEffect(() => { reload() }, [])
 
   async function assign() {
@@ -502,6 +502,95 @@ function TeamsSection() {
             </button>
           </div>
         ))}
+      </div>
+
+      <EmailAutoLinkEditor config={config} onSaved={reload} />
+    </div>
+  )
+}
+
+/**
+ * Auto-link editor — config/league.teamEmailMap (email → team).
+ * When a new member signs in with Google, claimTeam matches their verified
+ * email against this list and assigns their team automatically.
+ */
+function EmailAutoLinkEditor({ config, onSaved }) {
+  const [rows, setRows] = useState(null) // [{email, team}]
+  const [saving, setSaving] = useState(false)
+  const [savedAt, setSavedAt] = useState(null)
+
+  // Seed rows from the loaded config once
+  useEffect(() => {
+    if (config && rows === null) {
+      const existing = Object.entries(config.teamEmailMap ?? {}).map(([email, team]) => ({ email, team }))
+      setRows(existing.length ? existing : [{ email: '', team: fantasyTeams[0].name }])
+    }
+  }, [config, rows])
+
+  if (rows === null) return null
+
+  const setRow = (i, patch) =>
+    setRows((r) => r.map((row, idx) => (idx === i ? { ...row, ...patch } : row)))
+
+  async function save() {
+    setSaving(true)
+    try {
+      const map = {}
+      for (const { email, team } of rows) {
+        const e = email.trim().toLowerCase()
+        if (e && team) map[e] = team
+      }
+      await fs.saveTeamEmailMap(map)
+      setSavedAt(Date.now())
+      onSaved?.()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 4px 0' }}>
+        Auto-Link by Email
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Enter each member's Google email. When they sign in for the first time, they're linked to
+        their team automatically — no UID needed.
+      </div>
+      <div className="iff-card">
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderBottom: i < rows.length - 1 ? '1px solid var(--iff-divider)' : 'none' }}>
+            <input
+              type="email"
+              placeholder="member@gmail.com"
+              value={row.email}
+              onChange={(e) => setRow(i, { email: e.target.value })}
+              style={{ flex: 1, fontSize: 13, padding: '8px 10px' }}
+            />
+            <select value={row.team} onChange={(e) => setRow(i, { team: e.target.value })} style={{ width: 120, fontSize: 13, padding: '8px 6px' }}>
+              {fantasyTeams.map((t) => <option key={t.name}>{t.name}</option>)}
+            </select>
+            <button
+              onClick={() => setRows((r) => r.filter((_, idx) => idx !== i))}
+              aria-label="Remove email row"
+              style={{ color: '#EF4444', fontSize: 15 }}
+            >
+              ⊖
+            </button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          className="btn-outline"
+          onClick={() => setRows((r) => [...r, { email: '', team: fantasyTeams[0].name }])}
+          style={{ fontSize: 12, padding: '7px 16px' }}
+        >
+          ＋ Add Email
+        </button>
+        <button className="btn-primary" onClick={save} disabled={saving} style={{ padding: '8px 20px', fontSize: 14 }}>
+          {saving ? 'Saving…' : savedAt ? 'Saved ✓' : 'Save Auto-Link List'}
+        </button>
       </div>
     </div>
   )

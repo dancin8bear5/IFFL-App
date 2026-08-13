@@ -70,6 +70,11 @@ export function setOffSeason(value) {
   return updateDoc(doc(db, COL.config, 'league'), { isOffSeason: value })
 }
 
+/** Replace the whole email→team auto-link map (keys are literal emails). */
+export function saveTeamEmailMap(map) {
+  return updateDoc(doc(db, COL.config, 'league'), { teamEmailMap: map })
+}
+
 // ── Players ───────────────────────────────────────────────────
 
 export function listenToPlayers(callback) {

@@ -185,6 +185,36 @@ exports.onTradeWrite = onDocumentWritten(
 );
 
 /**
+ * Auto-link: match the caller's VERIFIED Google email against
+ * config/league.teamEmailMap and write their uid into userTeamMap.
+ * Server-side so nobody can claim a team their email doesn't own.
+ * Returns { team } or { team: null } when no mapping exists.
+ */
+exports.claimTeam = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  const email = request.auth?.token?.email?.toLowerCase();
+  if (!uid || !email) throw new HttpsError("unauthenticated", "Sign in first.");
+
+  const configRef = db.doc("config/league");
+  const snap = await configRef.get();
+  const config = snap.data() ?? {};
+
+  // Already assigned → return as-is (never reassign silently)
+  const existing = config.userTeamMap?.[uid];
+  if (existing) return {team: existing};
+
+  // Case-insensitive email match
+  const emailMap = config.teamEmailMap ?? {};
+  const matchKey = Object.keys(emailMap).find((k) => k.toLowerCase() === email);
+  if (!matchKey) return {team: null};
+
+  const team = emailMap[matchKey];
+  await configRef.update({[`userTeamMap.${uid}`]: team});
+  console.log(`claimTeam: linked ${email} (${uid}) → ${team}`);
+  return {team};
+});
+
+/**
  * Commissioner-only callable: list the GroupMe groups (and their members)
  * visible to the token owner. Powers the Admin → GroupMe mapping UI so
  * member IDs never have to be hunted down by hand.

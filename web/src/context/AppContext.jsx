@@ -116,6 +116,22 @@ export function AppProvider({ children }) {
           if (team) {
             setUserTeam(team)
             setSelectedTeam(team)
+          } else if (user.email) {
+            // First sign-in: try auto-linking by verified Google email
+            // (server-side match against config/league.teamEmailMap)
+            try {
+              const { getFunctionsClient } = await import('../firebase')
+              const { httpsCallable } = await import('firebase/functions')
+              const claim = httpsCallable(await getFunctionsClient(), 'claimTeam')
+              const res = await claim()
+              const claimed = res.data?.team
+              if (!cancelled && claimed) {
+                setUserTeam(claimed)
+                setSelectedTeam(claimed)
+              }
+            } catch (err) {
+              console.warn('claimTeam failed (falling back to manual assignment):', err.message)
+            }
           }
         }
       } catch (err) {

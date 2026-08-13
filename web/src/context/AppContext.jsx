@@ -49,6 +49,8 @@ export function AppProvider({ children }) {
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS)
   const [didLoadSettings, setDidLoadSettings] = useState(false)
   const [leagueHistory, setLeagueHistory] = useState([])
+  const [rules, setRules] = useState([])
+  const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -85,6 +87,7 @@ export function AppProvider({ children }) {
       setMessages(d.previewMessages)
       setAllLeagueFMK(d.previewFMK)
       setLeagueHistory(d.previewHistory)
+      setRules(d.previewRules ?? [])
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })
@@ -118,6 +121,7 @@ export function AppProvider({ children }) {
           season = config.activeSeasonYear ?? 2026
           setActiveSeason(season)
           setIsOffSeason(config.isOffSeason ?? false)
+          setRulesVotingOpen(config.rulesVotingOpen ?? false)
           setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
           const team = config.userTeamMap?.[uid]
           if (team) {
@@ -156,6 +160,7 @@ export function AppProvider({ children }) {
         fs.listenToDraftPicks(setDraftPicks),
         fs.listenToMessages(setMessages),
         fs.listenToAllFMKSignals(setAllLeagueFMK),
+        fs.listenToRules(setRules),
       )
 
       // 3. One-shot user loads
@@ -293,6 +298,66 @@ export function AppProvider({ children }) {
     setTriggerTradeProposal(true)
   }, [])
 
+  // ── Rules actions ───────────────────────────────────────────
+  const proposeRule = useCallback(
+    async (title, details) => {
+      const rule = { title, details, proposedBy: userTeam, season: activeSeason }
+      if (DEV_PREVIEW) {
+        setRules((prev) => [
+          { ...rule, id: `preview-rule-${prev.length}`, status: 'proposed', votes: {}, proposedAt: new Date() },
+          ...prev,
+        ])
+        return
+      }
+      await fs.proposeRule(rule)
+    },
+    [userTeam, activeSeason],
+  )
+
+  const voteOnRule = useCallback(
+    async (ruleId, vote) => {
+      if (!userTeam) return
+      if (DEV_PREVIEW) {
+        setRules((prev) =>
+          prev.map((r) => (r.id === ruleId ? { ...r, votes: { ...r.votes, [userTeam]: vote } } : r)),
+        )
+        return
+      }
+      await fs.voteOnRule(ruleId, userTeam, vote)
+    },
+    [userTeam],
+  )
+
+  const setVotingOpen = useCallback(async (open) => {
+    setRulesVotingOpen(open) // optimistic
+    if (DEV_PREVIEW) return
+    await fs.setRulesVotingOpen(open).catch(() => setRulesVotingOpen(!open))
+  }, [])
+
+  /** Commissioner: close the portal and tally — ≥7 yes of 12 passes. */
+  const finalizeRuleVotes = useCallback(async () => {
+    const proposed = rules.filter((r) => r.status === 'proposed')
+    const results = proposed.map((r) => {
+      const yes = Object.values(r.votes ?? {}).filter((v) => v === 'yes').length
+      return { id: r.id, status: yes >= 7 ? 'passed' : 'failed' }
+    })
+    if (DEV_PREVIEW) {
+      setRules((prev) =>
+        prev.map((r) => {
+          const res = results.find((x) => x.id === r.id)
+          return res ? { ...r, status: res.status, decidedSeason: activeSeason } : r
+        }),
+      )
+      setRulesVotingOpen(false)
+      return
+    }
+    for (const res of results) {
+      await fs.setRuleStatus(res.id, res.status, activeSeason).catch(() => {})
+    }
+    await fs.setRulesVotingOpen(false).catch(() => {})
+    setRulesVotingOpen(false)
+  }, [rules, activeSeason])
+
   const proposeTrade = useCallback(
     async (trade) => {
       if (DEV_PREVIEW) {
@@ -356,6 +421,8 @@ export function AppProvider({ children }) {
     // settings + history
     userSettings, didLoadSettings, saveUserSettings,
     leagueHistory, loadLeagueHistory,
+    // rules + voting
+    rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,

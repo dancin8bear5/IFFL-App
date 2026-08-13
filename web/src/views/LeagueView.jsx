@@ -7,6 +7,7 @@ import { useIsDesktop } from '../hooks/useBreakpoint'
 import { Segmented, BeltRow } from '../components/shared'
 import { teamByName } from '../data/staticData'
 import TrophyRoomView from '../components/TrophyRoomView'
+import RulesView from '../components/RulesView'
 import SettingsView from './SettingsView'
 
 export default function LeagueView() {
@@ -40,7 +41,7 @@ export default function LeagueView() {
         </div>
       )}
 
-      <Segmented options={['Standings', 'Scores', 'History']} value={section} onChange={setSection} />
+      <Segmented options={['Standings', 'Scores', 'History', 'Rules']} value={section} onChange={setSection} />
 
       {section === 'Standings' && (
         <div style={{ padding: '0 14px 14px' }}>
@@ -121,6 +122,8 @@ export default function LeagueView() {
           )}
         </div>
       )}
+
+      {section === 'Rules' && <RulesView />}
 
       {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
       {showTrophyCase && <TrophyRoomView onClose={() => setShowTrophyCase(false)} />}

@@ -100,3 +100,30 @@ export const previewHistory = [
     { teamName: 'Jared', place: 3, record: '9-5', pointsFor: 1745.6 },
   ], notableTrades: ['Abad lands Tyreek Hill from Foley at the deadline'] },
 ]
+
+export const previewRules = [
+  {
+    id: 'rule1', season: 2026, status: 'passed', decidedSeason: 2026,
+    title: 'Cap floor of $150', details: 'Every roster must carry at least $150 in total salary at season start.',
+    proposedBy: 'Jared', proposedAt: new Date(2026, 5, 2),
+    votes: { Jared: 'yes', Bill: 'yes', Ryan: 'yes', Abad: 'yes', Wayne: 'yes', Cantone: 'yes', Foley: 'yes', Dugan: 'no' },
+  },
+  {
+    id: 'rule2', season: 2026, status: 'proposed',
+    title: 'Ties broken by season points', details: 'Standings ties break on total points for instead of head-to-head.',
+    proposedBy: 'Bill', proposedAt: new Date(2026, 7, 1),
+    votes: { Bill: 'yes', Ryan: 'yes' },
+  },
+  {
+    id: 'rule3', season: 2026, status: 'proposed',
+    title: 'Two IR slots', details: 'Expand from one IR slot to two.',
+    proposedBy: 'Wayne', proposedAt: new Date(2026, 7, 9),
+    votes: {},
+  },
+  {
+    id: 'rule4', season: 2025, status: 'failed', decidedSeason: 2025,
+    title: 'Ban Thursday pickups', details: 'No waiver claims after Thursday kickoff.',
+    proposedBy: 'Foley', proposedAt: new Date(2025, 8, 10),
+    votes: { Foley: 'yes', Dugan: 'yes', Jason: 'yes' },
+  },
+]

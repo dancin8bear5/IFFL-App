@@ -312,6 +312,37 @@ export function setGroupMePaused(paused) {
   return setDoc(doc(db, COL.config, 'groupme'), { paused }, { merge: true })
 }
 
+// ── Rules — proposals + voting (Firestore: "rules") ───────────
+
+export function listenToRules(callback) {
+  const q = query(collection(db, 'rules'), orderBy('proposedAt', 'desc'))
+  return onSnapshot(q, (snap) =>
+    callback(snapToDocs(snap).map((r) => ({ ...r, proposedAt: tsToDate(r.proposedAt) }))),
+  )
+}
+
+export function proposeRule(rule) {
+  return addDoc(collection(db, 'rules'), {
+    ...rule,
+    status: 'proposed',
+    votes: {},
+    proposedAt: Timestamp.now(),
+  })
+}
+
+/** One vote per team; re-voting overwrites while the portal is open. */
+export function voteOnRule(ruleId, teamName, vote) {
+  return updateDoc(doc(db, 'rules', ruleId), { [`votes.${teamName}`]: vote })
+}
+
+export function setRulesVotingOpen(open) {
+  return updateDoc(doc(db, COL.config, 'league'), { rulesVotingOpen: open })
+}
+
+export function setRuleStatus(ruleId, status, decidedSeason) {
+  return updateDoc(doc(db, 'rules', ruleId), { status, decidedSeason })
+}
+
 // ── League History — doc id = season year ─────────────────────
 
 export async function fetchLeagueHistory() {

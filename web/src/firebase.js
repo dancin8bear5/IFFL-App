@@ -24,3 +24,10 @@ const app = initializeApp(
 
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+/** Lazy Cloud Functions client — initialized on first use so an unconfigured
+ *  dev environment doesn't fail at module load. */
+export async function getFunctionsClient() {
+  const { getFunctions } = await import('firebase/functions')
+  return getFunctions(app)
+}

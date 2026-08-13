@@ -291,6 +291,17 @@ export function saveUserSettings(settings, userId) {
   return setDoc(doc(db, COL.userSettings, userId), settings)
 }
 
+// ── GroupMe notification mapping — config/groupme ─────────────
+
+export async function fetchGroupMeConfig() {
+  const snap = await getDoc(doc(db, COL.config, 'groupme'))
+  return snap.exists() ? snap.data() : null
+}
+
+export function saveGroupMeConfig(config) {
+  return setDoc(doc(db, COL.config, 'groupme'), config)
+}
+
 // ── League History — doc id = season year ─────────────────────
 
 export async function fetchLeagueHistory() {

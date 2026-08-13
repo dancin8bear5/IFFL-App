@@ -38,6 +38,11 @@ service cloud.firestore {
       allow write: if isCommissioner();
     }
 
+    // GroupMe DM mapping (team → GroupMe user id) — commissioner only
+    match /config/groupme {
+      allow read, write: if isCommissioner();
+    }
+
     // Rosters & league data — member reads, commissioner writes
     match /players/{playerId} {
       allow read: if isMember();

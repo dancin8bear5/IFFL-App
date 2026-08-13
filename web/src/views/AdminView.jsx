@@ -5,8 +5,10 @@ import { useApp } from '../context/AppContext'
 import { fantasyTeams } from '../data/staticData'
 import { PosBadge, DetailOverlay } from '../components/shared'
 import * as fs from '../services/firestoreService'
+import { getFunctionsClient } from '../firebase'
+import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Players', 'Picks', 'Trades', 'Messages', 'Teams', 'Access']
+const SECTIONS = ['Database', 'Players', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -45,6 +47,7 @@ export default function AdminView() {
         {section === 'Messages' && <MessagesSection />}
         {section === 'Teams' && <TeamsSection />}
         {section === 'Access' && <AccessSection />}
+        {section === 'GroupMe' && <GroupMeSection />}
       </div>
     </div>
   )
@@ -555,6 +558,126 @@ function AccessSection() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── GroupMe (trade DM notifications) ──────────────────────────
+
+function GroupMeSection() {
+  const [directory, setDirectory] = useState(null) // {groups:[{id,name,members}]}
+  const [groupId, setGroupId] = useState('')
+  const [userMap, setUserMap] = useState({}) // teamName -> groupme userId
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [savedAt, setSavedAt] = useState(null)
+
+  // Load any existing mapping on mount
+  useEffect(() => {
+    fs.fetchGroupMeConfig()
+      .then((cfg) => {
+        if (cfg) {
+          setGroupId(cfg.groupId ?? '')
+          setUserMap(cfg.userMap ?? {})
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  async function loadDirectory() {
+    setLoading(true)
+    setError(null)
+    try {
+      const call = httpsCallable(await getFunctionsClient(), 'groupmeDirectory')
+      const res = await call()
+      setDirectory(res.data)
+      if (!groupId && res.data.groups?.length === 1) setGroupId(res.data.groups[0].id)
+    } catch (err) {
+      setError(
+        err.message?.includes('GROUPME_TOKEN')
+          ? 'The GroupMe token isn’t set yet. Run: firebase functions:secrets:set GROUPME_TOKEN'
+          : `Couldn’t reach GroupMe: ${err.message}`,
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      await fs.saveGroupMeConfig({ groupId, userMap })
+      setSavedAt(Date.now())
+    } catch (err) {
+      setError(`Save failed: ${err.message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const group = directory?.groups?.find((g) => g.id === groupId)
+  const mappedCount = Object.values(userMap).filter(Boolean).length
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Trade offers and responses are sent as GroupMe direct messages (from your account).
+        Match each league member's GroupMe identity to their fantasy team once — done forever.
+      </div>
+
+      <button className="btn-primary" onClick={loadDirectory} disabled={loading} style={{ alignSelf: 'flex-start', padding: '10px 20px', fontSize: 14 }}>
+        {loading ? 'Loading…' : directory ? 'Reload Groups' : 'Load My GroupMe Groups'}
+      </button>
+
+      {error && (
+        <div className="iff-card" style={{ padding: 14, fontSize: 12, color: 'var(--iff-accent)', lineHeight: 1.6 }}>
+          {error}
+        </div>
+      )}
+
+      {directory && (
+        <div className="iff-card" style={{ padding: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+            League Group Chat
+          </div>
+          <select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+            <option value="">Select group…</option>
+            {directory.groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name} ({g.members.length} members)</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {group && (
+        <div className="iff-card">
+          <div style={{ padding: '12px 14px', fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--iff-divider)' }}>
+            Map Members to Teams ({mappedCount}/{fantasyTeams.length})
+          </div>
+          {fantasyTeams.map((t, i) => (
+            <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderBottom: i < fantasyTeams.length - 1 ? '1px solid var(--iff-divider)' : 'none' }}>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{t.name}</span>
+              <select
+                value={userMap[t.name] ?? ''}
+                onChange={(e) => setUserMap((m) => ({ ...m, [t.name]: e.target.value || undefined }))}
+                style={{ width: 190 }}
+              >
+                <option value="">— no DMs —</option>
+                {group.members.map((m) => (
+                  <option key={m.userId} value={m.userId}>{m.nickname}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {(group || mappedCount > 0) && (
+        <button className="btn-primary" onClick={save} disabled={saving || !groupId}>
+          {saving ? 'Saving…' : savedAt ? 'Saved ✓ — Save Again' : 'Save Mapping'}
+        </button>
+      )}
     </div>
   )
 }

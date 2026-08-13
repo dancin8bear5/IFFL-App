@@ -78,6 +78,34 @@ npm run dev            # http://localhost:5173
   never works on the deployed site).
 - `npm test` runs the market-engine unit tests.
 
+## GroupMe trade notifications (one-time setup)
+
+Trade offers/responses are sent as GroupMe **direct messages from your account**.
+
+1. **Set the token as a server secret** (it's in your openclaw `.env` — copy the
+   value, don't move the file):
+
+   ```bash
+   cd ~/Documents/Claude/Projects/IFFL/"iOS App"
+   firebase functions:secrets:set GROUPME_TOKEN
+   # paste the token when prompted — it goes to Google Secret Manager,
+   # never into git or the app
+   ```
+
+2. **Deploy the functions + rules:**
+
+   ```bash
+   firebase deploy --only functions,firestore:rules
+   ```
+
+3. **Map members to teams** (once): open the web app → **Admin → GroupMe** →
+   "Load My GroupMe Groups" → pick the league chat → match each member's
+   nickname to their fantasy team → Save Mapping.
+
+From then on: proposal → DM to the receiver; accept/decline/counter → DM back
+to the sender; executed → DM to both. Teams left as "— no DMs —" simply get
+in-app alerts only.
+
 ## Custom domain (optional, later)
 
 Firebase Console → Hosting → **Add custom domain** walks you through DNS.

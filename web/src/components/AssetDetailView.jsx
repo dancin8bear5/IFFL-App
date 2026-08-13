@@ -11,7 +11,17 @@ const SIGNALS = [
   { key: 'marry', label: 'Marry', glyph: '💍', color: '#22C55E' },
 ]
 
+/** Overlay wrapper (mobile push / desktop panel). */
 export default function AssetDetailView({ asset, onBack, onProposeTrade, desktop = 'panel' }) {
+  return (
+    <DetailOverlay title={asset.isPick ? 'Draft Pick' : 'Player'} onBack={onBack} desktop={desktop}>
+      <AssetDetailBody asset={asset} onProposeTrade={onProposeTrade} />
+    </DetailOverlay>
+  )
+}
+
+/** The detail content itself — also rendered inline in the desktop roster pane. */
+export function AssetDetailBody({ asset, onProposeTrade }) {
   const {
     activeSeason,
     allLeagueFMK,
@@ -44,8 +54,7 @@ export default function AssetDetailView({ asset, onBack, onProposeTrade, desktop
   }
 
   return (
-    <DetailOverlay title={asset.isPick ? 'Draft Pick' : 'Player'} onBack={onBack} desktop={desktop}>
-      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Header */}
         <div className="iff-card" style={{ padding: 18 }}>
           <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.5 }}>{asset.name}</div>
@@ -159,7 +168,6 @@ export default function AssetDetailView({ asset, onBack, onProposeTrade, desktop
             Propose Trade for {asset.isPick ? asset.name : asset.name.split(' ').slice(-1)[0]}
           </button>
         )}
-      </div>
-    </DetailOverlay>
+    </div>
   )
 }

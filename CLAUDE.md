@@ -114,7 +114,7 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - **MARKETING_VERSION = 3.0, CURRENT_PROJECT_VERSION = 12** (build 12 submitted to App Store review June 2026)
 
 ### Pending / next session
-- [ ] **DEPLOY RESPONSIVE WEB APP (due Aug 14, 2026)** — R1–R5 responsive redesign is committed + pushed but NOT yet deployed. On Jared's Mac: `cd ~/Documents/Claude/Projects/IFFL/"iOS App" && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo && cd web && npm run build && cd .. && firebase deploy --only hosting`. Desktop sidebar layout goes live at iffl-auth.web.app; phones unaffected. NOTE: repo path on Mac moved to `~/Documents/Claude/Projects/IFFL/"iOS App"` (space in name — quotes required).
+- [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/Documents/Claude/Projects/IFFL/"iOS App"` (space in name — quotes required). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
 - [ ] **Trade Portal UX review** — test accept/decline/counter flow on device once build 12 clears review
 - [ ] **Retire legacy `PlayerInterest` collection** — old star-flag interest system superseded by FMK; remove once FMK is fully adopted
 - [ ] **Firestore security rules** — add composite indexes for `playerFMK` (userId, assetId) and `leagueHistory` (year desc)

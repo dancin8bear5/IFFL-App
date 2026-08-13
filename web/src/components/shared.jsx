@@ -113,6 +113,7 @@ export function LoadingList({ count = 5 }) {
 export function DetailOverlay({ title, onBack, children }) {
   return (
     <div
+      data-overlay
       style={{
         position: 'fixed',
         inset: 0,

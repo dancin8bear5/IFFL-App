@@ -262,6 +262,33 @@ export function AppProvider({ children }) {
     setTriggerTradeProposal(true)
   }, [])
 
+  const proposeTrade = useCallback(
+    async (trade) => {
+      if (DEV_PREVIEW) {
+        // simulate: append locally so the flow can be tested end-to-end
+        setTrades((prev) => [
+          { ...trade, id: `preview-${prev.length}`, status: 'proposed', date: new Date() },
+          ...prev,
+        ])
+        return
+      }
+      await fs.proposeTrade(trade)
+    },
+    [],
+  )
+
+  const respondToTrade = useCallback(async (tradeId, response) => {
+    if (DEV_PREVIEW) {
+      setTrades((prev) =>
+        prev.map((t) =>
+          t.id === tradeId ? { ...t, response, status: response === 'yes' ? 'accepted' : 'rejected' } : t,
+        ),
+      )
+      return
+    }
+    await fs.respondToTrade(tradeId, response)
+  }, [])
+
   const value = {
     // auth
     user, authReady, isAdmin, isCommissioner,
@@ -280,9 +307,10 @@ export function AppProvider({ children }) {
     // settings + history
     userSettings, didLoadSettings, saveUserSettings,
     leagueHistory, loadLeagueHistory,
-    // trade proposal trigger
+    // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,
+    proposeTrade, respondToTrade,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>

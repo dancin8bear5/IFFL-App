@@ -1,16 +1,219 @@
-// MarketView — full build lands in Phase 4.
-export default function MarketView() {
+// MarketView — port of Views/MarketView.swift.
+// Three sections: Interest (FMK swiper), Matches, Trades.
+import { useEffect, useMemo, useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { Segmented, TeamAvatar } from '../components/shared'
+import { formatTradeDate } from '../services/models'
+import FMKSwiperCard from '../components/FMKSwiperCard'
+import TradeProposalView from '../components/TradeProposalView'
+import TradeDetailView from '../components/TradeDetailView'
+import SettingsView from './SettingsView'
+
+export default function MarketView({ setTab }) {
+  const {
+    matches, userTeam, trades, triggerTradeProposal, setTriggerTradeProposal,
+    loadAllLeagueInterests,
+  } = useApp()
+  const [section, setSection] = useState('Interest')
+  const [showSettings, setShowSettings] = useState(false)
+  const [showProposal, setShowProposal] = useState(false)
+  const [detailTrade, setDetailTrade] = useState(null)
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    loadAllLeagueInterests()
+  }, [loadAllLeagueInterests])
+
+  // AssetDetail "Propose Trade" cross-tab trigger
+  useEffect(() => {
+    if (triggerTradeProposal) {
+      setShowProposal(true)
+      setTriggerTradeProposal(false)
+    }
+  }, [triggerTradeProposal, setTriggerTradeProposal])
+
+  const myMatches = useMemo(
+    () => matches.filter((m) => m.teamA === userTeam || m.teamB === userTeam),
+    [matches, userTeam],
+  )
+
+  const pending = useMemo(
+    () => trades.filter((t) => t.status === 'proposed' || t.status === 'accepted'),
+    [trades],
+  )
+  const completed = useMemo(() => {
+    let list = trades.filter((t) => t.status === 'completed' || t.status === 'historical')
+    if (search.trim()) {
+      const q = search.trim().toLowerCase()
+      list = list.filter(
+        (t) =>
+          t.proposingTeamName.toLowerCase().includes(q) ||
+          t.receivingTeamName.toLowerCase().includes(q) ||
+          [...(t.assetsFromProposer ?? []), ...(t.assetsFromReceiver ?? [])].some((a) =>
+            a.displayName.toLowerCase().includes(q),
+          ),
+      )
+    }
+    return list.sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [trades, search])
+
   return (
-    <div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div className="nav-bar">
         <div className="nav-side" />
         <div className="nav-title">Market</div>
-        <div className="nav-side right" />
+        <div className="nav-side right">
+          <button className="icon-btn accent" onClick={() => setShowProposal(true)} aria-label="Propose trade">⊕</button>
+          <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">⚙</button>
+        </div>
       </div>
-      <div className="empty-state">
-        <div className="glyph">⇄</div>
-        <div className="title">Market</div>
-        <div>FMK swiper, matches &amp; trades arrive in Phase 4.</div>
+
+      <Segmented options={['Interest', 'Matches', 'Trades']} value={section} onChange={setSection} />
+
+      {section === 'Interest' && <FMKSwiperCard />}
+
+      {section === 'Matches' && (
+        <div>
+          {myMatches.length === 0 ? (
+            <div className="empty-state">
+              <div className="glyph">🤝</div>
+              <div className="title">No matches yet</div>
+              <div>Rate players in the Interest tab — when another team wants your assets back, matches show up here.</div>
+            </div>
+          ) : (
+            <div style={{ padding: '4px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {myMatches.map((m) => (
+                <MatchCard key={m.id} match={m} userTeam={userTeam} onPropose={() => setShowProposal(true)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {section === 'Trades' && (
+        <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {pending.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 2px' }}>
+                Pending
+              </div>
+              <div className="iff-card">
+                {pending.map((t, i) => (
+                  <TradeRow key={t.id} trade={t} last={i === pending.length - 1} onOpen={() => setDetailTrade(t)} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 2px' }}>
+              Completed
+            </div>
+            <input
+              type="search"
+              placeholder="Search by team or player…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ marginBottom: 10 }}
+            />
+            {completed.length === 0 ? (
+              <div className="empty-state" style={{ padding: '32px 24px' }}>
+                <div>No completed trades this season.</div>
+              </div>
+            ) : (
+              <div className="iff-card">
+                {completed.map((t, i) => (
+                  <TradeRow key={t.id} trade={t} last={i === completed.length - 1} onOpen={() => setDetailTrade(t)} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
+      {showProposal && <TradeProposalView onClose={() => setShowProposal(false)} />}
+      {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
+    </div>
+  )
+}
+
+const STATUS_BADGE = {
+  proposed:  { label: 'Proposed',  color: 'var(--iff-gold)', bg: 'rgba(244,162,97,0.15)' },
+  accepted:  { label: 'Accepted',  color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  completed: { label: 'Completed', color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  historical:{ label: 'History',   color: 'var(--iff-subtext)', bg: 'var(--iff-elevated)' },
+  rejected:  { label: 'Declined',  color: '#EF4444', bg: 'rgba(239,68,68,0.15)' },
+}
+
+function TradeRow({ trade, last, onOpen }) {
+  const badge = STATUS_BADGE[trade.status] ?? STATUS_BADGE.proposed
+  const assets = (trade.assetsFromProposer ?? []).map((a) => a.displayName)
+  return (
+    <button
+      onClick={onOpen}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+        padding: '12px 14px', borderBottom: last ? 'none' : '1px solid var(--iff-divider)',
+      }}
+    >
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
+          {trade.proposingTeamName} ↔ {trade.receivingTeamName}
+        </span>
+        <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {assets.slice(0, 2).join(', ') || (trade.historicalProposerAssets ?? []).slice(0, 2).join(', ')}
+        </span>
+      </span>
+      <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, padding: '2px 7px', borderRadius: 6 }}>
+          {badge.label}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{formatTradeDate(trade.date)}</span>
+      </span>
+    </button>
+  )
+}
+
+function MatchCard({ match, userTeam, onPropose }) {
+  const other = match.teamA === userTeam ? match.teamB : match.teamA
+  const iWant = match.teamA === userTeam ? match.aWants : match.bWants
+  const theyWant = match.teamA === userTeam ? match.bWants : match.aWants
+  const glyphFor = (sig) => (sig === 'marry' ? '💍' : sig === 'fuck' ? '🔥' : '💀')
+
+  return (
+    <div className="iff-card" style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <TeamAvatar name={other} size={34} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Match with {other}</div>
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>Score {match.matchScore}</div>
+        </div>
+        <button className="btn-outline" onClick={onPropose} style={{ fontSize: 11, padding: '5px 12px' }}>
+          Propose
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', marginBottom: 4 }}>
+            You want
+          </div>
+          {iWant.map((c) => (
+            <div key={c.asset.id} style={{ padding: '2px 0' }}>
+              {glyphFor(c.signal)} {c.asset.name}
+            </div>
+          ))}
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', marginBottom: 4 }}>
+            They want
+          </div>
+          {theyWant.map((c) => (
+            <div key={c.asset.id} style={{ padding: '2px 0' }}>
+              {glyphFor(c.signal)} {c.asset.name}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

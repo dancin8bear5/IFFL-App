@@ -37,7 +37,7 @@ export default function TrophyCaseView({ onClose }) {
   }, [leagueHistory])
 
   return (
-    <DetailOverlay title="Trophy Case" onBack={onClose}>
+    <DetailOverlay title="Trophy Case" onBack={onClose} desktop="wide">
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
         {leagueHistory.length === 0 ? (
           <div className="empty-state">

@@ -1,8 +1,10 @@
 // DashboardView — port of Views/DashboardView.swift.
-// Hero header, my-team card, trophy room link, match banner, calendar,
-// all-teams grid, recent trades, league messages.
+// Mobile: single-column stack under the hero (unchanged from v1).
+// Desktop: page heading + two-column grid — main (team card, calendar,
+// teams, trades) and rail (trophy room, matches, messages).
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
@@ -10,11 +12,11 @@ import AssetDetailView from '../components/AssetDetailView'
 import SettingsView from './SettingsView'
 
 export default function DashboardView({ setTab }) {
-  const app = useApp()
   const {
     userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
-  } = app
+  } = useApp()
+  const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
 
@@ -54,10 +56,244 @@ export default function DashboardView({ setTab }) {
     setTab(2)
   }
 
+  // ── Sections (identical building blocks on both layouts) ──────
+
+  const teamCard = (
+    <div className="iff-card">
+      <div style={{ padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 3 }}>My Team</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8 }}>{userTeam || '—'}</span>
+            <BeltRow count={belts} size={11} />
+          </div>
+          {belts > 0 && (
+            <div style={{ fontSize: 10, color: 'var(--iff-gold)', opacity: 0.85, marginTop: 2 }}>
+              {belts}× League Champion
+            </div>
+          )}
+        </div>
+        {userSettings.teamLogoName && (
+          <span style={{ fontSize: 30, opacity: 0.55 }}>{userSettings.teamLogoName}</span>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>
+        <div style={{ textAlign: 'center', padding: '10px 8px' }}>
+          <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>${myCapTotal}</div>
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{activeSeason} Cap</div>
+        </div>
+        <div style={{ textAlign: 'center', padding: '10px 8px', borderLeft: '1px solid var(--iff-divider)' }}>
+          <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>{myMatchCount}</div>
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>Trade Matches</div>
+        </div>
+      </div>
+
+      {myTopAssets.length > 0 && (
+        <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--iff-divider)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 7 }}>
+            Top Players
+          </div>
+          {myTopAssets.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => setDetailAsset(a)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', width: '100%', textAlign: 'left' }}
+            >
+              <PosBadge position={a.position} />
+              <span style={{ fontSize: 14, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
+              <span className="tnum green" style={{ fontSize: 14, fontWeight: 700 }}>${a.currentPrice}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
+        <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
+        <button className="btn-outline" onClick={() => setTab(2)}>⇄ Market</button>
+      </div>
+    </div>
+  )
+
+  const trophyLink = (
+    <button className="iff-card" onClick={() => setTab(3)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
+      <span style={{ width: 44, height: 44, background: 'rgba(244,162,97,0.18)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🏆</span>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>League Trophy Room</span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          Career stats, belts &amp; finishes for every team
+        </span>
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+    </button>
+  )
+
+  const matchBanner = myMatchCount > 0 && (
+    <button className="iff-card" onClick={() => setTab(2)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
+      <span style={{ width: 40, height: 40, background: 'rgba(230,57,70,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>⇄</span>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
+          {myMatchCount} Trade Match{myMatchCount === 1 ? '' : 'es'}
+        </span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          Mutual trade interest detected
+        </span>
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+    </button>
+  )
+
+  const calendar = upcoming.length > 0 && (
+    <div>
+      <SectionHeader title="League Calendar" />
+      {isDesktop ? (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
+          {upcoming.map((m) => (
+            <MilestoneCard key={m.name} milestone={m} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
+          <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
+            {upcoming.map((m) => (
+              <MilestoneCard key={m.name} milestone={m} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const teamsGrid = (
+    <div>
+      <SectionHeader title="All Teams" />
+      <div className="team-grid-cards">
+        {fantasyTeams.map((team) => (
+          <button
+            key={team.name}
+            className="iff-card"
+            onClick={() => openTeam(team.name)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+              padding: '10px 4px', borderRadius: 12,
+              outline: team.name === userTeam ? '2px solid var(--iff-accent)' : 'none',
+              outlineOffset: -2,
+            }}
+          >
+            <TeamAvatar name={team.name} />
+            <span style={{ fontSize: 9.5, fontWeight: 600, lineHeight: 1.2 }}>{team.name}</span>
+            <BeltRow count={team.beltWins} size={8} />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  const tradesSection = recentTrades.length > 0 && (
+    <div>
+      <SectionHeader title="Recent Trades" actionLabel="See All" onAction={() => setTab(2)} />
+      <div className="iff-card" style={{ marginTop: 10 }}>
+        {recentTrades.map((t, i) => (
+          <div
+            key={t.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+              borderBottom: i < recentTrades.length - 1 ? '1px solid var(--iff-divider)' : 'none',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>
+                {t.proposingTeamName} ↔ {t.receivingTeamName}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {(t.assetsFromProposer ?? []).slice(0, 2).map((a) => a.displayName).join(', ') ||
+                  (t.historicalProposerAssets ?? []).slice(0, 2).join(', ')}
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--iff-subtext)', whiteSpace: 'nowrap' }}>
+              {formatTradeDate(t.date)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const messagesSection = messages.length > 0 && (
+    <div>
+      <SectionHeader title="League Messages" />
+      {isDesktop ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+          {messages.map((m) => (
+            <div key={m.id} className="iff-card" style={{ padding: 14, fontSize: 13, lineHeight: 1.5 }}>
+              {m.content}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
+          <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
+            {messages.map((m) => (
+              <div key={m.id} className="iff-card" style={{ padding: 14, width: 260, fontSize: 13, lineHeight: 1.5 }}>
+                {m.content}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  const overlays = (
+    <>
+      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
+      {detailAsset && (
+        <AssetDetailView
+          asset={detailAsset}
+          onBack={() => setDetailAsset(null)}
+          onProposeTrade={handleProposeTrade}
+          desktop="panel"
+        />
+      )}
+    </>
+  )
+
+  // ── Desktop layout ─────────────────────────────────────────
+
+  if (isDesktop) {
+    return (
+      <div>
+        <div className="dash-hero-desktop">
+          <h1>Dashboard</h1>
+          <span className="season-chip">Season {activeSeason} · EST. 2008</span>
+        </div>
+        {!isInitialLoadComplete ? (
+          <LoadingList count={4} />
+        ) : (
+          <div className="dash-grid">
+            <div className="dash-main">
+              {teamCard}
+              {calendar}
+              {teamsGrid}
+              {tradesSection}
+            </div>
+            <div className="dash-rail">
+              {trophyLink}
+              {matchBanner}
+              {messagesSection}
+            </div>
+          </div>
+        )}
+        {overlays}
+      </div>
+    )
+  }
+
+  // ── Mobile layout (unchanged) ──────────────────────────────
+
   return (
     <div>
-      {/* Hero header */}
-      <header style={{ textAlign: 'center', padding: '24px 16px 4px', position: 'relative' }}>
+      <header className="dash-hero-mobile" style={{ textAlign: 'center', padding: '24px 16px 4px', position: 'relative' }}>
         <button
           className="icon-btn"
           style={{ position: 'absolute', top: 20, right: 12 }}
@@ -79,186 +315,16 @@ export default function DashboardView({ setTab }) {
         <LoadingList count={4} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
-
-          {/* My Team card */}
-          <div className="iff-card">
-            <div style={{ padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 3 }}>My Team</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8 }}>{userTeam || '—'}</span>
-                  <BeltRow count={belts} size={11} />
-                </div>
-                {belts > 0 && (
-                  <div style={{ fontSize: 10, color: 'var(--iff-gold)', opacity: 0.85, marginTop: 2 }}>
-                    {belts}× League Champion
-                  </div>
-                )}
-              </div>
-              {userSettings.teamLogoName && (
-                <span style={{ fontSize: 30, opacity: 0.55 }}>{userSettings.teamLogoName}</span>
-              )}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>
-              <div style={{ textAlign: 'center', padding: '10px 8px' }}>
-                <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>${myCapTotal}</div>
-                <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{activeSeason} Cap</div>
-              </div>
-              <div style={{ textAlign: 'center', padding: '10px 8px', borderLeft: '1px solid var(--iff-divider)' }}>
-                <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>{myMatchCount}</div>
-                <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>Trade Matches</div>
-              </div>
-            </div>
-
-            {myTopAssets.length > 0 && (
-              <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--iff-divider)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 7 }}>
-                  Top Players
-                </div>
-                {myTopAssets.map((a) => (
-                  <button
-                    key={a.id}
-                    onClick={() => setDetailAsset(a)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', width: '100%', textAlign: 'left' }}
-                  >
-                    <PosBadge position={a.position} />
-                    <span style={{ fontSize: 14, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
-                    <span className="tnum green" style={{ fontSize: 14, fontWeight: 700 }}>${a.currentPrice}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
-              <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
-              <button className="btn-outline" onClick={() => setTab(2)}>⇄ Market</button>
-            </div>
-          </div>
-
-          {/* Trophy Room link */}
-          <button className="iff-card" onClick={() => setTab(3)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', textAlign: 'left' }}>
-            <span style={{ width: 44, height: 44, background: 'rgba(244,162,97,0.18)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🏆</span>
-            <span style={{ flex: 1 }}>
-              <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>League Trophy Room</span>
-              <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
-                Career stats, belts &amp; finishes for every team
-              </span>
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
-          </button>
-
-          {/* Trade match banner */}
-          {myMatchCount > 0 && (
-            <button className="iff-card" onClick={() => setTab(2)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textAlign: 'left' }}>
-              <span style={{ width: 40, height: 40, background: 'rgba(230,57,70,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>⇄</span>
-              <span style={{ flex: 1 }}>
-                <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
-                  {myMatchCount} Trade Match{myMatchCount === 1 ? '' : 'es'}
-                </span>
-                <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
-                  Mutual trade interest detected
-                </span>
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
-            </button>
-          )}
-
-          {/* League calendar */}
-          {upcoming.length > 0 && (
-            <div>
-              <SectionHeader title="League Calendar" />
-              <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
-                <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
-                  {upcoming.map((m) => (
-                    <MilestoneCard key={m.name} milestone={m} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* All teams grid */}
-          <div>
-            <SectionHeader title="All Teams" />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 10 }}>
-              {fantasyTeams.map((team) => (
-                <button
-                  key={team.name}
-                  className="iff-card"
-                  onClick={() => openTeam(team.name)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                    padding: '10px 4px', borderRadius: 12,
-                    outline: team.name === userTeam ? '2px solid var(--iff-accent)' : 'none',
-                    outlineOffset: -2,
-                  }}
-                >
-                  <TeamAvatar name={team.name} />
-                  <span style={{ fontSize: 9.5, fontWeight: 600, lineHeight: 1.2 }}>{team.name}</span>
-                  <BeltRow count={team.beltWins} size={8} />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent trades */}
-          {recentTrades.length > 0 && (
-            <div>
-              <SectionHeader title="Recent Trades" actionLabel="See All" onAction={() => setTab(2)} />
-              <div className="iff-card" style={{ marginTop: 10 }}>
-                {recentTrades.map((t, i) => (
-                  <div
-                    key={t.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
-                      borderBottom: i < recentTrades.length - 1 ? '1px solid var(--iff-divider)' : 'none',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>
-                        {t.proposingTeamName} ↔ {t.receivingTeamName}
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {(t.assetsFromProposer ?? []).slice(0, 2).map((a) => a.displayName).join(', ') ||
-                          (t.historicalProposerAssets ?? []).slice(0, 2).join(', ')}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--iff-subtext)', whiteSpace: 'nowrap' }}>
-                      {formatTradeDate(t.date)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* League messages */}
-          {messages.length > 0 && (
-            <div>
-              <SectionHeader title="League Messages" />
-              <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
-                <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
-                  {messages.map((m) => (
-                    <div key={m.id} className="iff-card" style={{ padding: 14, width: 260, fontSize: 13, lineHeight: 1.5 }}>
-                      {m.content}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          {teamCard}
+          {trophyLink}
+          {matchBanner}
+          {calendar}
+          {teamsGrid}
+          {tradesSection}
+          {messagesSection}
         </div>
       )}
-
-      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
-      {detailAsset && (
-        <AssetDetailView
-          asset={detailAsset}
-          onBack={() => setDetailAsset(null)}
-          onProposeTrade={handleProposeTrade}
-        />
-      )}
+      {overlays}
     </div>
   )
 }

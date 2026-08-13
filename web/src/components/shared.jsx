@@ -109,32 +109,27 @@ export function LoadingList({ count = 5 }) {
   )
 }
 
-/** Full-screen pushed detail — the web stand-in for a NavigationLink push. */
-export function DetailOverlay({ title, onBack, children }) {
+/**
+ * Pushed detail view. Mobile: full-screen takeover (NavigationLink push).
+ * Desktop (≥900px): `desktop` prop picks the container —
+ *   'modal' (default) centered card · 'panel' right-side drawer · 'wide' large modal.
+ */
+export function DetailOverlay({ title, onBack, children, desktop = 'modal' }) {
   return (
-    <div
-      data-overlay
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 40,
-        background: 'var(--iff-bg)',
-        display: 'flex',
-        flexDirection: 'column',
-        maxWidth: 560,
-        margin: '0 auto',
-      }}
-    >
-      <div className="nav-bar">
-        <div className="nav-side">
-          <button className="icon-btn accent" onClick={onBack} style={{ fontSize: 15, fontWeight: 600 }}>
-            ‹ Back
-          </button>
+    <div className={`overlay-root overlay-${desktop}`} data-overlay>
+      <div className="overlay-backdrop" onClick={onBack} />
+      <div className="overlay-container">
+        <div className="nav-bar overlay-navbar">
+          <div className="nav-side">
+            <button className="icon-btn accent" onClick={onBack} style={{ fontSize: 15, fontWeight: 600 }}>
+              ‹ Back
+            </button>
+          </div>
+          <div className="nav-title">{title}</div>
+          <div className="nav-side right" />
         </div>
-        <div className="nav-title">{title}</div>
-        <div className="nav-side right" />
+        <div className="overlay-scroll">{children}</div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 40 }}>{children}</div>
     </div>
   )
 }

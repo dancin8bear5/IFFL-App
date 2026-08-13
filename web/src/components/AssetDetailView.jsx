@@ -11,7 +11,7 @@ const SIGNALS = [
   { key: 'marry', label: 'Marry', glyph: '💍', color: '#22C55E' },
 ]
 
-export default function AssetDetailView({ asset, onBack, onProposeTrade }) {
+export default function AssetDetailView({ asset, onBack, onProposeTrade, desktop = 'panel' }) {
   const {
     activeSeason,
     allLeagueFMK,
@@ -44,7 +44,7 @@ export default function AssetDetailView({ asset, onBack, onProposeTrade }) {
   }
 
   return (
-    <DetailOverlay title={asset.isPick ? 'Draft Pick' : 'Player'} onBack={onBack}>
+    <DetailOverlay title={asset.isPick ? 'Draft Pick' : 'Player'} onBack={onBack} desktop={desktop}>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Header */}
         <div className="iff-card" style={{ padding: 18 }}>

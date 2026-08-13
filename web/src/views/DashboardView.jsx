@@ -51,9 +51,10 @@ export default function DashboardView({ setTab }) {
     [trades],
   )
 
+  // Next 3 milestones only — keeps the calendar strip tight
   const upcoming = useMemo(() => {
     const now = new Date()
-    return milestones.filter((m) => m.date > now)
+    return milestones.filter((m) => m.date > now).slice(0, 3)
   }, [])
 
   function openTeam(name) {
@@ -84,9 +85,6 @@ export default function DashboardView({ setTab }) {
             </div>
           )}
         </div>
-        {userSettings.teamLogoName && (
-          <span style={{ fontSize: 30, opacity: 0.55 }}>{userSettings.teamLogoName}</span>
-        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>

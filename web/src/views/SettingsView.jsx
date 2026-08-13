@@ -2,7 +2,7 @@
 // Profile, appearance, league prefs, sign out, version footer.
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { fantasyTeams, logoPresets } from '../data/staticData'
+import { fantasyTeams } from '../data/staticData'
 import { DetailOverlay } from '../components/shared'
 import { signOut } from '../services/authService'
 import * as fs from '../services/firestoreService'
@@ -61,27 +61,6 @@ export default function SettingsView({ onClose }) {
         </Section>
 
         <Section title="Appearance">
-          <div style={{ padding: '10px 14px' }}>
-            <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 8 }}>Team Logo Icon</div>
-            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-              {logoPresets.map((glyph) => {
-                const active = settings.teamLogoName === glyph
-                return (
-                  <button
-                    key={glyph}
-                    onClick={() => set({ teamLogoName: active ? null : glyph })}
-                    style={{
-                      width: 44, height: 44, borderRadius: '50%', fontSize: 20, flexShrink: 0,
-                      background: active ? 'rgba(230,57,70,0.2)' : 'var(--iff-elevated)',
-                      outline: active ? '2px solid var(--iff-accent)' : 'none',
-                    }}
-                  >
-                    {glyph}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
           <Toggle
             label="📼 90s Mode"
             on={settings.retroMode ?? false}

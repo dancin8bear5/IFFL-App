@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams } from '../data/staticData'
-import { PosBadge, DetailOverlay } from '../components/shared'
+import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
 import * as fs from '../services/firestoreService'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
@@ -21,22 +21,24 @@ export default function AdminView() {
         <div className="nav-side right" />
       </div>
 
-      <div style={{ overflowX: 'auto', padding: '10px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
-        <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
-          {SECTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => setSection(s)}
-              style={{
-                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                background: s === section ? 'var(--iff-accent)' : 'var(--iff-elevated)',
-                color: s === section ? '#fff' : 'var(--iff-subtext)',
-              }}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
+        <ChipScroller>
+          <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
+            {SECTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSection(s)}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                  background: s === section ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+                  color: s === section ? '#fff' : 'var(--iff-subtext)',
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </ChipScroller>
       </div>
 
       <div style={{ padding: 14 }}>

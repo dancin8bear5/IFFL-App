@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop, useMediaQuery } from '../hooks/useBreakpoint'
 import { fantasyTeams } from '../data/staticData'
-import { Segmented, PosBadge, LoadingList, TeamAvatar } from '../components/shared'
+import { Segmented, PosBadge, LoadingList, TeamAvatar, ChipScroller } from '../components/shared'
 import AssetDetailView, { AssetDetailBody } from '../components/AssetDetailView'
 import SettingsView from './SettingsView'
 
@@ -287,29 +287,31 @@ function RostersMobile({ setTab }) {
       <Segmented options={['By Team', 'All Assets']} value={mode} onChange={setMode} />
 
       {mode === 'By Team' ? (
-        <div style={{ overflowX: 'auto', padding: '0 14px 10px', borderBottom: '1px solid var(--iff-divider)' }}>
-          <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
-            {fantasyTeams.map((t) => {
-              const active = t.name === selectedTeam
-              return (
-                <button
-                  key={t.name}
-                  onClick={() => setSelectedTeam(t.name)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: 20,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                    background: active ? 'var(--iff-accent)' : 'var(--iff-elevated)',
-                    color: active ? '#fff' : 'var(--iff-subtext)',
-                  }}
-                >
-                  {t.name}
-                </button>
-              )
-            })}
-          </div>
+        <div style={{ padding: '0 14px 10px', borderBottom: '1px solid var(--iff-divider)' }}>
+          <ChipScroller>
+            <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
+              {fantasyTeams.map((t) => {
+                const active = t.name === selectedTeam
+                return (
+                  <button
+                    key={t.name}
+                    onClick={() => setSelectedTeam(t.name)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: 20,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap',
+                      background: active ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+                      color: active ? '#fff' : 'var(--iff-subtext)',
+                    }}
+                  >
+                    {t.name}
+                  </button>
+                )
+              })}
+            </div>
+          </ChipScroller>
         </div>
       ) : (
         <div style={{ padding: '0 14px 10px', display: 'flex', flexDirection: 'column', gap: 10, borderBottom: '1px solid var(--iff-divider)' }}>

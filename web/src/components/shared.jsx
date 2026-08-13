@@ -1,5 +1,66 @@
 // Shared UI pieces used across tabs.
+import { useEffect, useRef, useState } from 'react'
 import { teamByName } from '../data/staticData'
+
+/**
+ * Horizontally scrollable chip row with an arrow affordance when content
+ * overflows — so off-screen chips are discoverable. Arrow scrolls onward;
+ * it hides at the end of the row.
+ */
+export function ChipScroller({ children }) {
+  const scrollRef = useRef(null)
+  const [canScroll, setCanScroll] = useState(false)
+
+  const update = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanScroll(el.scrollWidth - el.clientWidth - el.scrollLeft > 8)
+  }
+
+  useEffect(() => {
+    update()
+    const el = scrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div
+        ref={scrollRef}
+        onScroll={update}
+        style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}
+      >
+        {children}
+      </div>
+      {canScroll && (
+        <button
+          aria-label="Scroll for more"
+          onClick={() => scrollRef.current?.scrollBy({ left: 220 })}
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 56,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: 4,
+            background: 'linear-gradient(90deg, transparent, var(--iff-bg) 70%)',
+            color: 'var(--iff-accent)',
+            fontSize: 18,
+            fontWeight: 700,
+          }}
+        >
+          ›
+        </button>
+      )}
+    </div>
+  )
+}
 
 export function SectionHeader({ title, actionLabel, onAction }) {
   return (

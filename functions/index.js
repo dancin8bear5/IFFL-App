@@ -49,15 +49,17 @@ async function sendPush(teamName, title, body) {
 // Mapping lives in config/groupme: { userMap: { "<teamName>": "<groupmeUserId>" } }
 // DMs are sent from the commissioner's GroupMe account (the token owner).
 
-async function groupmeUserIdForTeam(teamName) {
-  const doc = await db.doc("config/groupme").get();
-  return doc.data()?.userMap?.[teamName] ?? null;
-}
-
 async function sendGroupMeDM(teamName, text) {
   const token = GROUPME_TOKEN.value();
   if (!token) return;
-  const recipientId = await groupmeUserIdForTeam(teamName);
+  const cfgSnap = await db.doc("config/groupme").get();
+  const cfg = cfgSnap.data() ?? {};
+  // Master pause switch (Admin → GroupMe) — silences ALL DMs while testing
+  if (cfg.paused) {
+    console.log(`GroupMe: paused — skipping DM to ${teamName}`);
+    return;
+  }
+  const recipientId = cfg.userMap?.[teamName] ?? null;
   if (!recipientId) {
     console.log(`GroupMe: no mapping for team ${teamName} — skipping DM`);
     return;

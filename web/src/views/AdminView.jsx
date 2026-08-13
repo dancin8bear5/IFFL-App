@@ -659,6 +659,7 @@ function GroupMeSection() {
   const [directory, setDirectory] = useState(null) // {groups:[{id,name,members}]}
   const [groupId, setGroupId] = useState('')
   const [userMap, setUserMap] = useState({}) // teamName -> groupme userId
+  const [paused, setPaused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -671,10 +672,22 @@ function GroupMeSection() {
         if (cfg) {
           setGroupId(cfg.groupId ?? '')
           setUserMap(cfg.userMap ?? {})
+          setPaused(cfg.paused ?? false)
         }
       })
       .catch(() => {})
   }, [])
+
+  async function togglePaused() {
+    const next = !paused
+    setPaused(next) // optimistic — toggle feels instant
+    try {
+      await fs.setGroupMePaused(next)
+    } catch (err) {
+      setPaused(!next)
+      setError(`Couldn't update pause: ${err.message}`)
+    }
+  }
 
   async function loadDirectory() {
     setLoading(true)
@@ -712,6 +725,39 @@ function GroupMeSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Master pause switch */}
+      <div
+        className="iff-card"
+        style={{
+          padding: 14, display: 'flex', alignItems: 'center', gap: 12,
+          border: paused ? '1.5px solid rgba(244,162,97,0.5)' : '1px solid transparent',
+        }}
+      >
+        <span style={{ fontSize: 20 }}>{paused ? '🔕' : '🔔'}</span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
+            {paused ? 'GroupMe messages PAUSED' : 'GroupMe messages active'}
+          </span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+            {paused
+              ? 'No DMs are being sent — trade activity stays in-app only.'
+              : 'Trade offers and responses send DMs. Pause while testing.'}
+          </span>
+        </span>
+        <button
+          role="switch"
+          aria-checked={!paused}
+          aria-label="GroupMe messages"
+          onClick={togglePaused}
+          style={{
+            width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
+            background: paused ? 'var(--iff-elevated)' : '#22C55E', transition: 'background 0.15s',
+          }}
+        >
+          <span style={{ position: 'absolute', top: 2, left: paused ? 2 : 20, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.35)' }} />
+        </button>
+      </div>
+
       <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
         Trade offers and responses are sent as GroupMe direct messages (from your account).
         Match each league member's GroupMe identity to their fantasy team once — done forever.

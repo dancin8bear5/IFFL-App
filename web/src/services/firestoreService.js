@@ -304,7 +304,12 @@ export async function fetchGroupMeConfig() {
 }
 
 export function saveGroupMeConfig(config) {
-  return setDoc(doc(db, COL.config, 'groupme'), config)
+  return setDoc(doc(db, COL.config, 'groupme'), config, { merge: true })
+}
+
+/** Master pause for all GroupMe DMs (checked server-side before every send). */
+export function setGroupMePaused(paused) {
+  return setDoc(doc(db, COL.config, 'groupme'), { paused }, { merge: true })
 }
 
 // ── League History — doc id = season year ─────────────────────

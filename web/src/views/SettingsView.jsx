@@ -82,7 +82,12 @@ export default function SettingsView({ onClose }) {
               })}
             </div>
           </div>
-          <Row label="Theme" value="Dark" />
+          <Toggle
+            label="📼 90s Mode"
+            on={settings.retroMode ?? false}
+            onChange={(v) => set({ retroMode: v })}
+          />
+          <Row label="Theme" value={settings.retroMode ? 'Totally Radical' : 'Dark'} />
         </Section>
 
         <Section title="League">

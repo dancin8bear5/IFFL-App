@@ -594,3 +594,370 @@ a { color: inherit; text-decoration: none; }
     align-items: start;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   TROPHY ROOM — old-school hall of champions
+   ═══════════════════════════════════════════════════════════════ */
+.troom {
+  padding: 20px 18px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  font-family: Georgia, 'Times New Roman', serif;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(244, 162, 97, 0.09), transparent 55%),
+    var(--iff-bg);
+}
+
+.troom-hero { text-align: center; padding-top: 6px; }
+.troom-est {
+  font-size: 9px;
+  letter-spacing: 3.5px;
+  color: var(--iff-subtext);
+  margin-bottom: 8px;
+}
+.troom-title {
+  font-size: clamp(38px, 8vw, 62px);
+  font-weight: 900;
+  letter-spacing: 4px;
+  line-height: 1;
+  background: linear-gradient(180deg, #FFE9A8 0%, #F4A261 45%, #B06A28 75%, #F4C27E 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 18px rgba(244, 162, 97, 0.25);
+}
+.troom-rule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  color: var(--iff-gold);
+  font-size: 12px;
+}
+.troom-rule::before, .troom-rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(244, 162, 97, 0.55), transparent);
+}
+
+.troom-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: var(--iff-gold);
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+/* Rafter banners */
+.troom-rafters { position: relative; }
+.troom-rafter-beam {
+  height: 8px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #5A4632, #33271A);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  margin: 0 6px 0;
+}
+.troom-banner-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 0 10px 14px;
+  scrollbar-width: none;
+}
+.troom-banner-row::-webkit-scrollbar { display: none; }
+.troom-banner {
+  flex-shrink: 0;
+  width: 86px;
+  padding: 12px 6px 22px;
+  text-align: center;
+  color: #fff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.18) 60%),
+    var(--banner-color);
+  clip-path: polygon(0 0, 100% 0, 100% 78%, 50% 100%, 0 78%);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.22);
+  transform-origin: top center;
+  animation: bannerSway 5.5s ease-in-out infinite;
+}
+.troom-banner:nth-child(2n) { animation-delay: -2.7s; }
+.troom-banner:nth-child(3n) { animation-delay: -1.3s; }
+@keyframes bannerSway {
+  0%, 100% { transform: rotate(-1.2deg); }
+  50%      { transform: rotate(1.2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .troom-banner { animation: none; }
+}
+.troom-banner-year { font-size: 17px; font-weight: 900; letter-spacing: 1px; }
+.troom-banner-team {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.troom-banner-label { font-size: 6.5px; letter-spacing: 2px; margin-top: 3px; opacity: 0.85; }
+
+/* Podium */
+.troom-podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 10px;
+}
+.troom-step { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 108px; }
+.troom-step-team { font-size: 14px; font-weight: 700; }
+.troom-step-belts { font-size: 11px; letter-spacing: 1px; }
+.troom-step-block {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px 6px 0 0;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: rgba(0, 0, 0, 0.65);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.35), 0 6px 14px rgba(0, 0, 0, 0.4);
+}
+.troom-step-1 .troom-step-block { height: 86px; background: linear-gradient(180deg, #FFE9A8, #D89A45); }
+.troom-step-2 .troom-step-block { height: 62px; background: linear-gradient(180deg, #E8E8F0, #9EA0B0); }
+.troom-step-3 .troom-step-block { height: 46px; background: linear-gradient(180deg, #E8B98A, #A9714038); background-color: #B87D4B; }
+
+/* Records wall */
+.troom-records {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.troom-plaque {
+  text-align: center;
+  padding: 12px 8px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #6b4f2a 0%, #4A3418 100%);
+  box-shadow: inset 0 0 0 2px rgba(244, 200, 130, 0.5), 0 4px 10px rgba(0, 0, 0, 0.45);
+}
+.troom-plaque-label { font-size: 8.5px; letter-spacing: 1.5px; color: #EBCB8F; text-transform: uppercase; }
+.troom-plaque-team { font-size: 15px; font-weight: 900; color: #FFF3D6; margin-top: 4px; }
+.troom-plaque-value { font-size: 11px; color: #EBCB8F; margin-top: 2px; }
+
+/* Display cases */
+.troom-cases {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 700px)  { .troom-cases { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1050px) { .troom-cases { grid-template-columns: 1fr 1fr 1fr; } }
+
+.troom-case {
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%),
+    linear-gradient(180deg, #241A10, #16100A);
+  box-shadow:
+    inset 0 0 0 2px rgba(244, 162, 97, 0.35),
+    inset 0 0 24px rgba(0, 0, 0, 0.55),
+    0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.troom-case-header { display: flex; align-items: center; gap: 10px; }
+.troom-case-rank { font-size: 11px; color: var(--iff-gold); font-weight: 700; width: 26px; }
+.troom-case-team { font-size: 17px; font-weight: 900; letter-spacing: 0.5px; }
+
+.troom-shelf {
+  min-height: 44px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px 2px;
+  flex-wrap: wrap;
+}
+.troom-trophy {
+  font-size: 26px;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.6));
+}
+.troom-trophy.silver { font-size: 19px; opacity: 0.9; }
+.troom-shelf-empty {
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  color: rgba(158, 168, 184, 0.45);
+  padding-bottom: 6px;
+}
+.troom-shelf-board {
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #7A5C33, #4A3418);
+  box-shadow: 0 3px 5px rgba(0, 0, 0, 0.5);
+  margin-bottom: 10px;
+}
+
+.troom-brass {
+  border-radius: 5px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #C9A24E, #8A6A2B);
+  color: #241A05;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -1px 2px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.troom-brass-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 8.5px;
+  letter-spacing: 1px;
+  flex-wrap: wrap;
+}
+.troom-brass-row strong { font-size: 12px; letter-spacing: 0; margin-right: 6px; }
+
+.troom-finishes { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 10px; }
+.troom-finish {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--iff-subtext);
+  font-family: system-ui, sans-serif;
+}
+.troom-finish.podium { background: rgba(255, 255, 255, 0.12); color: var(--iff-text); }
+.troom-finish.gold { background: rgba(244, 162, 97, 0.25); color: var(--iff-gold); }
+
+.troom-footer {
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: rgba(158, 168, 184, 0.5);
+}
+
+/* ── All-time sortable table ───────────────────────────────── */
+.alltime-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 860px;
+  font-size: 12.5px;
+}
+.alltime-table th {
+  position: sticky;
+  top: 0;
+  background: var(--iff-surface);
+  padding: 9px 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--iff-subtext);
+  border-bottom: 1px solid var(--iff-divider);
+  white-space: nowrap;
+  z-index: 1;
+}
+.alltime-table th button { font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit; }
+.alltime-table th button:hover { color: var(--iff-text); }
+.alltime-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.035);
+  white-space: nowrap;
+}
+.alltime-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+
+/* ═══════════════════════════════════════════════════════════════
+   90s MODE — Saved by the Bell. Toggle in Settings → Appearance.
+   Applied via <html data-retro="1">. Full cheese.
+   ═══════════════════════════════════════════════════════════════ */
+[data-retro="1"] {
+  --iff-bg:       #23104F;
+  --iff-surface:  #341A6E;
+  --iff-elevated: #46258C;
+  --iff-accent:   #FF3E8A;
+  --iff-gold:     #FFE93B;
+  --iff-text:     #FFFFFF;
+  --iff-subtext:  #C9B8FF;
+  --iff-green:    #00E5C7;
+  --iff-divider:  rgba(0, 229, 199, 0.3);
+  --card-radius: 4px;
+  --card-shadow: 5px 5px 0 rgba(0, 229, 199, 0.85);
+}
+
+[data-retro="1"] body,
+[data-retro="1"] .app-frame,
+[data-retro="1"] .desktop-main {
+  font-family: 'Comic Sans MS', 'Comic Sans', 'Chalkboard SE', 'Marker Felt', cursive;
+}
+
+/* Memphis squiggle wallpaper */
+[data-retro="1"] body {
+  background-color: var(--iff-bg);
+  background-image: url("data:image/svg+xml,%3Csvg width='140' height='140' viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 24 q8 -14 16 0 t16 0' stroke='%23FF3E8A' stroke-width='4' fill='none' stroke-linecap='round' opacity='0.5'/%3E%3Ccircle cx='112' cy='30' r='7' fill='%2300E5C7' opacity='0.5'/%3E%3Crect x='28' y='96' width='14' height='14' fill='%23FFE93B' opacity='0.45' transform='rotate(18 35 103)'/%3E%3Cpath d='M84 108 l10 -18 l10 18 z' fill='%23FF3E8A' opacity='0.4'/%3E%3Cpath d='M96 64 q8 -14 16 0 t16 0' stroke='%23FFE93B' stroke-width='4' fill='none' stroke-linecap='round' opacity='0.45'/%3E%3Ccircle cx='22' cy='64' r='4' fill='%23FFE93B' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+[data-retro="1"] .iff-card,
+[data-retro="1"] .milestone-card,
+[data-retro="1"] .season-card {
+  border: 3px solid var(--iff-green);
+  box-shadow: 5px 5px 0 rgba(255, 62, 138, 0.75);
+  border-radius: 4px;
+}
+
+[data-retro="1"] .btn-primary {
+  border-radius: 0;
+  border: 3px solid #FFE93B;
+  box-shadow: 4px 4px 0 #00E5C7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transform: rotate(-0.6deg);
+}
+[data-retro="1"] .btn-outline {
+  border-radius: 0;
+  border-width: 3px;
+  box-shadow: 3px 3px 0 rgba(0, 229, 199, 0.7);
+  text-transform: uppercase;
+}
+
+[data-retro="1"] .sidebar,
+[data-retro="1"] .tab-bar,
+[data-retro="1"] .nav-bar {
+  background: #2B1560;
+  border-color: var(--iff-green);
+}
+[data-retro="1"] .sidebar { border-right-width: 3px; }
+[data-retro="1"] .tab-bar { border-top-width: 3px; }
+
+[data-retro="1"] .sidebar-logo-mark,
+[data-retro="1"] .league-title {
+  font-style: normal;
+  transform: rotate(-2deg);
+  text-shadow: 3px 3px 0 #00E5C7, 6px 6px 0 rgba(255, 233, 59, 0.6);
+}
+
+[data-retro="1"] .section-title,
+[data-retro="1"] .dash-hero-desktop h1 {
+  transform: rotate(-1deg);
+  display: inline-block;
+  text-shadow: 2px 2px 0 rgba(0, 229, 199, 0.8);
+}
+
+[data-retro="1"] .sidebar-item.active {
+  background: #FF3E8A;
+  color: #FFE93B;
+  transform: rotate(-1deg);
+}
+[data-retro="1"] .segmented { border: 2px solid var(--iff-green); border-radius: 0; }
+[data-retro="1"] .segmented button.active {
+  background: #FF3E8A;
+  color: #fff;
+  border-radius: 0;
+}
+
+[data-retro="1"] .overlay-container {
+  border: 3px solid var(--iff-green);
+}
+
+/* keep the trophy room's hall look intact even in 90s mode — it's a shrine */
+[data-retro="1"] .troom { font-family: Georgia, 'Times New Roman', serif; }

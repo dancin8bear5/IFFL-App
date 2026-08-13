@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { Segmented, BeltRow } from '../components/shared'
 import { teamByName } from '../data/staticData'
-import TrophyCaseView from '../components/TrophyCaseView'
+import TrophyRoomView from '../components/TrophyRoomView'
 import SettingsView from './SettingsView'
 
 export default function LeagueView() {
@@ -123,7 +123,7 @@ export default function LeagueView() {
       )}
 
       {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
-      {showTrophyCase && <TrophyCaseView onClose={() => setShowTrophyCase(false)} />}
+      {showTrophyCase && <TrophyRoomView onClose={() => setShowTrophyCase(false)} />}
     </div>
   )
 }

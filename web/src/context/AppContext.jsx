@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   showTradeValues: true,
   fmkPublic: true,
   accentColorName: null,
+  retroMode: false,
 }
 
 export function AppProvider({ children }) {
@@ -65,6 +66,12 @@ export function AppProvider({ children }) {
       setAuthReady(true)
     })
   }, [])
+
+  // 90s Mode — re-skins the whole app via <html data-retro="1">
+  useEffect(() => {
+    if (userSettings.retroMode) document.documentElement.dataset.retro = '1'
+    else delete document.documentElement.dataset.retro
+  }, [userSettings.retroMode])
 
   // Dev preview: load sample data once instead of Firestore
   useEffect(() => {

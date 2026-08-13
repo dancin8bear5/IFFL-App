@@ -10,18 +10,26 @@ import { formatTradeDate } from '../services/models'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
+import TrophyRoomView from '../components/TrophyRoomView'
+import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import SettingsView from './SettingsView'
+import { useEffect } from 'react'
 
 export default function DashboardView({ setTab }) {
   const {
     userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
-    incomingOffers,
+    incomingOffers, leagueHistory, loadLeagueHistory,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
   const [detailTrade, setDetailTrade] = useState(null)
+  const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy'
+
+  useEffect(() => {
+    loadLeagueHistory()
+  }, [loadLeagueHistory])
 
   const myAssets = useMemo(
     () => allDisplayAssets.filter((a) => a.teamName === userTeam),
@@ -150,17 +158,29 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
-  const trophyLink = (
-    <button className="iff-card" onClick={() => setTab(3)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
-      <span style={{ width: 44, height: 44, background: 'rgba(244,162,97,0.18)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🏆</span>
-      <span style={{ flex: 1 }}>
-        <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>League Trophy Room</span>
-        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
-          Career stats, belts &amp; finishes for every team
-        </span>
-      </span>
-      <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
-    </button>
+  const latestSeasonYear = leagueHistory[0]?.season
+  const historyTiles = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <HistoryTile
+        glyph="📊"
+        title="Last Season"
+        sub={latestSeasonYear ? `${latestSeasonYear} final standings & champion` : 'Final standings & champion'}
+        onClick={() => setHistoryView('last')}
+      />
+      <HistoryTile
+        glyph="📜"
+        title="League History"
+        sub="All-time table — every stat, sortable"
+        onClick={() => setHistoryView('table')}
+      />
+      <HistoryTile
+        glyph="🏆"
+        title="Trophy Room"
+        sub="Banners, belts & the hall of franchises"
+        onClick={() => setHistoryView('trophy')}
+        gold
+      />
+    </div>
   )
 
   const matchBanner = myMatchCount > 0 && (
@@ -291,6 +311,9 @@ export default function DashboardView({ setTab }) {
         />
       )}
       {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
+      {historyView === 'last' && <LastSeasonView onClose={() => setHistoryView(null)} />}
+      {historyView === 'table' && <LeagueHistoryTable onClose={() => setHistoryView(null)} />}
+      {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
     </>
   )
 
@@ -315,7 +338,7 @@ export default function DashboardView({ setTab }) {
               {tradesSection}
             </div>
             <div className="dash-rail">
-              {trophyLink}
+              {historyTiles}
               {matchBanner}
               {messagesSection}
             </div>
@@ -354,7 +377,7 @@ export default function DashboardView({ setTab }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
           {offerBanners}
           {teamCard}
-          {trophyLink}
+          {historyTiles}
           {matchBanner}
           {calendar}
           {teamsGrid}
@@ -390,5 +413,28 @@ function MilestoneCard({ milestone }) {
         </span>
       </div>
     </div>
+  )
+}
+
+function HistoryTile({ glyph, title, sub, onClick, gold }) {
+  return (
+    <button
+      className="iff-card"
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+        textAlign: 'left', width: '100%',
+        ...(gold ? { background: 'linear-gradient(135deg, rgba(244,162,97,0.14), var(--iff-surface) 60%)' } : {}),
+      }}
+    >
+      <span style={{ width: 44, height: 44, background: gold ? 'rgba(244,162,97,0.2)' : 'var(--iff-elevated)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+        {glyph}
+      </span>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>{sub}</span>
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+    </button>
   )
 }

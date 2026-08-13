@@ -4,6 +4,12 @@
 
 > **Always open `CodeRed.xcworkspace`** — not `CodeRed.xcodeproj`, not any other workspace file. The workspace is what links CocoaPods (Firebase, Google Sign-In). Opening the bare project gives "Firebase module not found".
 
+> **WEB APP IS THE PRIMARY DISTRIBUTION PATH** (Aug 2026): repeated App Store
+> rejections led to a full web port in `web/` (Vite + React + Firebase JS SDK,
+> same `iffl-auth` backend). Deploys to Firebase Hosting → league members open
+> one URL, Add to Home Screen. See `web/DEPLOY.md`. The iOS app still builds
+> but is no longer the distribution plan.
+
 ## Pinned Commands
 
 ```bash
@@ -13,12 +19,23 @@ cd ~/Documents/Claude/Projects/IFFL-App && pod install && open CodeRed.xcworkspa
 # Deploy Cloud Functions
 cd ~/Documents/Claude/Projects/IFFL-App && firebase deploy --only functions
 
-# Deploy privacy policy / hosting
-cd ~/Documents/Claude/Projects/IFFL-App && firebase deploy --only hosting
+# Deploy WEB APP + security rules (hosting serves web/dist — see web/DEPLOY.md)
+cd ~/Documents/Claude/Projects/IFFL-App/web && npm run build && cd .. && firebase deploy --only hosting,firestore:rules
+
+# Web app local dev (http://localhost:5173 — add ?preview=1 for sample data, no sign-in)
+cd ~/Documents/Claude/Projects/IFFL-App/web && npm run dev
 
 # Pull from active branch
 cd ~/Documents/Claude/Projects/IFFL-App && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
 ```
+
+## Web app (`web/`) at a glance
+- Vite + React 18 + Firebase JS SDK v10. Same Firebase project/collections as iOS — zero data migration.
+- Structure mirrors iOS: `src/context/AppContext.jsx` = AppState; `src/services/firestoreService.js` = FirestoreDataService; `src/services/marketEngine.js` = MarketEngine (unit-tested, `npm test`).
+- Auth: Google popup/redirect + email/password. Apple Sign-In intentionally omitted (was an App Store requirement only).
+- `firestore.rules` (repo root): reads require league membership (uid in `config/league.userTeamMap` or `authorizedUIDs`); roster/config writes commissioner-only. Deployed with hosting.
+- `web/.env` holds Firebase web config (from Console → Project settings → Your apps → Web). Never committed; template in `web/.env.example`.
+- PWA: manifest + icons → Add to Home Screen gives near-native feel. `public/privacy.html` still served at `/privacy.html`.
 
 ## Project at a glance
 - SwiftUI iOS app (iOS 17.0+), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.

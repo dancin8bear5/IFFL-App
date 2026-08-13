@@ -1,0 +1,107 @@
+rules_version = '2';
+
+// Insanity League — Firestore security rules.
+// Read access: league members only (anyone in config/league.userTeamMap or
+// authorizedUIDs). Signing in with a random Google account is NOT enough —
+// the commissioner must assign the account a team first.
+// Writes: users touch only their own FMK/interest/settings docs and trade
+// flow; roster, config, messages, and history writes are commissioner-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function leagueConfig() {
+      return get(/databases/$(database)/documents/config/league).data;
+    }
+
+    function isMember() {
+      return signedIn() && (
+        request.auth.uid in leagueConfig().userTeamMap ||
+        request.auth.uid in leagueConfig().authorizedUIDs
+      );
+    }
+
+    function isCommissioner() {
+      return signedIn() && (
+        request.auth.uid in leagueConfig().authorizedUIDs ||
+        request.auth.token.email == 'jaredrogtaylor@gmail.com'
+      );
+    }
+
+    // League config — members read; commissioner writes.
+    // (Members' clients read this at login to resolve their team.)
+    match /config/league {
+      allow read: if signedIn();          // needed to resolve membership at login
+      allow write: if isCommissioner();
+    }
+
+    // Rosters & league data — member reads, commissioner writes
+    match /players/{playerId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    match /draftPicks/{pickId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    match /leagueHistory/{year} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    // Trades — members propose (their own team, status 'proposed') and
+    // respond (accept/decline); executing (asset transfers + completed
+    // status) happens with commissioner privileges.
+    match /trades/{tradeId} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.status == 'proposed';
+      allow update: if isCommissioner() || (
+        isMember() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response', 'status']) &&
+        request.resource.data.status in ['accepted', 'rejected']
+      );
+      allow delete: if isCommissioner();
+    }
+
+    // FMK signals — doc id is "{uid}_{assetId}"; users manage only their own
+    match /playerFMK/{fmkId} {
+      allow read: if isMember();
+      allow create, update: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isMember() && resource.data.userId == request.auth.uid;
+    }
+
+    // Legacy star-interest system — same ownership model
+    match /playerInterests/{interestId} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isMember() && resource.data.userId == request.auth.uid;
+    }
+
+    // Per-user settings — owner only
+    match /userSettings/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // FCM tokens (written by iOS AppDelegate) — owner only
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Legacy "Users" collection — commissioner only (migration source)
+    match /Users/{docId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

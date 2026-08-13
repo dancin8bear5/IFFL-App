@@ -90,7 +90,7 @@ export default function FMKSwiperCard() {
     : card.name.split(' ').map((w) => w[0]).join('').slice(0, 2)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '14px 14px 0' }}>
+    <div className="fmk-area" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '14px 14px 0' }}>
       {/* Progress */}
       <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ flex: 1, height: 4, background: 'var(--iff-elevated)', borderRadius: 2, overflow: 'hidden' }}>

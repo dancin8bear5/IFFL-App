@@ -560,3 +560,37 @@ a { color: inherit; text-decoration: none; }
   .roster-desktop { grid-template-columns: 218px minmax(0, 1fr) 340px; }
   .roster-detail { display: block; position: sticky; top: 16px; }
 }
+
+/* ── Market desktop grid ───────────────────────────────────── */
+@media (min-width: 900px) {
+  .market-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+  .market-main, .market-rail { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .market-main .fmk-area { max-width: 420px; margin: 0 auto; }
+}
+@media (min-width: 1250px) {
+  .market-grid { grid-template-columns: minmax(0, 1fr) 400px; }
+}
+
+/* ── League history + trophy case grids ────────────────────── */
+.history-grid { display: flex; flex-direction: column; gap: 12px; }
+.trophy-grid { display: flex; flex-direction: column; gap: 12px; }
+
+@media (min-width: 900px) {
+  .history-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .trophy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+}

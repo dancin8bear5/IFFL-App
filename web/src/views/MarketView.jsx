@@ -2,6 +2,7 @@
 // Three sections: Interest (FMK swiper), Matches, Trades.
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { useIsDesktop } from '../hooks/useBreakpoint'
 import { Segmented, TeamAvatar } from '../components/shared'
 import { formatTradeDate } from '../services/models'
 import FMKSwiperCard from '../components/FMKSwiperCard'
@@ -10,6 +11,7 @@ import TradeDetailView from '../components/TradeDetailView'
 import SettingsView from './SettingsView'
 
 export default function MarketView({ setTab }) {
+  const isDesktop = useIsDesktop()
   const {
     matches, userTeam, trades, triggerTradeProposal, setTriggerTradeProposal,
     loadAllLeagueInterests,
@@ -57,6 +59,94 @@ export default function MarketView({ setTab }) {
     return list.sort((a, b) => new Date(b.date) - new Date(a.date))
   }, [trades, search])
 
+  const overlays = (
+    <>
+      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
+      {showProposal && <TradeProposalView onClose={() => setShowProposal(false)} />}
+      {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
+    </>
+  )
+
+  // ── Desktop: swiper + live rail + trade ledger ─────────────
+  if (isDesktop) {
+    return (
+      <div>
+        <div className="dash-hero-desktop">
+          <h1>Market</h1>
+          <button className="btn-outline" onClick={() => setShowProposal(true)} style={{ fontSize: 12, padding: '7px 16px' }}>
+            ＋ Propose Trade
+          </button>
+        </div>
+
+        <div className="market-grid">
+          <div className="market-main">
+            <div className="iff-card" style={{ padding: '4px 0 16px' }}>
+              <FMKSwiperCard />
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 16, fontWeight: 700 }}>Trade Ledger</span>
+                <input
+                  type="search"
+                  placeholder="Search by team or player…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ width: 260 }}
+                />
+              </div>
+              {completed.length === 0 ? (
+                <div className="iff-card empty-state" style={{ padding: '32px 24px' }}>
+                  <div>No completed trades this season.</div>
+                </div>
+              ) : (
+                <div className="iff-card">
+                  {completed.map((t, i) => (
+                    <TradeRow key={t.id} trade={t} last={i === completed.length - 1} onOpen={() => setDetailTrade(t)} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="market-rail">
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                Your Matches ({myMatches.length})
+              </div>
+              {myMatches.length === 0 ? (
+                <div className="iff-card" style={{ padding: 16, fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.6 }}>
+                  Rate players in the deck — when another team wants your assets back, matches appear here live.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {myMatches.map((m) => (
+                    <MatchCard key={m.id} match={m} userTeam={userTeam} onPropose={() => setShowProposal(true)} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {pending.length > 0 && (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                  Pending Trades
+                </div>
+                <div className="iff-card">
+                  {pending.map((t, i) => (
+                    <TradeRow key={t.id} trade={t} last={i === pending.length - 1} onOpen={() => setDetailTrade(t)} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        {overlays}
+      </div>
+    )
+  }
+
+  // ── Mobile (unchanged) ─────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div className="nav-bar">
@@ -131,9 +221,7 @@ export default function MarketView({ setTab }) {
         </div>
       )}
 
-      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
-      {showProposal && <TradeProposalView onClose={() => setShowProposal(false)} />}
-      {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
+      {overlays}
     </div>
   )
 }

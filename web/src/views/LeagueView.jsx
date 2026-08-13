@@ -3,6 +3,7 @@
 // (trophy case + expandable season cards).
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { useIsDesktop } from '../hooks/useBreakpoint'
 import { Segmented, BeltRow } from '../components/shared'
 import { teamByName } from '../data/staticData'
 import TrophyCaseView from '../components/TrophyCaseView'
@@ -10,6 +11,7 @@ import SettingsView from './SettingsView'
 
 export default function LeagueView() {
   const { leagueHistory, loadLeagueHistory, activeSeason, isOffSeason } = useApp()
+  const isDesktop = useIsDesktop()
   const [section, setSection] = useState('Standings')
   const [showSettings, setShowSettings] = useState(false)
   const [showTrophyCase, setShowTrophyCase] = useState(false)
@@ -23,13 +25,20 @@ export default function LeagueView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <div className="nav-bar">
-        <div className="nav-side" />
-        <div className="nav-title">League</div>
-        <div className="nav-side right">
-          <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">⚙</button>
+      {isDesktop ? (
+        <div className="dash-hero-desktop">
+          <h1>League</h1>
+          <span className="season-chip">Season {activeSeason}</span>
         </div>
-      </div>
+      ) : (
+        <div className="nav-bar">
+          <div className="nav-side" />
+          <div className="nav-title">League</div>
+          <div className="nav-side right">
+            <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">⚙</button>
+          </div>
+        </div>
+      )}
 
       <Segmented options={['Standings', 'Scores', 'History']} value={section} onChange={setSection} />
 
@@ -99,14 +108,16 @@ export default function LeagueView() {
               <div>Season history will appear once seeded by the commissioner.</div>
             </div>
           ) : (
-            leagueHistory.map((season) => (
-              <SeasonCard
-                key={season.season}
-                season={season}
-                open={expanded === season.season}
-                onToggle={() => setExpanded(expanded === season.season ? null : season.season)}
-              />
-            ))
+            <div className="history-grid">
+              {leagueHistory.map((season) => (
+                <SeasonCard
+                  key={season.season}
+                  season={season}
+                  open={expanded === season.season}
+                  onToggle={() => setExpanded(expanded === season.season ? null : season.season)}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}

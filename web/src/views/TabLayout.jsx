@@ -22,8 +22,8 @@ export default function TabLayout({ tab, setTab }) {
     <div className="app-frame">
       <div className="screen-body" key={tab}>
         {tab === 0 && <DashboardView setTab={setTab} />}
-        {tab === 1 && <RostersView />}
-        {tab === 2 && <MarketView />}
+        {tab === 1 && <RostersView setTab={setTab} />}
+        {tab === 2 && <MarketView setTab={setTab} />}
         {tab === 3 && <LeagueView />}
         {tab === 4 && isAdmin && <AdminView />}
       </div>

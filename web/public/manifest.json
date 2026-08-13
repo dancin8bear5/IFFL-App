@@ -1,0 +1,17 @@
+{
+  "name": "Insanity League",
+  "short_name": "Insanity",
+  "description": "Insanity League fantasy football — rosters, trades, and league history.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0D1A",
+  "theme_color": "#0A0D1A",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

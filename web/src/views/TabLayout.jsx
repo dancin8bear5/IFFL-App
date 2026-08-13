@@ -1,5 +1,9 @@
-// TabLayout — mirrors IFFLContentView's TabView. Admin tab appears only for isAdmin.
+// TabLayout — mirrors IFFLContentView's TabView.
+// Mobile (<900px): bottom tab bar, single-column frame (unchanged).
+// Desktop (≥900px): left sidebar + wide content area.
 import { useApp } from '../context/AppContext'
+import { useIsDesktop } from '../hooks/useBreakpoint'
+import Sidebar from '../components/Sidebar'
 import DashboardView from './DashboardView'
 import RostersView from './RostersView'
 import MarketView from './MarketView'
@@ -15,17 +19,35 @@ const TABS = [
 
 export default function TabLayout({ tab, setTab }) {
   const { isAdmin, myMatchCount } = useApp()
+  const isDesktop = useIsDesktop()
   const tabs = isAdmin ? [...TABS, { label: 'Admin', glyph: '🔧' }] : TABS
   const matchCount = myMatchCount
+
+  const screens = (
+    <>
+      {tab === 0 && <DashboardView setTab={setTab} />}
+      {tab === 1 && <RostersView setTab={setTab} />}
+      {tab === 2 && <MarketView setTab={setTab} />}
+      {tab === 3 && <LeagueView />}
+      {tab === 4 && isAdmin && <AdminView />}
+    </>
+  )
+
+  if (isDesktop) {
+    return (
+      <div className="desktop-shell">
+        <Sidebar tabs={tabs} tab={tab} setTab={setTab} matchCount={matchCount} />
+        <main className="desktop-main" key={tab}>
+          <div className="desktop-content">{screens}</div>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="app-frame">
       <div className="screen-body" key={tab}>
-        {tab === 0 && <DashboardView setTab={setTab} />}
-        {tab === 1 && <RostersView setTab={setTab} />}
-        {tab === 2 && <MarketView setTab={setTab} />}
-        {tab === 3 && <LeagueView />}
-        {tab === 4 && isAdmin && <AdminView />}
+        {screens}
       </div>
 
       <nav className="tab-bar">

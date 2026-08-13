@@ -14,9 +14,9 @@ const TABS = [
 ]
 
 export default function TabLayout({ tab, setTab }) {
-  const { isAdmin } = useApp()
+  const { isAdmin, myMatchCount } = useApp()
   const tabs = isAdmin ? [...TABS, { label: 'Admin', glyph: '🔧' }] : TABS
-  const matchCount = 0 // wired to marketEngine in Phase 2
+  const matchCount = myMatchCount
 
   return (
     <div className="app-frame">

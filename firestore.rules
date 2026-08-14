@@ -92,6 +92,32 @@ service cloud.firestore {
     }
 
     // FMK signals — doc id is "{uid}_{assetId}"; users manage only their own
+    // Weekly Low Points Parlay.
+    // config/parlay: {season, week, lockAt, open} — commissioner controls the week.
+    // Entries: one per team per week (doc id season_week_team); a member may
+    // write only their own team's entry and only before the lock.
+    match /config/parlay {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    match /parlayEntries/{entryId} {
+      allow read: if isMember();
+      allow create, update: if isCommissioner() || (
+        isMember() &&
+        request.resource.data.teamName == leagueConfig().userTeamMap[request.auth.uid] &&
+        get(/databases/$(database)/documents/config/parlay).data.open == true &&
+        request.time < get(/databases/$(database)/documents/config/parlay).data.lockAt
+      );
+      allow delete: if isCommissioner();
+    }
+
+    // Week results (book, bet slip link, hit/miss, payout) — commissioner only
+    match /parlayWeeks/{weekId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
     // Transaction ledger — the league's paper trail. Readable by everyone,
     // written only by the commissioner (entries ride along with executeTrade
     // and repair batches). Never updated or deleted — it's an audit log.

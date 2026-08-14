@@ -147,6 +147,18 @@ export const previewRules = [
   },
 ]
 
+// Low Points Parlay sample — Week 3 open, locks Sunday, 3 teams in
+export const previewParlayConfig = {
+  season: 2026, week: 3, open: true,
+  lockAt: new Date(Date.now() + 36 * 3600 * 1000), // ~a day and a half out
+  lowScorer: 'Foley',
+}
+export const previewParlayEntries = [
+  { id: 'pe1', season: 2026, week: 3, teamName: 'Bill', playerId: 'p6', playerName: 'Justin Jefferson', submittedAt: new Date() },
+  { id: 'pe2', season: 2026, week: 3, teamName: 'Ryan', playerId: 'p9', playerName: 'Saquon Barkley', submittedAt: new Date() },
+  { id: 'pe3', season: 2026, week: 3, teamName: 'Abad', playerId: 'p10', playerName: 'Tyreek Hill', submittedAt: new Date() },
+]
+
 // Transaction ledger sample — one of each event type
 export const previewTransactions = [
   { id: 'tx1', type: 'trade', season: 2026, teamName: 'Jared', fromTeam: 'Abad', playerId: 'p10', playerName: 'Tyreek Hill', assetType: 'player', relatedTradeId: 't1', createdAt: new Date(2026, 7, 12, 14, 30) },

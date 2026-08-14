@@ -557,6 +557,51 @@ export async function seedRuleProposals(proposals) {
   return count
 }
 
+// ── Weekly Low Points Parlay ──────────────────────────────────
+// config/parlay {season, week, lockAt, open} · parlayEntries one per
+// team/week (id season_week_team) · parlayWeeks results per week.
+
+export function listenToParlayConfig(callback) {
+  return onSnapshot(doc(db, COL.config, 'parlay'), (snap) => {
+    const d = snap.exists() ? snap.data() : null
+    callback(d ? { ...d, lockAt: tsToDate(d.lockAt) } : null)
+  })
+}
+
+export function setParlayConfig(patch) {
+  const payload = { ...patch }
+  if (payload.lockAt instanceof Date) payload.lockAt = Timestamp.fromDate(payload.lockAt)
+  return setDoc(doc(db, COL.config, 'parlay'), payload, { merge: true })
+}
+
+export function listenToParlayEntries(season, week, callback) {
+  const q = query(
+    collection(db, 'parlayEntries'),
+    where('season', '==', season),
+    where('week', '==', week),
+  )
+  return onSnapshot(q, (snap) =>
+    callback(snapToDocs(snap).map((e) => ({ ...e, submittedAt: tsToDate(e.submittedAt) }))),
+  )
+}
+
+/** Submit or change a pick — deterministic id keeps it one entry per team. */
+export function submitParlayEntry({ season, week, teamName, playerId, playerName, userId }) {
+  return setDoc(doc(db, 'parlayEntries', `${season}_${week}_${teamName}`), {
+    season, week, teamName, playerId, playerName, userId,
+    submittedAt: Timestamp.now(),
+  })
+}
+
+export function saveParlayWeek(weekDoc) {
+  return setDoc(doc(db, 'parlayWeeks', `${weekDoc.season}_${weekDoc.week}`), weekDoc, { merge: true })
+}
+
+export async function fetchParlayWeeks(season) {
+  const q = query(collection(db, 'parlayWeeks'), where('season', '==', season))
+  return snapToDocs(await getDocs(q)).sort((a, b) => b.week - a.week)
+}
+
 // ── Keeper plans (Team Builder prototypes) — ALWAYS private ───
 // Doc: { ownerUid, name, strategy, entries:[{assetId, keep:{0,1,2}}],
 //        placeholders:[{id,label,position,prices:{0,1,2}}], updatedAt }

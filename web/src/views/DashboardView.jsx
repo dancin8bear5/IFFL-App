@@ -14,6 +14,7 @@ import TrophyRoomView from '../components/TrophyRoomView'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
+import ParlayView from '../components/ParlayView'
 import SettingsView from './SettingsView'
 import { useEffect } from 'react'
 
@@ -23,6 +24,7 @@ export default function DashboardView({ setTab }) {
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
+    parlayConfig, parlayEntries,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -31,6 +33,7 @@ export default function DashboardView({ setTab }) {
   const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy'
   const [showRules, setShowRules] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
+  const [showParlay, setShowParlay] = useState(false)
 
   useEffect(() => {
     loadLeagueHistory()
@@ -245,6 +248,32 @@ export default function DashboardView({ setTab }) {
         ))}
       </div>
     </div>
+  )
+
+  // Low Points Parlay — loud while a week is open, showing whether you're in
+  const myParlayEntry = parlayEntries.find((e) => e.teamName === userTeam)
+  const parlayCard = parlayConfig?.open && (
+    <button
+      className="iff-card"
+      onClick={() => setShowParlay(true)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', textAlign: 'left',
+        border: myParlayEntry ? '1px solid transparent' : '1.5px solid rgba(244,162,97,0.55)',
+      }}
+    >
+      <span style={{ fontSize: 16 }}>🎯</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
+          Low Points Parlay — Week {parlayConfig.week}
+        </span>
+        <span style={{ display: 'block', fontSize: 10.5, color: myParlayEntry ? 'var(--iff-green)' : 'var(--iff-gold)', marginTop: 1 }}>
+          {myParlayEntry ? `✓ In with ${myParlayEntry.playerName}` : 'Pick your TD scorer before lock'}
+        </span>
+      </span>
+      <span className="tnum" style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+        {parlayEntries.length}/12 ›
+      </span>
+    </button>
   )
 
   // Slim link into the full transaction ledger — trades, drops, claims,
@@ -468,6 +497,7 @@ export default function DashboardView({ setTab }) {
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
       {showLedger && <TransactionLedger onClose={() => setShowLedger(false)} />}
+      {showParlay && <ParlayView onClose={() => setShowParlay(false)} />}
     </>
   )
 
@@ -486,6 +516,7 @@ export default function DashboardView({ setTab }) {
           <div className="dash-grid">
             <div className="dash-main">
               {offerBanners}
+              {parlayCard}
               {teamCard}
               {calendar}
               {teamsGrid}
@@ -533,6 +564,7 @@ export default function DashboardView({ setTab }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
           {offerBanners}
+          {parlayCard}
           {teamCard}
           {historyTiles}
           {matchBanner}

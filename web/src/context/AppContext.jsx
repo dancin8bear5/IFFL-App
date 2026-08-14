@@ -54,6 +54,8 @@ export function AppProvider({ children }) {
   const [rules, setRules] = useState([])
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
   const [transactions, setTransactions] = useState([])
+  const [parlayConfig, setParlayConfig] = useState(null)
+  const [parlayEntries, setParlayEntries] = useState([])
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -93,6 +95,8 @@ export function AppProvider({ children }) {
       setLeagueHistory(d.previewHistory)
       setRules(d.previewRules ?? [])
       setTransactions(d.previewTransactions ?? [])
+      setParlayConfig(d.previewParlayConfig ?? null)
+      setParlayEntries(d.previewParlayEntries ?? [])
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })
@@ -167,6 +171,7 @@ export function AppProvider({ children }) {
         fs.listenToAllFMKSignals(setAllLeagueFMK),
         fs.listenToRules(setRules),
         fs.listenToTransactions(setTransactions),
+        fs.listenToParlayConfig(setParlayConfig),
       )
 
       // 3. One-shot user loads
@@ -199,6 +204,35 @@ export function AppProvider({ children }) {
     const unsub = fs.listenToTrades(activeSeason, setTrades)
     return unsub
   }, [user, activeSeason])
+
+  // Parlay entries follow the commissioner's active week
+  useEffect(() => {
+    if (DEV_PREVIEW || !user || !parlayConfig?.season || !parlayConfig?.week) return
+    return fs.listenToParlayEntries(parlayConfig.season, parlayConfig.week, setParlayEntries)
+  }, [user, parlayConfig?.season, parlayConfig?.week])
+
+  const submitParlayPick = useCallback(
+    async (asset) => {
+      if (!userTeam || !parlayConfig) return
+      const entry = {
+        season: parlayConfig.season,
+        week: parlayConfig.week,
+        teamName: userTeam,
+        playerId: asset.id,
+        playerName: asset.name,
+        userId: user?.uid ?? null,
+      }
+      if (DEV_PREVIEW) {
+        setParlayEntries((prev) => [
+          ...prev.filter((e) => e.teamName !== userTeam),
+          { ...entry, id: `preview-parlay-${userTeam}`, submittedAt: new Date() },
+        ])
+        return
+      }
+      await fs.submitParlayEntry(entry)
+    },
+    [userTeam, parlayConfig, user],
+  )
 
   // ── Computed (AppState computed properties) ─────────────────
   // Roster/cap views count only salary-status 'rostered' players (missing
@@ -464,6 +498,8 @@ export function AppProvider({ children }) {
     rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,
     // transaction ledger
     transactions,
+    // low points parlay
+    parlayConfig, parlayEntries, submitParlayPick,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,

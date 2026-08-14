@@ -25,9 +25,11 @@ service cloud.firestore {
     }
 
     function isCommissioner() {
+      // Jared only — both of his Google accounts
       return signedIn() && (
         request.auth.uid in leagueConfig().authorizedUIDs ||
-        request.auth.token.email == 'jaredrogtaylor@gmail.com'
+        request.auth.token.email == 'jaredrogtaylor@gmail.com' ||
+        request.auth.token.email == 'jarrtayl@gmail.com'
       );
     }
 
@@ -114,6 +116,12 @@ service cloud.firestore {
 
     // Week results (book, bet slip link, hit/miss, payout) — commissioner only
     match /parlayWeeks/{weekId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    // Game & player extremes (Trophy Room records) — commissioner-entered
+    match /leagueRecords/{recordId} {
       allow read: if isMember();
       allow write: if isCommissioner();
     }

@@ -628,6 +628,27 @@ export function deleteKeeperPlan(planId) {
   return deleteDoc(doc(db, 'keeperPlans', planId))
 }
 
+// ── League Records — game & player extremes (Trophy Room) ─────
+// {scope: 'game'|'player', label, team, player?, value, detail?, season?,
+//  week?, tone: 'high'|'low', order} — commissioner-entered, gathered
+// going forward as weekly data accumulates.
+
+export async function fetchLeagueRecords() {
+  const snap = await getDocs(collection(db, 'leagueRecords'))
+  return snapToDocs(snap).sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
+}
+
+export function saveLeagueRecord(record) {
+  const { id, ...data } = record
+  const payload = { ...data, updatedAt: Timestamp.now() }
+  if (id) return setDoc(doc(db, 'leagueRecords', id), payload, { merge: true }).then(() => id)
+  return addDoc(collection(db, 'leagueRecords'), { ...payload, createdAt: Timestamp.now() }).then((r) => r.id)
+}
+
+export function deleteLeagueRecord(recordId) {
+  return deleteDoc(doc(db, 'leagueRecords', recordId))
+}
+
 // ── League History — doc id = season year ─────────────────────
 
 export async function fetchLeagueHistory() {

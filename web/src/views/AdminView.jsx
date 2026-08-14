@@ -8,7 +8,7 @@ import * as fs from '../services/firestoreService'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Areas', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Areas', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -38,6 +38,7 @@ export default function AdminView() {
       <div style={{ padding: 14 }}>
         {section === 'Database' && <DatabaseSection />}
         {section === 'Areas' && <AreasSection />}
+        {section === 'Records' && <RecordsSection />}
         {section === 'Players' && <PlayersSection />}
         {section === 'Drops' && <DropsSection />}
         {section === 'Picks' && <PicksSection />}
@@ -327,6 +328,215 @@ function AreasSection() {
           })}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Records — game & player extremes for the Trophy Room ──────
+// Structure built ahead of the data: enter records as they're gathered
+// going forward (weekly scores, player games, draft bargains…).
+
+const RECORD_PRESETS = {
+  game: [
+    { label: 'Highest Single-Game Score', tone: 'high' },
+    { label: 'Lowest Single-Game Score', tone: 'low' },
+    { label: 'Biggest Blowout', tone: 'high' },
+    { label: 'Closest Margin', tone: 'high' },
+    { label: 'Most Combined Points', tone: 'high' },
+    { label: 'Highest Score in a Loss', tone: 'low' },
+    { label: 'Lowest Score in a Win', tone: 'high' },
+  ],
+  player: [
+    { label: 'Best Player Game', tone: 'high' },
+    { label: 'Most Season Points (Player)', tone: 'high' },
+    { label: 'Best Draft Bargain', tone: 'high' },
+    { label: 'Biggest Bust', tone: 'low' },
+    { label: 'Most Points Left on Bench (Week)', tone: 'low' },
+  ],
+}
+
+const EMPTY_RECORD = { scope: 'game', label: '', team: '', player: '', value: '', detail: '', season: '', week: '', tone: 'high' }
+
+function RecordsSection() {
+  const { leagueRecords, loadLeagueRecords, setLeagueRecords } = useApp()
+  const [form, setForm] = useState(null) // record being edited, or null
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    loadLeagueRecords()
+  }, [loadLeagueRecords])
+
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+
+  async function save() {
+    if (!form.label.trim()) return
+    setBusy(true)
+    try {
+      const payload = {
+        ...form,
+        label: form.label.trim(),
+        team: form.team || null,
+        player: form.player.trim() || null,
+        value: form.value.trim() || null,
+        detail: form.detail.trim() || null,
+        season: form.season ? Number(form.season) : null,
+        week: form.week ? Number(form.week) : null,
+      }
+      const id = await fs.saveLeagueRecord(payload)
+      setLeagueRecords((prev) => {
+        const next = prev.filter((r) => r.id !== id)
+        return [...next, { ...payload, id }].sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
+      })
+      setForm(null)
+    } catch (e) {
+      alert(`Failed: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(record) {
+    if (!confirm(`Delete "${record.label}"?`)) return
+    await fs.deleteLeagueRecord(record.id).catch((e) => alert(`Failed: ${e.message}`))
+    setLeagueRecords((prev) => prev.filter((r) => r.id !== record.id))
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Game and player extremes shown in the Trophy Room. Enter them as the data gets gathered —
+        weekly scores, player games, draft results.
+      </div>
+
+      <button className="btn-primary" onClick={() => setForm(EMPTY_RECORD)} style={{ alignSelf: 'flex-start', padding: '10px 20px', fontSize: 14 }}>
+        ＋ Add Record
+      </button>
+
+      {['game', 'player'].map((scope) => {
+        const mine = leagueRecords.filter((r) => r.scope === scope)
+        return (
+          <div key={scope} className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '11px 14px', fontSize: 13, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)', textTransform: 'capitalize' }}>
+              {scope} extremes ({mine.length})
+            </div>
+            {mine.length === 0 && (
+              <div style={{ padding: 16, fontSize: 12, color: 'var(--iff-subtext)' }}>None yet.</div>
+            )}
+            {mine.map((r, i) => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700 }}>{r.label}</span>
+                  <span style={{ display: 'block', fontSize: 10.5, color: r.tone === 'low' ? '#F87171' : 'var(--iff-green)' }}>
+                    {[r.team, r.player, r.value].filter(Boolean).join(' — ')}
+                    {r.season ? ` · ${r.season}` : ''}{r.week ? ` Wk ${r.week}` : ''}
+                  </span>
+                </span>
+                <button className="btn-outline" onClick={() => setForm({ ...EMPTY_RECORD, ...r })} style={{ fontSize: 11, padding: '5px 12px' }}>
+                  Edit
+                </button>
+                <button onClick={() => remove(r)} style={{ fontSize: 12, color: '#EF4444', padding: '5px 8px' }} aria-label={`Delete ${r.label}`}>
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )
+      })}
+
+      {form && (
+        <DetailOverlay title={form.id ? 'Edit Record' : 'Add Record'} onBack={() => setForm(null)}>
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label="Scope">
+              <div style={{ display: 'flex', gap: 8 }}>
+                {['game', 'player'].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => set({ scope: s })}
+                    style={{
+                      padding: '7px 16px', borderRadius: 18, fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
+                      background: form.scope === s ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+                      color: form.scope === s ? '#fff' : 'var(--iff-subtext)',
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <Field label="Record">
+              <select
+                value={RECORD_PRESETS[form.scope].some((p) => p.label === form.label) ? form.label : '__custom'}
+                onChange={(e) => {
+                  const preset = RECORD_PRESETS[form.scope].find((p) => p.label === e.target.value)
+                  if (preset) set({ label: preset.label, tone: preset.tone })
+                }}
+              >
+                <option value="__custom">Custom…</option>
+                {RECORD_PRESETS[form.scope].map((p) => (
+                  <option key={p.label} value={p.label}>{p.label}</option>
+                ))}
+              </select>
+              <input
+                type="text" placeholder="Record name" value={form.label}
+                onChange={(e) => set({ label: e.target.value })}
+                style={{ marginTop: 6 }}
+              />
+            </Field>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <Field label="Team">
+                <select value={form.team} onChange={(e) => set({ team: e.target.value })}>
+                  <option value="">—</option>
+                  {fantasyTeams.map((t) => (
+                    <option key={t.name} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Player (optional)">
+                <input type="text" placeholder="e.g. Saquon Barkley" value={form.player} onChange={(e) => set({ player: e.target.value })} />
+              </Field>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 1fr 0.7fr', gap: 10 }}>
+              <Field label="Value">
+                <input type="text" placeholder="e.g. 212.4 pts" value={form.value} onChange={(e) => set({ value: e.target.value })} />
+              </Field>
+              <Field label="Season">
+                <input type="number" placeholder="2026" value={form.season} onChange={(e) => set({ season: e.target.value })} className="tnum" />
+              </Field>
+              <Field label="Week">
+                <input type="number" placeholder="—" value={form.week} onChange={(e) => set({ week: e.target.value })} className="tnum" />
+              </Field>
+            </div>
+
+            <Field label="Detail (optional)">
+              <input type="text" placeholder="e.g. vs Bill, in the snow game" value={form.detail} onChange={(e) => set({ detail: e.target.value })} />
+            </Field>
+
+            <Field label="Tone">
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => set({ tone: 'high' })}
+                  style={{ padding: '7px 16px', borderRadius: 18, fontSize: 12, fontWeight: 700, background: form.tone === 'high' ? 'rgba(74,222,128,0.2)' : 'var(--iff-elevated)', color: form.tone === 'high' ? 'var(--iff-green)' : 'var(--iff-subtext)' }}
+                >
+                  Glory (green)
+                </button>
+                <button
+                  onClick={() => set({ tone: 'low' })}
+                  style={{ padding: '7px 16px', borderRadius: 18, fontSize: 12, fontWeight: 700, background: form.tone === 'low' ? 'rgba(248,113,113,0.2)' : 'var(--iff-elevated)', color: form.tone === 'low' ? '#F87171' : 'var(--iff-subtext)' }}
+                >
+                  Shame (red)
+                </button>
+              </div>
+            </Field>
+
+            <button className="btn-primary" onClick={save} disabled={busy || !form.label.trim()}>
+              {busy ? 'Saving…' : 'Save Record'}
+            </button>
+          </div>
+        </DetailOverlay>
+      )}
     </div>
   )
 }

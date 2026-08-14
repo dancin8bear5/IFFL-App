@@ -1,7 +1,7 @@
 // TrophyRoomView — the GRAND hall. Old-school NCAA trophy room treatment:
 // championship banners in the rafters, an all-time podium, per-team display
 // cases with trophies and brass plaques, and a records wall.
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
@@ -22,6 +22,39 @@ function ExtremeCard({ label, color, headline, detail }) {
       <div style={{ fontSize: 17, fontWeight: 900, color, marginTop: 5, lineHeight: 1.25 }}>{headline}</div>
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4, lineHeight: 1.45 }}>{detail}</div>
     </div>
+  )
+}
+
+/**
+ * A scope's record cards (game or player extremes). Members see the section
+ * once records exist; the commissioner also sees an empty-state prompt so
+ * the structure is ready as data gets gathered going forward.
+ */
+function RecordScopeSection({ label, scope, records, isAdmin, hint }) {
+  const mine = records.filter((r) => r.scope === scope)
+  if (mine.length === 0 && !isAdmin) return null
+  return (
+    <section>
+      <div className="troom-section-label">{label}</div>
+      {mine.length === 0 ? (
+        <div className="iff-card" style={{ padding: '14px 16px', fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.55, fontFamily: 'system-ui, sans-serif' }}>
+          No {scope} records yet — {hint}. Add them from Settings → Admin → Records as the data
+          comes in. (Only you can see this note.)
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+          {mine.map((r) => (
+            <ExtremeCard
+              key={r.id}
+              label={r.label}
+              color={r.tone === 'low' ? '#F87171' : '#4ADE80'}
+              headline={`${r.team ? ownerName(r.team) : ''}${r.team && r.player ? ' — ' : ''}${r.player ?? ''}${r.value ? ` — ${r.value}` : ''}`}
+              detail={[r.season, r.week ? `Week ${r.week}` : null, r.detail].filter(Boolean).join(' · ')}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -57,8 +90,12 @@ function DroughtBadge({ drought, seasons, activeLabel }) {
 }
 
 export default function TrophyRoomView({ onClose }) {
-  const { leagueHistory } = useApp()
+  const { leagueHistory, leagueRecords, loadLeagueRecords, isAdmin } = useApp()
   const [showFormer, setShowFormer] = useState(false)
+
+  useEffect(() => {
+    loadLeagueRecords()
+  }, [loadLeagueRecords])
 
   const { rows, records, banners, formerCount, superlatives, droughts } = useMemo(() => {
     const all = defaultSort(computeAllTimeStats(leagueHistory))
@@ -189,6 +226,23 @@ export default function TrophyRoomView({ onClose }) {
                 </div>
               </section>
             )}
+
+            {/* ── Game & player extremes — commissioner-entered records,
+                   gathered going forward as weekly data accumulates ── */}
+            <RecordScopeSection
+              label="GAME EXTREMES"
+              scope="game"
+              records={leagueRecords}
+              isAdmin={isAdmin}
+              hint="single-game records — highest score, biggest blowout, closest margin"
+            />
+            <RecordScopeSection
+              label="PLAYER EXTREMES"
+              scope="player"
+              records={leagueRecords}
+              isAdmin={isAdmin}
+              hint="individual performances — best player game, draft bargains, bench tragedies"
+            />
 
             {/* ── Drought table ── */}
             {droughts.length > 0 && (

@@ -147,6 +147,14 @@ export const previewRules = [
   },
 ]
 
+// Game & player extremes sample (Trophy Room records)
+export const previewRecords = [
+  { id: 'r1', scope: 'game', label: 'Highest Single-Game Score', team: 'Bill', value: '212.4 pts', season: 2024, week: 8, tone: 'high', detail: 'vs Faybik' },
+  { id: 'r2', scope: 'game', label: 'Lowest Single-Game Score', team: 'Foley', value: '41.2 pts', season: 2023, week: 11, tone: 'low' },
+  { id: 'r3', scope: 'player', label: 'Best Player Game', team: 'Jared', player: 'Patrick Mahomes', value: '54.8 pts', season: 2024, week: 4, tone: 'high' },
+  { id: 'r4', scope: 'player', label: 'Most Points Left on Bench (Week)', team: 'Dugan', player: 'Ja’Marr Chase', value: '43.1 pts benched', season: 2025, week: 7, tone: 'low' },
+]
+
 // Low Points Parlay sample — Week 3 open, locks Sunday, 3 teams in
 export const previewParlayConfig = {
   season: 2026, week: 3, open: true,

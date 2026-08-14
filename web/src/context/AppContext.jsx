@@ -52,6 +52,7 @@ export function AppProvider({ children }) {
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS)
   const [didLoadSettings, setDidLoadSettings] = useState(false)
   const [leagueHistory, setLeagueHistory] = useState([])
+  const [leagueRecords, setLeagueRecords] = useState([])
   const [rules, setRules] = useState([])
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
   const [transactions, setTransactions] = useState([])
@@ -66,8 +67,11 @@ export function AppProvider({ children }) {
 
   const unsubsRef = useRef([])
 
-  // Admin gate — same email check as AppState.isAdmin (preview mode: enabled for UI testing)
-  const isAdmin = DEV_PREVIEW || user?.email === 'jaredrogtaylor@gmail.com'
+  // Admin gate — Jared only, but he has two Google accounts. Also honors
+  // authorizedUIDs from config (the same list firestore.rules trusts).
+  // (Preview mode: enabled for UI testing.)
+  const ADMIN_EMAILS = ['jaredrogtaylor@gmail.com', 'jarrtayl@gmail.com']
+  const isAdmin = DEV_PREVIEW || ADMIN_EMAILS.includes(user?.email) || isCommissioner
 
   // ── Auth listener ───────────────────────────────────────────
   useEffect(() => {
@@ -100,6 +104,7 @@ export function AppProvider({ children }) {
       setTransactions(d.previewTransactions ?? [])
       setParlayConfig(d.previewParlayConfig ?? null)
       setParlayEntries(d.previewParlayEntries ?? [])
+      setLeagueRecords(d.previewRecords ?? [])
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })
@@ -360,6 +365,11 @@ export function AppProvider({ children }) {
     fs.fetchLeagueHistory().then(setLeagueHistory).catch(() => {})
   }, [])
 
+  const loadLeagueRecords = useCallback(() => {
+    if (DEV_PREVIEW) return
+    fs.fetchLeagueRecords().then(setLeagueRecords).catch(() => {})
+  }, [])
+
   const saveUserSettings = useCallback(
     async (settings) => {
       if (!uid) return
@@ -516,6 +526,7 @@ export function AppProvider({ children }) {
     // settings + history
     userSettings, didLoadSettings, saveUserSettings,
     leagueHistory, loadLeagueHistory,
+    leagueRecords, loadLeagueRecords, setLeagueRecords,
     // rules + voting
     rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,
     // transaction ledger

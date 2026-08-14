@@ -19,7 +19,7 @@ const CONTRACTS = [
 
 export default function PlayersView({ setTab }) {
   const {
-    allDisplayAssets, isInitialLoadComplete, activeSeason, userTeam,
+    allDisplayAssets, droppedPlayers, isInitialLoadComplete, activeSeason, userTeam,
     interestedAssetIds, toggleInterest, proposeTradeFor,
   } = useApp()
   const isDesktop = useIsDesktop()
@@ -179,6 +179,32 @@ export default function PlayersView({ setTab }) {
     </div>
   )
 
+  // Dropped-player panel — visible league-wide once the season churns.
+  // Shows the 2-auction clock so everyone can see whose salary is still live.
+  const droppedPanel = droppedPlayers.length > 0 && (
+    <div className="iff-card" style={{ padding: 0, overflow: 'hidden', marginBottom: 16, borderLeft: '3px solid #EF4444' }}>
+      <div style={{ padding: '11px 14px', fontSize: 13, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+        🕐 Dropped Players — salary clock
+      </div>
+      {droppedPlayers.map((p, i) => (
+        <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+          <PosBadge position={p.position} />
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700 }}>{p.name}</span>
+            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+              {p.salaryStatus === 'cleared'
+                ? 'cleared — reset to $2, cap-exempt'
+                : `dropped by ${p.teamName} · $${p.currentPrice} follows if claimed`}
+            </span>
+          </span>
+          <span className="tnum" style={{ fontSize: 11.5, fontWeight: 800, color: p.salaryStatus === 'cleared' ? 'var(--iff-subtext)' : 'var(--iff-gold)' }}>
+            {p.salaryStatus === 'cleared' ? '✓ clear' : `${p.auctionsCleared}/2 auctions`}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+
   const overlays = (
     <>
       {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
@@ -203,6 +229,7 @@ export default function PlayersView({ setTab }) {
         </div>
 
         <div className="iff-card" style={{ padding: 14, marginBottom: 16 }}>{filters}</div>
+        {droppedPanel}
 
         {!isInitialLoadComplete ? (
           <LoadingList count={8} />
@@ -289,6 +316,8 @@ export default function PlayersView({ setTab }) {
       </div>
 
       <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--iff-divider)' }}>{filters}</div>
+
+      {droppedPanel && <div style={{ padding: '12px 14px 0' }}>{droppedPanel}</div>}
 
       <div style={{ padding: '8px 14px 0', fontSize: 10.5, color: 'var(--iff-subtext)' }}>
         <span className="tnum">{rows.length}</span> of <span className="tnum">{allDisplayAssets.length}</span> assets

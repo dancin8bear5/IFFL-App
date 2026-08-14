@@ -201,12 +201,26 @@ export function AppProvider({ children }) {
   }, [user, activeSeason])
 
   // ── Computed (AppState computed properties) ─────────────────
+  // Roster/cap views count only salary-status 'rostered' players (missing
+  // field = rostered, so no data migration needed). Dropped/cleared players
+  // stay visible through `droppedPlayers` below.
   const allDisplayAssets = useMemo(
     () => [
-      ...players.map((p) => playerToDisplayAsset(p, activeSeason)),
+      ...players
+        .filter((p) => (p.salaryStatus ?? 'rostered') === 'rostered')
+        .map((p) => playerToDisplayAsset(p, activeSeason)),
       ...draftPicks.map((p) => pickToDisplayAsset(p, activeSeason)),
     ],
     [players, draftPicks, activeSeason],
+  )
+
+  /** Players off a roster with the 2-auction clock running (or done). */
+  const droppedPlayers = useMemo(
+    () =>
+      players
+        .filter((p) => (p.salaryStatus ?? 'rostered') !== 'rostered')
+        .map((p) => ({ ...playerToDisplayAsset(p, activeSeason), salaryStatus: p.salaryStatus, auctionsCleared: p.auctionsCleared ?? 0 })),
+    [players, activeSeason],
   )
 
   const matches = useMemo(
@@ -438,7 +452,7 @@ export function AppProvider({ children }) {
     isOffSeason, setIsOffSeason,
     isInitialLoadComplete,
     players, draftPicks, trades, messages,
-    allDisplayAssets, matches, myMatchCount,
+    allDisplayAssets, droppedPlayers, matches, myMatchCount,
     // FMK + interests
     fmkSignals, allLeagueFMK, currentFMKSignal, setFMKSignal, removeFMKSignal,
     interestedAssetIds, toggleInterest,

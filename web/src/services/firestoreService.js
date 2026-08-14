@@ -22,6 +22,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { WAIVER_KEEPER_VALUE as WAIVER_VALUE, WAIVER_CLEARS_REQUIRED as WAIVER_CLEARS } from '../data/staticData'
 
 // Collection names — mirrors `enum Col`
 const COL = {
@@ -252,6 +253,116 @@ export async function executeTrade(tradeId, meta = {}) {
     completedAt: Timestamp.now(),
   })
   return batch.commit()
+}
+
+// ── Dropped-player lifecycle (§Rosters + §Luxury Tax) ─────────
+// A drafted/kept player who is dropped keeps his salary until he clears
+// 2 FAAB auctions. Claimed first → salary follows to the new team.
+// Cleared → value resets to $2 and he leaves the cap system.
+// salaryStatus: 'rostered' (default, missing field) | 'dropped_pending' | 'cleared'
+
+const txRef = () => doc(collection(db, COL.transactions))
+
+/** Drop a rostered player — clock starts at 0 of 2 auctions. */
+export function dropPlayer(player, meta = {}) {
+  const batch = writeBatch(db)
+  batch.update(doc(db, COL.players, player.id), {
+    salaryStatus: 'dropped_pending',
+    auctionsCleared: 0,
+    droppedByTeam: player.teamName ?? null,
+  })
+  batch.set(txRef(), {
+    type: 'drop',
+    season: meta.season ?? null,
+    week: meta.week ?? null,
+    teamName: player.teamName ?? null,
+    playerId: player.id,
+    playerName: player.name ?? null,
+    price: meta.price ?? null,
+    note: 'Salary follows until 2 FAAB auctions clear',
+    actorUid: meta.actorUid ?? null,
+    createdAt: Timestamp.now(),
+  })
+  return batch.commit()
+}
+
+/**
+ * Claim a dropped player.
+ * Pending → his existing salary follows him and re-enters the new cap.
+ * Cleared → he joins as a fresh $2 waiver pickup (Free Agent pool,
+ * purchaseYear = this season), which makes him cap-exempt in-season.
+ */
+export function claimDroppedPlayer(player, toTeam, meta = {}) {
+  const wasCleared = player.salaryStatus === 'cleared'
+  const batch = writeBatch(db)
+  const patch = {
+    salaryStatus: 'rostered',
+    auctionsCleared: 0,
+    teamName: toTeam,
+    tradeHistory: arrayUnion(`claimed from waivers (via ${player.droppedByTeam ?? player.teamName ?? '?'})`),
+  }
+  if (wasCleared && meta.season) {
+    patch.playerPool = 'Free Agent'
+    patch.purchaseYear = meta.season
+    patch.originalPrice = WAIVER_VALUE
+  }
+  batch.update(doc(db, COL.players, player.id), patch)
+  batch.set(txRef(), {
+    type: 'claim',
+    season: meta.season ?? null,
+    week: meta.week ?? null,
+    teamName: toTeam,
+    fromTeam: player.droppedByTeam ?? player.teamName ?? null,
+    playerId: player.id,
+    playerName: player.name ?? null,
+    price: wasCleared ? WAIVER_VALUE : meta.price ?? null,
+    note: wasCleared
+      ? 'FAAB pickup after clearing — $2 waiver value, cap-exempt this season'
+      : 'Claimed before clearing — salary follows',
+    actorUid: meta.actorUid ?? null,
+    createdAt: Timestamp.now(),
+  })
+  return batch.commit()
+}
+
+/**
+ * Record one FAAB auction passing without a claim. On the second, the
+ * player clears: value resets to $2 for the active season and he's out of
+ * the cap system for good.
+ */
+export function markAuctionCleared(player, meta = {}) {
+  const cleared = (player.auctionsCleared ?? 0) + 1
+  const done = cleared >= WAIVER_CLEARS
+  const batch = writeBatch(db)
+  const patch = { auctionsCleared: cleared }
+  if (done) {
+    patch.salaryStatus = 'cleared'
+    if (meta.season) patch[`prices.${meta.season}`] = WAIVER_VALUE
+  }
+  batch.update(doc(db, COL.players, player.id), patch)
+  if (done) {
+    batch.set(txRef(), {
+      type: 'clear',
+      season: meta.season ?? null,
+      week: meta.week ?? null,
+      teamName: player.droppedByTeam ?? player.teamName ?? null,
+      playerId: player.id,
+      playerName: player.name ?? null,
+      price: WAIVER_VALUE,
+      note: `Cleared ${WAIVER_CLEARS} FAAB auctions — reset to $${WAIVER_VALUE}`,
+      actorUid: meta.actorUid ?? null,
+      createdAt: Timestamp.now(),
+    })
+  }
+  return batch.commit().then(() => ({ cleared, done }))
+}
+
+/** Undo a mistaken drop — back on the roster, clock wiped, no ledger entry. */
+export function undoDrop(player) {
+  return updateDoc(doc(db, COL.players, player.id), {
+    salaryStatus: 'rostered',
+    auctionsCleared: 0,
+  })
 }
 
 // ── Transaction ledger — every roster/money event, queryable ──

@@ -8,7 +8,7 @@ import * as fs from '../services/firestoreService'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Players', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -38,6 +38,7 @@ export default function AdminView() {
       <div style={{ padding: 14 }}>
         {section === 'Database' && <DatabaseSection />}
         {section === 'Players' && <PlayersSection />}
+        {section === 'Drops' && <DropsSection />}
         {section === 'Picks' && <PicksSection />}
         {section === 'Trades' && <TradesSection />}
         {section === 'Messages' && <MessagesSection />}
@@ -306,6 +307,185 @@ function PlayersSection() {
         ))}
       </div>
       {editing && <PlayerEditOverlay player={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+    </div>
+  )
+}
+
+// ── Drops — the in-season lifecycle (drop → 2-auction clock → claim/clear) ──
+
+function DropsSection() {
+  const { players, activeSeason, user } = useApp()
+  const [search, setSearch] = useState('')
+  const [busyId, setBusyId] = useState(null)
+  const [claiming, setClaiming] = useState(null) // player being claimed → team picker
+  const meta = { season: activeSeason, actorUid: user?.uid ?? null }
+
+  const pending = players.filter((p) => p.salaryStatus === 'dropped_pending')
+  const cleared = players.filter((p) => p.salaryStatus === 'cleared')
+  const rostered = players.filter((p) => (p.salaryStatus ?? 'rostered') === 'rostered')
+  const dropCandidates = search.trim()
+    ? rostered.filter((p) => p.name?.toLowerCase().includes(search.trim().toLowerCase())).slice(0, 8)
+    : []
+
+  const priceOf = (p) => p.prices?.[String(activeSeason)] ?? 0
+
+  async function act(id, fn) {
+    setBusyId(id)
+    try {
+      await fn()
+    } catch (e) {
+      alert(`Failed: ${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Drop a player */}
+      <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Drop a Player</div>
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.5 }}>
+          His salary follows him until he clears {2} FAAB auctions. Mirror ESPN — record the drop
+          here when it happens there.
+        </div>
+        <input
+          type="text"
+          placeholder="Search rostered players…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        {dropCandidates.map((p) => (
+          <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <PosBadge position={p.position} />
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+              {p.name}
+              <span style={{ color: 'var(--iff-subtext)', fontWeight: 400 }}> · {p.teamName} · ${priceOf(p)}</span>
+            </span>
+            <button
+              className="btn-outline"
+              disabled={busyId === p.id}
+              onClick={() => act(p.id, () => fs.dropPlayer(p, { ...meta, price: priceOf(p) }).then(() => setSearch('')))}
+              style={{ fontSize: 11, padding: '5px 12px' }}
+            >
+              Drop
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Pending — the clock panel */}
+      <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '12px 14px', fontSize: 14, fontWeight: 700, borderBottom: '1px solid var(--iff-divider)' }}>
+          Dropped — Clock Running ({pending.length})
+        </div>
+        {pending.length === 0 && (
+          <div style={{ padding: 20, fontSize: 12, color: 'var(--iff-subtext)' }}>
+            Nobody pending. Drop a player above when it happens in ESPN.
+          </div>
+        )}
+        {pending.map((p, i) => (
+          <div key={p.id} style={{ padding: '12px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <PosBadge position={p.position} />
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>{p.name}</span>
+                <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+                  dropped by {p.droppedByTeam ?? p.teamName} · salary ${priceOf(p)}
+                </span>
+              </span>
+              <span className="tnum" style={{ fontSize: 12, fontWeight: 800, color: 'var(--iff-gold)' }}>
+                {p.auctionsCleared ?? 0}/2 auctions
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                className="btn-outline"
+                disabled={busyId === p.id}
+                onClick={() =>
+                  act(p.id, async () => {
+                    const { done } = await fs.markAuctionCleared(p, meta)
+                    if (done) alert(`${p.name} cleared — value reset to $2, out of the cap system.`)
+                  })
+                }
+                style={{ fontSize: 11, padding: '6px 12px' }}
+              >
+                ✓ Auction Passed ({(p.auctionsCleared ?? 0) + 1}/2)
+              </button>
+              <button
+                className="btn-outline"
+                disabled={busyId === p.id}
+                onClick={() => setClaiming(p)}
+                style={{ fontSize: 11, padding: '6px 12px' }}
+              >
+                ↑ Claimed by…
+              </button>
+              <button
+                disabled={busyId === p.id}
+                onClick={() => act(p.id, () => fs.undoDrop(p))}
+                style={{ fontSize: 11, padding: '6px 12px', color: 'var(--iff-subtext)' }}
+              >
+                Undo
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Cleared — out of the cap system */}
+      {cleared.length > 0 && (
+        <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 14px', fontSize: 14, fontWeight: 700, borderBottom: '1px solid var(--iff-divider)' }}>
+            Cleared — reset to $2 ({cleared.length})
+          </div>
+          {cleared.map((p, i) => (
+            <div key={p.id} style={{ padding: '10px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <PosBadge position={p.position} />
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{p.name}</span>
+              <button
+                className="btn-outline"
+                disabled={busyId === p.id}
+                onClick={() => setClaiming(p)}
+                style={{ fontSize: 11, padding: '5px 12px' }}
+              >
+                FAAB pickup by…
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Claim team picker */}
+      {claiming && (
+        <DetailOverlay title={`${claiming.name} → which team?`} onBack={() => setClaiming(null)}>
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.5, marginBottom: 4 }}>
+              {claiming.salaryStatus === 'cleared'
+                ? 'Cleared player — joins at his reset $2 value, exempt from the cap this season.'
+                : `Claimed before clearing — his $${claiming.prices?.[String(activeSeason)] ?? 0} salary follows and re-enters the new team's cap.`}
+            </div>
+            {fantasyTeams.map((t) => (
+              <button
+                key={t.name}
+                className="iff-card"
+                disabled={busyId === claiming.id}
+                onClick={() =>
+                  act(claiming.id, async () => {
+                    await fs.claimDroppedPlayer(claiming, t.name, {
+                      ...meta,
+                      price: claiming.prices?.[String(activeSeason)] ?? 0,
+                    })
+                    setClaiming(null)
+                  })
+                }
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', textAlign: 'left' }}
+              >
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
+              </button>
+            ))}
+          </div>
+        </DetailOverlay>
+      )}
     </div>
   )
 }

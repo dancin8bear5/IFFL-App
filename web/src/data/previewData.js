@@ -15,6 +15,9 @@ export const previewPlayers = [
   { id: 'p10', teamName: 'Abad',   position: 'WR', name: 'Tyreek Hill',         prices: { 2026: 70, 2027: 82, 2028: 94 },  originalPrice: 48, purchaseYear: 2023, contractYearsRemaining: 1, playerPool: 'Auction', tradeHistory: ['via Foley'], isActive: true, acquiredSeason: 2023, nflTeam: 'Miami Dolphins' },
   { id: 'p11', teamName: 'Wayne',  position: 'RB', name: 'Bijan Robinson',      prices: { 2026: 66, 2027: 78, 2028: 90 },  originalPrice: 25, purchaseYear: 2023, contractYearsRemaining: 3, playerPool: 'Rookie Draft', rookieRound: 1, rookieDraftYear: 2023, tradeHistory: [], isActive: true, acquiredSeason: 2023, nflTeam: 'Atlanta Falcons' },
   { id: 'p12', teamName: 'Foley',  position: 'WR', name: 'Stefon Diggs',        prices: { 2026: 18, 2027: 24, 2028: 30 },  originalPrice: 35, purchaseYear: 2021, contractYearsRemaining: 1, playerPool: 'Auction', tradeHistory: [], isActive: true, acquiredSeason: 2021, nflTeam: 'New England Patriots' },
+  // Dropped-player lifecycle samples: one on the clock, one cleared
+  { id: 'p13', teamName: 'Dugan',  position: 'RB', name: 'Javonte Williams',    prices: { 2026: 24, 2027: 34, 2028: 49 },  originalPrice: 14, purchaseYear: 2024, contractYearsRemaining: 1, playerPool: 'Auction', tradeHistory: [], isActive: true, acquiredSeason: 2024, nflTeam: 'Dallas Cowboys', salaryStatus: 'dropped_pending', auctionsCleared: 1, droppedByTeam: 'Dugan' },
+  { id: 'p14', teamName: 'Wayne',  position: 'WR', name: 'DeAndre Hopkins',     prices: { 2026: 2, 2027: 7, 2028: 17 },   originalPrice: 30, purchaseYear: 2022, contractYearsRemaining: 0, playerPool: 'Auction', tradeHistory: [], isActive: true, acquiredSeason: 2022, nflTeam: 'Baltimore Ravens', salaryStatus: 'cleared', auctionsCleared: 2, droppedByTeam: 'Wayne' },
 ]
 
 export const previewPicks = [

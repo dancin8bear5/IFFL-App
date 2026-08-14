@@ -117,7 +117,7 @@ export const previewRules = [
   },
   {
     id: 'rule2', season: 2026, status: 'proposed',
-    title: 'Ties broken by season points', category: 'Misc',
+    title: 'Ties broken by season points', category: 'Operations',
     summary: 'Standings ties break on total points for instead of head-to-head.',
     changes: [{ rule: 'Tiebreaker', currentValue: 'Head-to-head', newValue: 'Points For' }],
     proposedBy: 'Bill', proposedAt: new Date(2026, 7, 1),
@@ -125,7 +125,7 @@ export const previewRules = [
   },
   {
     id: 'rule3', season: 2026, status: 'proposed',
-    title: 'Two IR slots', category: 'Rosters',
+    title: 'Two IR slots', category: 'Operations',
     summary: 'Expand from one IR slot to two so injuries do not wreck a season.',
     changes: [
       { rule: 'IR slots', currentValue: '1', newValue: '2' },

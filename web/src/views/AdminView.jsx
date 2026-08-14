@@ -135,6 +135,35 @@ function DatabaseSection() {
         </button>
       </div>
 
+      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>Seed 2026 Rule Proposals</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+            The ten proposals from Keeper Master p15, ready for voting day. Safe to re-run — updates
+            in place, never duplicates or clears votes.
+          </span>
+        </span>
+        <button
+          className="btn-outline"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              const { proposals2026 } = await import('../data/rulebookSeed')
+              const n = await fs.seedRuleProposals(proposals2026)
+              alert(`Seeded ${n} proposal${n === 1 ? '' : 's'}. They're live in Rules now.`)
+            } catch (e) {
+              alert(`Failed: ${e.message}`)
+            } finally {
+              setBusy(false)
+            }
+          }}
+          style={{ fontSize: 12, padding: '6px 14px' }}
+        >
+          Seed Proposals
+        </button>
+      </div>
+
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
         Database seeding (players, NFL teams, league history) runs from the iOS admin panel or a
         server script — not from the web app.

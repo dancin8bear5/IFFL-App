@@ -19,7 +19,10 @@ export function playerToDisplayAsset(p, activeSeason) {
     assetType: 'player',
     nflTeam: p.nflTeam ?? null,
     isPick: false,
-    assetId: `${p.teamName}-${p.name}`,
+    // Stable identity = the Firestore doc id. The old `${team}-${name}` key
+    // changed whenever a player was traded, silently orphaning his FMK
+    // signals and interest stars.
+    assetId: p.id,
   }
 }
 
@@ -48,7 +51,7 @@ export function pickToDisplayAsset(pick, activeSeason) {
     assetType: 'draftPick',
     nflTeam: null,
     isPick: true,
-    assetId: `${pick.currentTeamName}-${name}`,
+    assetId: pick.id, // stable doc id — survives trades (see playerToDisplayAsset)
   }
 }
 

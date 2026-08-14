@@ -52,10 +52,10 @@ test('ties count as half-wins in pct; finals = champ + runner-up', () => {
   assert.equal(jared.championships, 0)
 })
 
-test('playoff cutoff is top 6', () => {
+test('playoff cutoff is top 8 (2025 League Document)', () => {
   const rows = computeAllTimeStats(HISTORY)
   const ryan = rows.find((r) => r.team === 'Ryan')
-  assert.equal(ryan.playoffs, 1) // 7th in 2024 misses, 6th in 2025 makes it
+  assert.equal(ryan.playoffs, 2) // 7th in 2024 and 6th in 2025 both make the top 8
 })
 
 test('defaultSort puts most belts first', () => {

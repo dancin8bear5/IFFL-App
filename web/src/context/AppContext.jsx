@@ -303,7 +303,7 @@ export function AppProvider({ children }) {
 
   // ── Rules actions ───────────────────────────────────────────
   const proposeRule = useCallback(
-    async ({ title, category = 'Misc', summary = '', changes = [] }) => {
+    async ({ title, category = 'Operations', summary = '', changes = [] }) => {
       const rule = { title, category, summary, changes, proposedBy: userTeam, season: activeSeason }
       if (DEV_PREVIEW) {
         setRules((prev) => [
@@ -338,27 +338,46 @@ export function AppProvider({ children }) {
   }, [])
 
   /** Commissioner: close the portal and tally — ≥7 yes of 12 passes. */
+  /**
+   * Close voting and apply the full §Voting Structure tally: 7+ votes to be
+   * eligible, only one rule per limited category (Scoring/Starters/Money),
+   * Operations unlimited, ties flagged for the Rules Committee. Written as
+   * one atomic batch so a failure can't leave rules half-decided.
+   */
   const finalizeRuleVotes = useCallback(async () => {
-    const proposed = rules.filter((r) => r.status === 'proposed')
-    const results = proposed.map((r) => {
-      const yes = Object.values(r.votes ?? {}).filter((v) => v === 'yes').length
-      return { id: r.id, status: yes >= 7 ? 'passed' : 'failed' }
-    })
+    const { tallyVotes, banStatus } = await import('../services/ruleVoting')
+    // Banned proposals (two consecutive rejections) sit out — tallying them
+    // would record a fresh rejection and wrongly extend the ban.
+    const proposed = rules.filter(
+      (r) => r.status === 'proposed' && !banStatus(r, activeSeason).banned,
+    )
+    const { results } = tallyVotes(proposed)
+
     if (DEV_PREVIEW) {
       setRules((prev) =>
         prev.map((r) => {
           const res = results.find((x) => x.id === r.id)
-          return res ? { ...r, status: res.status, decidedSeason: activeSeason } : r
+          return res
+            ? {
+                ...r,
+                status: res.status,
+                decidedSeason: activeSeason,
+                voteReason: res.reason,
+                rejectionYears:
+                  res.status === 'failed'
+                    ? [...new Set([...(r.rejectionYears ?? []), activeSeason])]
+                    : r.rejectionYears,
+              }
+            : r
         }),
       )
       setRulesVotingOpen(false)
-      return
+      return results
     }
-    for (const res of results) {
-      await fs.setRuleStatus(res.id, res.status, activeSeason).catch(() => {})
-    }
-    await fs.setRulesVotingOpen(false).catch(() => {})
+
+    await fs.applyVoteResults(results, activeSeason)
     setRulesVotingOpen(false)
+    return results
   }, [rules, activeSeason])
 
   const proposeTrade = useCallback(

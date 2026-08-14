@@ -7,21 +7,17 @@
 // 7 of 12 yes passes.
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { fantasyTeams } from '../data/staticData'
+import { fantasyTeams, VOTES_TO_PASS, RULE_CATEGORIES, categoryMeta, SCORING, ESPN_LEAGUE_ID } from '../data/staticData'
+import { handbook } from '../data/rulebookSeed'
+import { banStatus } from '../services/ruleVoting'
 import { formatTradeDate } from '../services/models'
 import { DetailOverlay } from './shared'
 
-export const VOTES_TO_PASS = 7
 const TEAM_COUNT = fantasyTeams.length // 12
 
-export const RULE_CATEGORIES = [
-  { key: 'Money',    glyph: '💵', color: '#4ADE80' },
-  { key: 'Starters', glyph: '🏈', color: '#38BDF8' },
-  { key: 'Rosters',  glyph: '👥', color: '#F4A261' },
-  { key: 'Misc',     glyph: '⚙️', color: '#A855F7' },
-]
-export const categoryMeta = (key) =>
-  RULE_CATEGORIES.find((c) => c.key === key) ?? { key: 'Misc', glyph: '⚙️', color: '#A855F7' }
+// Rule governance constants live in staticData; re-exported here so the
+// existing imports across the app keep working.
+export { VOTES_TO_PASS, RULE_CATEGORIES, categoryMeta }
 
 /** Overlay wrapper used by the Dashboard link. */
 export default function RulesOverlay({ onClose }) {
@@ -43,9 +39,10 @@ export function RulesBody() {
   const [showForm, setShowForm] = useState(false)
   const [showPast, setShowPast] = useState(false)
   const [filter, setFilter] = useState('All')
+  const [section, setSection] = useState('Proposals')
 
   const { newRules, proposed, past } = useMemo(() => {
-    const byCat = (r) => filter === 'All' || (r.category ?? 'Misc') === filter
+    const byCat = (r) => filter === 'All' || (r.category ?? 'Operations') === filter
     return {
       newRules: rules.filter((r) => r.status === 'passed' && r.decidedSeason === activeSeason).filter(byCat),
       proposed: rules.filter((r) => r.status === 'proposed').filter(byCat),
@@ -57,6 +54,28 @@ export function RulesBody() {
 
   return (
     <div style={{ padding: '0 14px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Section switcher — the living rulebook, not just the vote */}
+      <div style={{ display: 'flex', background: 'var(--iff-elevated)', borderRadius: 12, padding: 3 }}>
+        {['Proposals', 'Rulebook', 'Scoring'].map((s) => (
+          <button
+            key={s}
+            onClick={() => setSection(s)}
+            style={{
+              flex: 1, padding: '8px 6px', borderRadius: 9, fontSize: 12.5, fontWeight: 700,
+              background: section === s ? 'var(--iff-surface)' : 'transparent',
+              color: section === s ? 'var(--iff-text)' : 'var(--iff-subtext)',
+              boxShadow: section === s ? '0 1px 4px rgba(0,0,0,0.35)' : 'none',
+            }}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {section === 'Rulebook' && <HandbookSection />}
+      {section === 'Scoring' && <ScoringSection />}
+      {section === 'Proposals' && <>
 
       {/* Voting status */}
       <div
@@ -149,6 +168,7 @@ export function RulesBody() {
               <RuleCard
                 key={r.id}
                 rule={r}
+                season={activeSeason}
                 votingOpen={rulesVotingOpen}
                 userTeam={userTeam}
                 onVote={(v) => voteOnRule(r.id, v)}
@@ -174,8 +194,94 @@ export function RulesBody() {
           )}
         </div>
       )}
+      </>}
 
       {showForm && <ProposalForm onClose={() => setShowForm(false)} onSubmit={proposeRule} disabled={!userTeam} />}
+    </div>
+  )
+}
+
+/* ═══════════ Rulebook (static handbook) ═══════════ */
+
+function HandbookSection() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.5, padding: '0 2px' }}>
+        The standing rules of the league, from the 2025 League Document. Changes go through
+        Proposals — this page always shows the rules as they stand.
+      </div>
+      {handbook.map((group) => (
+        <div key={group.section} className="iff-card" style={{ padding: 0, overflow: 'hidden', borderLeft: `3px solid ${group.color}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
+            <span style={{ fontSize: 15 }}>{group.glyph}</span>
+            <span style={{ fontSize: 13.5, fontWeight: 800 }}>{group.section}</span>
+          </div>
+          {group.entries.map((e, i) => (
+            <div key={e.rule} style={{ padding: '10px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 3 }}>{e.rule}</div>
+              <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.55 }}>{e.detail}</div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/* ═══════════ Scoring reference ═══════════ */
+
+function ScoringSection() {
+  const fmt = (v) => (v > 0 && v < 1 ? String(v) : v > 0 ? `+${v}` : String(v))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* The headline rule change gets the marquee */}
+      <div
+        className="iff-card"
+        style={{
+          padding: 16, textAlign: 'center',
+          background: 'linear-gradient(135deg, rgba(56,189,248,0.14), var(--iff-surface) 65%)',
+          border: '1.5px solid rgba(56,189,248,0.4)',
+        }}
+      >
+        <div className="tnum" style={{ fontSize: 30, fontWeight: 900, color: '#38BDF8' }}>0.5 PPR</div>
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 4 }}>
+          Half a point per reception, every position — new for 2026
+        </div>
+      </div>
+
+      {Object.entries(SCORING).map(([group, rows]) => (
+        <div key={group} className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 14px', fontSize: 13.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+            {group}
+          </div>
+          {rows.map((r, i) => (
+            <div
+              key={r.label}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                padding: '9px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                background: r.highlight ? 'rgba(56,189,248,0.08)' : 'transparent',
+              }}
+            >
+              <span style={{ fontSize: 12.5, fontWeight: r.highlight ? 700 : 500 }}>{r.label}</span>
+              <span
+                className="tnum"
+                style={{
+                  fontSize: 13, fontWeight: 800,
+                  color: r.highlight ? '#38BDF8' : r.value < 0 ? '#EF4444' : 'var(--iff-gold)',
+                }}
+              >
+                {fmt(r.value)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 2px' }}>
+        Official scoring lives in ESPN league {ESPN_LEAGUE_ID} — this card mirrors those settings.
+        D/ST points-allowed tiers below 14–17 to be confirmed.
+      </div>
     </div>
   )
 }
@@ -191,12 +297,13 @@ function Label({ children, style }) {
 const yesCount = (r) => Object.values(r.votes ?? {}).filter((v) => v === 'yes').length
 const noCount = (r) => Object.values(r.votes ?? {}).filter((v) => v === 'no').length
 
-export function RuleCard({ rule, votingOpen, userTeam, onVote, passed, compact }) {
+export function RuleCard({ rule, votingOpen, userTeam, onVote, passed, compact, season }) {
   const meta = categoryMeta(rule.category)
   const yes = yesCount(rule)
   const no = noCount(rule)
   const myVote = userTeam ? (rule.votes ?? {})[userTeam] : undefined
   const changes = rule.changes ?? []
+  const ban = season ? banStatus(rule, season) : { banned: false }
 
   return (
     <div
@@ -216,8 +323,14 @@ export function RuleCard({ rule, votingOpen, userTeam, onVote, passed, compact }
             <span style={{ fontSize: compact ? 13 : 14.5, fontWeight: 800 }}>{rule.title}</span>
           </span>
         </span>
-        <StatusBadge rule={rule} />
+        {ban.banned ? <Badge color="#EF4444" bg="rgba(239,68,68,0.15)">BANNED · BACK {ban.eligibleAgain}</Badge> : <StatusBadge rule={rule} />}
       </div>
+
+      {(rule.yearsProposed ?? 0) > 1 && !compact && (
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)', marginTop: 6 }}>
+          Year {rule.yearsProposed} on the ballot
+        </div>
+      )}
 
       {(rule.summary || rule.details) && !compact && (
         <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 7, lineHeight: 1.5 }}>
@@ -246,7 +359,13 @@ export function RuleCard({ rule, votingOpen, userTeam, onVote, passed, compact }
         {(passed || compact) && ` · ${yes}/${TEAM_COUNT} yes`}
       </div>
 
-      {votingOpen && onVote && (
+      {ban.banned && (
+        <div style={{ fontSize: 11, color: '#EF4444', marginTop: 8, lineHeight: 1.5 }}>
+          Rejected two years running — banned from the ballot until {ban.eligibleAgain}.
+        </div>
+      )}
+
+      {votingOpen && onVote && !ban.banned && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
             <span className="tnum" style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-green)', width: 38 }}>{yes} yes</span>
@@ -292,13 +411,20 @@ export function RuleCard({ rule, votingOpen, userTeam, onVote, passed, compact }
 }
 
 function StatusBadge({ rule }) {
-  if (rule.status === 'passed') {
-    return <Badge color="var(--iff-green)" bg="rgba(74,222,128,0.15)">PASSED{rule.decidedSeason ? ` ${rule.decidedSeason}` : ''}</Badge>
+  const yr = rule.decidedSeason ? ` ${rule.decidedSeason}` : ''
+  switch (rule.status) {
+    case 'passed':
+      return <Badge color="var(--iff-green)" bg="rgba(74,222,128,0.15)">PASSED{yr}</Badge>
+    case 'failed':
+      return <Badge color="#EF4444" bg="rgba(239,68,68,0.15)">FAILED{yr}</Badge>
+    case 'deferred':
+      // Eligible, but lost its category — resubmit next year (not a rejection)
+      return <Badge color="#38BDF8" bg="rgba(56,189,248,0.15)">RESUBMIT{yr}</Badge>
+    case 'tiebreak':
+      return <Badge color="var(--iff-gold)" bg="rgba(244,162,97,0.2)">TIEBREAK</Badge>
+    default:
+      return <Badge color="var(--iff-gold)" bg="rgba(244,162,97,0.15)">PROPOSED</Badge>
   }
-  if (rule.status === 'failed') {
-    return <Badge color="#EF4444" bg="rgba(239,68,68,0.15)">FAILED{rule.decidedSeason ? ` ${rule.decidedSeason}` : ''}</Badge>
-  }
-  return <Badge color="var(--iff-gold)" bg="rgba(244,162,97,0.15)">PROPOSED</Badge>
 }
 
 function Badge({ children, color, bg }) {
@@ -313,7 +439,7 @@ function Badge({ children, color, bg }) {
 
 function ProposalForm({ onClose, onSubmit, disabled }) {
   const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('Misc')
+  const [category, setCategory] = useState('Operations')
   const [summary, setSummary] = useState('')
   const [changes, setChanges] = useState([{ rule: '', currentValue: '', newValue: '' }])
   const [submitting, setSubmitting] = useState(false)

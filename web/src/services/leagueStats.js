@@ -1,6 +1,6 @@
 // leagueStats — all-time career stats computed from the leagueHistory
 // collection. Powers the League History sortable table and the Trophy Room.
-import { isActiveTeam } from '../data/staticData.js'
+import { isActiveTeam, PLAYOFF_TEAMS } from '../data/staticData.js'
 
 /** Parse "11-3" or "10-3-1" record strings → {w, l, t}. Null-safe. */
 export function parseRecord(record) {
@@ -13,7 +13,8 @@ export function parseRecord(record) {
   }
 }
 
-export const PLAYOFF_CUTOFF = 6 // top 6 make the playoffs (12-team format)
+// Top 8 of 12 make the playoffs (2025 League Document §League Playoffs)
+export const PLAYOFF_CUTOFF = PLAYOFF_TEAMS
 
 /**
  * Compute career rows for every team present in history.

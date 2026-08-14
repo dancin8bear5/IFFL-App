@@ -182,6 +182,12 @@ export async function executeTrade(tradeId) {
   const tradeSnap = await getDoc(doc(db, COL.trades, tradeId))
   if (!tradeSnap.exists()) throw new Error('Trade not found')
   const trade = tradeSnap.data()
+  // Guard against double-execution: re-applying the swaps would trade the
+  // assets straight back (and stack bogus tradeHistory entries).
+  if (trade.status === 'completed') throw new Error('Trade already executed')
+  if (trade.status !== 'accepted' && trade.status !== 'proposed') {
+    throw new Error(`Trade is ${trade.status} — only accepted trades can be executed`)
+  }
 
   const batch = writeBatch(db)
   const note = (from) => `via ${from}`
@@ -341,6 +347,51 @@ export function setRulesVotingOpen(open) {
 
 export function setRuleStatus(ruleId, status, decidedSeason) {
   return updateDoc(doc(db, 'rules', ruleId), { status, decidedSeason })
+}
+
+/**
+ * Atomically apply a whole voting round plus close the portal.
+ * `results` come from ruleVoting.tallyVotes. Failed proposals record the
+ * season in `rejectionYears` so the two-year-ban rule is computable;
+ * deferred ones do NOT (losing a category is not a rejection).
+ */
+export function applyVoteResults(results, season) {
+  const batch = writeBatch(db)
+  for (const r of results) {
+    const ref = doc(db, 'rules', r.id)
+    const patch = { status: r.status, decidedSeason: season, voteReason: r.reason ?? null }
+    if (r.status === 'failed') patch.rejectionYears = arrayUnion(season)
+    batch.update(ref, patch)
+  }
+  batch.update(doc(db, COL.config, 'league'), { rulesVotingOpen: false })
+  return batch.commit()
+}
+
+/**
+ * Seed the season's proposals (rulebookSeed.proposals2026) into `rules`.
+ * Upserts by seedId — re-running updates the seeded fields in place without
+ * duplicating or clobbering any votes already cast. Skips seeds whose title
+ * already exists as a hand-entered proposal.
+ */
+export async function seedRuleProposals(proposals) {
+  const existing = snapToDocs(await getDocs(collection(db, 'rules')))
+  const byTitle = new Set(existing.filter((r) => !r.seedId).map((r) => r.title?.toLowerCase()))
+  const batch = writeBatch(db)
+  let count = 0
+  for (const p of proposals) {
+    if (byTitle.has(p.title.toLowerCase())) continue
+    const ref = doc(db, 'rules', p.seedId)
+    const prior = existing.find((r) => r.id === p.seedId)
+    batch.set(ref, {
+      ...p,
+      status: prior?.status ?? 'proposed',
+      votes: prior?.votes ?? {},
+      proposedAt: prior?.proposedAt ?? Timestamp.now(),
+    }, { merge: true })
+    count++
+  }
+  await batch.commit()
+  return count
 }
 
 // ── Keeper plans (Team Builder prototypes) — ALWAYS private ───

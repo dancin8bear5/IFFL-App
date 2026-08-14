@@ -34,10 +34,18 @@ export default function SettingsView({ onClose }) {
     setSaving(true)
     try {
       await saveUserSettings(settings)
-      if (team && team !== userTeam) {
-        if (user) await fs.assignTeam(user.uid, team).catch(() => {})
-        setUserTeam(team)
-        setSelectedTeam(team)
+      if (team && team !== userTeam && user) {
+        // Team assignment is commissioner-gated in Firestore rules. Only
+        // flip local state if the write actually landed — otherwise the UI
+        // would show a team change that silently never happened.
+        try {
+          await fs.assignTeam(user.uid, team)
+          setUserTeam(team)
+          setSelectedTeam(team)
+        } catch {
+          setTeam(userTeam)
+          alert('Team changes are commissioner-only — ask Jared to reassign you.')
+        }
       }
       onClose()
     } finally {

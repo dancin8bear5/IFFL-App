@@ -101,6 +101,13 @@ export function deactivatePlayer(playerId) {
   return updateDoc(doc(db, COL.players, playerId), { isActive: false })
 }
 
+/** Batch-write repaired price maps: [{id, prices}] from contracts.repairedPrices. */
+export function repairPlayerPrices(repairs) {
+  const batch = writeBatch(db)
+  for (const r of repairs) batch.update(doc(db, COL.players, r.id), { prices: r.prices })
+  return batch.commit()
+}
+
 // ── Draft Picks ───────────────────────────────────────────────
 
 export function listenToDraftPicks(callback) {

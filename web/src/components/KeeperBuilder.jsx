@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { AUCTION_BUDGET, ROSTER_CAP, ROSTER_SIZE, fantasyTeams } from '../data/staticData'
 import * as fs from '../services/firestoreService'
+import { projectPrices } from '../services/contracts'
 
 const DEV_PREVIEW =
   import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')
@@ -40,7 +41,18 @@ export default function KeeperBuilder() {
     return m
   }, [allDisplayAssets])
 
-  const priceFor = (asset, yr) => asset?.prices?.[String(activeSeason + yr)] ?? 0
+  // Stored prices when present; otherwise chain the escalation formula
+  // forward so the builder keeps working past the 3-year stored map.
+  const priceFor = (asset, yr) => {
+    if (!asset) return 0
+    const season = activeSeason + yr
+    const stored = asset.prices?.[String(season)]
+    if (stored != null) return stored
+    if (asset.isPick) return 0 // picks don't escalate; they convert to players
+    // uncapped here — the builder only shows 3 seasons, and a vet past Y6
+    // must show his real escalated price, not $0
+    return projectPrices(asset, activeSeason, 99)[season] ?? 0
+  }
 
   // ── Load saved plans once ──────────────────────────────────
   useEffect(() => {

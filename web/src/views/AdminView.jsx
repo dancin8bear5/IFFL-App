@@ -164,10 +164,91 @@ function DatabaseSection() {
         </button>
       </div>
 
+      <ValidateContractsCard players={players} />
+
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
         Database seeding (players, NFL teams, league history) runs from the iOS admin panel or a
         server script — not from the web app.
       </div>
+    </div>
+  )
+}
+
+/**
+ * Validate Contracts — run every player's stored price map against the
+ * escalation formula (next = current + $5 × contract year) and repair
+ * drift in one click.
+ */
+function ValidateContractsCard({ players }) {
+  const [report, setReport] = useState(null) // {clean, problems:[{player, issues, repaired}]}
+  const [busy, setBusy] = useState(false)
+
+  async function run() {
+    const { validatePrices, repairedPrices } = await import('../services/contracts')
+    const problems = []
+    for (const p of players) {
+      const issues = validatePrices(p)
+      if (issues.length) problems.push({ player: p, issues, repaired: repairedPrices(p) })
+    }
+    setReport({ clean: players.length - problems.length, problems })
+  }
+
+  async function repairAll() {
+    if (!report?.problems.length) return
+    setBusy(true)
+    try {
+      await fs.repairPlayerPrices(report.problems.map((x) => ({ id: x.player.id, prices: x.repaired })))
+      alert(`Repaired ${report.problems.length} player${report.problems.length === 1 ? '' : 's'}.`)
+      setReport(null)
+    } catch (e) {
+      alert(`Failed: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>Validate Contracts</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+            Checks every stored price against next = current + $5 × contract year.
+          </span>
+        </span>
+        <button className="btn-outline" onClick={run} style={{ fontSize: 12, padding: '6px 14px' }}>
+          Run Check
+        </button>
+      </div>
+
+      {report && (
+        <>
+          <hr className="divider" />
+          {report.problems.length === 0 ? (
+            <div style={{ fontSize: 12, color: 'var(--iff-green)', fontWeight: 700 }}>
+              ✓ All {report.clean} players match the formula.
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--iff-accent)', fontWeight: 700 }}>
+                {report.problems.length} player{report.problems.length === 1 ? '' : 's'} drifted · {report.clean} clean
+              </div>
+              <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {report.problems.map(({ player, issues }) => (
+                  <div key={player.id} style={{ fontSize: 11.5, background: 'var(--iff-elevated)', borderRadius: 8, padding: '7px 10px' }}>
+                    <span style={{ fontWeight: 700 }}>{player.name}</span>
+                    <span style={{ color: 'var(--iff-subtext)' }}> ({player.teamName}) — </span>
+                    {issues.map((i) => `${i.season}: $${i.stored} should be $${i.expected}`).join(' · ')}
+                  </div>
+                ))}
+              </div>
+              <button className="btn-primary" onClick={repairAll} disabled={busy} style={{ fontSize: 12, padding: '8px 14px' }}>
+                {busy ? 'Repairing…' : `Repair All (${report.problems.length})`}
+              </button>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }

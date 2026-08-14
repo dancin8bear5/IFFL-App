@@ -143,3 +143,13 @@ export const previewRules = [
     votes: { Foley: 'yes', Dugan: 'yes', Jason: 'yes' },
   },
 ]
+
+// Transaction ledger sample — one of each event type
+export const previewTransactions = [
+  { id: 'tx1', type: 'trade', season: 2026, teamName: 'Jared', fromTeam: 'Abad', playerId: 'p10', playerName: 'Tyreek Hill', assetType: 'player', relatedTradeId: 't1', createdAt: new Date(2026, 7, 12, 14, 30) },
+  { id: 'tx2', type: 'trade', season: 2026, teamName: 'Abad', fromTeam: 'Jared', playerId: 'p5', playerName: 'Jordan Love', assetType: 'player', relatedTradeId: 't1', createdAt: new Date(2026, 7, 12, 14, 30) },
+  { id: 'tx3', type: 'drop', season: 2026, week: 2, teamName: 'Ryan', playerId: 'p9', playerName: 'Saquon Barkley', price: 68, note: 'Salary follows until 2 auctions clear', createdAt: new Date(2026, 8, 22, 10, 0) },
+  { id: 'tx4', type: 'claim', season: 2026, week: 3, teamName: 'Bill', playerId: 'p9', playerName: 'Saquon Barkley', price: 68, note: 'Claimed before clearing — salary follows', createdAt: new Date(2026, 8, 29, 9, 15) },
+  { id: 'tx5', type: 'clear', season: 2026, week: 4, teamName: 'Wayne', playerId: 'p11', playerName: 'DeAndre Hopkins', price: 2, note: 'Cleared 2 FAAB auctions — reset to $2', createdAt: new Date(2026, 9, 6, 11, 0) },
+  { id: 'tx6', type: 'adjust', season: 2026, teamName: 'Jared', playerId: 'p1', playerName: 'Patrick Mahomes', note: 'Price map repaired to formula', createdAt: new Date(2026, 7, 14, 16, 45) },
+]

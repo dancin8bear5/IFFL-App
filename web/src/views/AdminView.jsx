@@ -197,7 +197,11 @@ function ValidateContractsCard({ players }) {
     if (!report?.problems.length) return
     setBusy(true)
     try {
-      await fs.repairPlayerPrices(report.problems.map((x) => ({ id: x.player.id, prices: x.repaired })))
+      await fs.repairPlayerPrices(
+        report.problems.map((x) => ({
+          id: x.player.id, prices: x.repaired, name: x.player.name, teamName: x.player.teamName,
+        })),
+      )
       alert(`Repaired ${report.problems.length} player${report.problems.length === 1 ? '' : 's'}.`)
       setReport(null)
     } catch (e) {
@@ -483,14 +487,17 @@ function PickConversionOverlay({ pick, onClose }) {
 // ── Trades ────────────────────────────────────────────────────
 
 function TradesSection() {
-  const { trades } = useApp()
+  const { trades, activeSeason, user } = useApp()
   const [busyId, setBusyId] = useState(null)
   const actionable = trades.filter((t) => t.status === 'proposed' || t.status === 'accepted')
 
   async function execute(trade) {
     setBusyId(trade.id)
     try {
-      await fs.executeTrade(trade.id).catch(() => {})
+      await fs.executeTrade(trade.id, { season: activeSeason, actorUid: user?.uid ?? null })
+    } catch (e) {
+      // Surface it — a swallowed failure here looks like a successful trade
+      alert(`Execute failed: ${e.message}`)
     } finally {
       setBusyId(null)
     }

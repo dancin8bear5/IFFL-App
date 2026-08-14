@@ -13,6 +13,7 @@ import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
+import TransactionLedger from '../components/TransactionLedger'
 import SettingsView from './SettingsView'
 import { useEffect } from 'react'
 
@@ -21,7 +22,7 @@ export default function DashboardView({ setTab }) {
     userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
     incomingOffers, leagueHistory, loadLeagueHistory,
-    rules, rulesVotingOpen,
+    rules, rulesVotingOpen, transactions,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -29,6 +30,7 @@ export default function DashboardView({ setTab }) {
   const [detailTrade, setDetailTrade] = useState(null)
   const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy'
   const [showRules, setShowRules] = useState(false)
+  const [showLedger, setShowLedger] = useState(false)
 
   useEffect(() => {
     loadLeagueHistory()
@@ -245,6 +247,22 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // Slim link into the full transaction ledger — trades, drops, claims,
+  // clears — the league's paper trail once the season starts.
+  const ledgerLink = (
+    <button
+      className="iff-card"
+      onClick={() => setShowLedger(true)}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', textAlign: 'left' }}
+    >
+      <span style={{ fontSize: 16 }}>🧾</span>
+      <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>Transaction Log</span>
+      <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+        {transactions.length > 0 ? `${transactions.length} events ›` : '›'}
+      </span>
+    </button>
+  )
+
   const tradesSection = recentTrades.length > 0 && (
     <div>
       <SectionHeader title="Recent Trades" actionLabel="See All" onAction={() => setTab(3)} />
@@ -449,6 +467,7 @@ export default function DashboardView({ setTab }) {
       {historyView === 'table' && <LeagueHistoryTable onClose={() => setHistoryView(null)} />}
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
+      {showLedger && <TransactionLedger onClose={() => setShowLedger(false)} />}
     </>
   )
 
@@ -472,6 +491,7 @@ export default function DashboardView({ setTab }) {
               {teamsGrid}
               {standingsSection}
               {tradesSection}
+              {ledgerLink}
             </div>
             <div className="dash-rail">
               {historyTiles}
@@ -520,6 +540,7 @@ export default function DashboardView({ setTab }) {
           {teamsGrid}
           {standingsSection}
           {tradesSection}
+          {ledgerLink}
           {messagesSection}
           {rulesSection}
         </div>

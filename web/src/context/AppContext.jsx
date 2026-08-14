@@ -53,6 +53,7 @@ export function AppProvider({ children }) {
   const [leagueHistory, setLeagueHistory] = useState([])
   const [rules, setRules] = useState([])
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
+  const [transactions, setTransactions] = useState([])
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -91,6 +92,7 @@ export function AppProvider({ children }) {
       setAllLeagueFMK(d.previewFMK)
       setLeagueHistory(d.previewHistory)
       setRules(d.previewRules ?? [])
+      setTransactions(d.previewTransactions ?? [])
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })
@@ -103,7 +105,7 @@ export function AppProvider({ children }) {
       // teardown — mirror AppState.teardown()
       unsubsRef.current.forEach((unsub) => unsub())
       unsubsRef.current = []
-      setPlayers([]); setDraftPicks([]); setTrades([]); setMessages([])
+      setPlayers([]); setDraftPicks([]); setTrades([]); setMessages([]); setTransactions([])
       setFmkSignals([]); setAllLeagueFMK([]); setInterestedAssetIds(new Set())
       setUserTeam(''); setSelectedTeam(''); setIsCommissioner(false)
       setIsInitialLoadComplete(false); setDidLoadSettings(false)
@@ -164,6 +166,7 @@ export function AppProvider({ children }) {
         fs.listenToMessages(setMessages),
         fs.listenToAllFMKSignals(setAllLeagueFMK),
         fs.listenToRules(setRules),
+        fs.listenToTransactions(setTransactions),
       )
 
       // 3. One-shot user loads
@@ -445,6 +448,8 @@ export function AppProvider({ children }) {
     leagueHistory, loadLeagueHistory,
     // rules + voting
     rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,
+    // transaction ledger
+    transactions,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,

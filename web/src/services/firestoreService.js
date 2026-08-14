@@ -34,6 +34,7 @@ const COL = {
   fmk: 'playerFMK',
   userSettings: 'userSettings',
   leagueHistory: 'leagueHistory',
+  transactions: 'transactions',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -101,10 +102,22 @@ export function deactivatePlayer(playerId) {
   return updateDoc(doc(db, COL.players, playerId), { isActive: false })
 }
 
-/** Batch-write repaired price maps: [{id, prices}] from contracts.repairedPrices. */
-export function repairPlayerPrices(repairs) {
+/** Batch-write repaired price maps: [{id, prices, name?, teamName?}] from contracts.repairedPrices. */
+export function repairPlayerPrices(repairs, meta = {}) {
   const batch = writeBatch(db)
-  for (const r of repairs) batch.update(doc(db, COL.players, r.id), { prices: r.prices })
+  for (const r of repairs) {
+    batch.update(doc(db, COL.players, r.id), { prices: r.prices })
+    batch.set(doc(collection(db, COL.transactions)), {
+      type: 'adjust',
+      season: meta.season ?? null,
+      teamName: r.teamName ?? null,
+      playerId: r.id,
+      playerName: r.name ?? null,
+      note: 'Price map repaired to formula',
+      actorUid: meta.actorUid ?? null,
+      createdAt: Timestamp.now(),
+    })
+  }
   return batch.commit()
 }
 
@@ -185,7 +198,7 @@ export function counterTrade(originalTradeId, newTrade) {
  * Atomic: transfer every asset on both sides, then mark the trade completed.
  * Mirrors executeTrade + applyTransfer.
  */
-export async function executeTrade(tradeId) {
+export async function executeTrade(tradeId, meta = {}) {
   const tradeSnap = await getDoc(doc(db, COL.trades, tradeId))
   if (!tradeSnap.exists()) throw new Error('Trade not found')
   const trade = tradeSnap.data()
@@ -211,6 +224,20 @@ export async function executeTrade(tradeId) {
         tradeHistory: arrayUnion(note(fromTeam)),
       })
     }
+    // Ledger entry in the same batch — the trade and its history land
+    // atomically or not at all
+    batch.set(doc(collection(db, COL.transactions)), {
+      type: 'trade',
+      season: meta.season ?? trade.season ?? null,
+      teamName: toTeam,
+      fromTeam,
+      playerId: assetRef.assetId,
+      playerName: assetRef.displayName ?? null,
+      assetType: assetRef.assetType,
+      relatedTradeId: tradeId,
+      actorUid: meta.actorUid ?? null,
+      createdAt: Timestamp.now(),
+    })
   }
 
   for (const ref of trade.assetsFromProposer ?? []) {
@@ -225,6 +252,24 @@ export async function executeTrade(tradeId) {
     completedAt: Timestamp.now(),
   })
   return batch.commit()
+}
+
+// ── Transaction ledger — every roster/money event, queryable ──
+// {type: trade|drop|claim|clear|keep|adjust, season, week?, teamName,
+//  playerId, playerName, price?, note?, actorUid?, relatedTradeId?, createdAt}
+
+export function logTransaction(entry) {
+  return addDoc(collection(db, COL.transactions), {
+    ...entry,
+    createdAt: Timestamp.now(),
+  })
+}
+
+export function listenToTransactions(callback, max = 200) {
+  const q = query(collection(db, COL.transactions), orderBy('createdAt', 'desc'), limit(max))
+  return onSnapshot(q, (snap) =>
+    callback(snapToDocs(snap).map((t) => ({ ...t, createdAt: tsToDate(t.createdAt) }))),
+  )
 }
 
 // ── Player Interests (legacy star system) ─────────────────────

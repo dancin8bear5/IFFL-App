@@ -11,7 +11,6 @@ import RostersView from './RostersView'
 import PlayersView from './PlayersView'
 import MarketView from './MarketView'
 import BuilderView from './BuilderView'
-import RulesTab from './RulesTab'
 
 const TABS = [
   { label: 'Dashboard', glyph: '▦' },
@@ -19,7 +18,6 @@ const TABS = [
   { label: 'Players',   glyph: '🔎' },
   { label: 'Market',    glyph: '⇄' },
   { label: 'Builder',   glyph: '🧪' },
-  { label: 'Rules',     glyph: '📜' },
 ]
 
 export default function TabLayout({ tab, setTab }) {
@@ -33,7 +31,6 @@ export default function TabLayout({ tab, setTab }) {
       {tab === 2 && <PlayersView setTab={setTab} />}
       {tab === 3 && <MarketView setTab={setTab} />}
       {tab === 4 && <BuilderView />}
-      {tab === 5 && <RulesTab />}
     </>
   )
 
@@ -54,7 +51,7 @@ export default function TabLayout({ tab, setTab }) {
         {screens}
       </div>
 
-      <nav className="tab-bar tab-bar-6">
+      <nav className="tab-bar tab-bar-5">
         {TABS.map((t, i) => (
           <button key={t.label} className={i === tab ? 'active' : ''} onClick={() => setTab(i)}>
             <span className="tab-glyph">{t.glyph}</span>

@@ -12,6 +12,7 @@ import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
+import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import SettingsView from './SettingsView'
 import { useEffect } from 'react'
 
@@ -20,12 +21,14 @@ export default function DashboardView({ setTab }) {
     userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
     incomingOffers, leagueHistory, loadLeagueHistory,
+    rules, rulesVotingOpen,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
   const [detailTrade, setDetailTrade] = useState(null)
   const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy'
+  const [showRules, setShowRules] = useState(false)
 
   useEffect(() => {
     loadLeagueHistory()
@@ -308,6 +311,103 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // Rules & Reminders — new rules read like league announcements
+  const seasonRules = rules.filter((r) => r.status === 'passed' && r.decidedSeason === activeSeason)
+  const openProposals = rules.filter((r) => r.status === 'proposed')
+  const rulesSection = (
+    <div>
+      <SectionHeader title="Rules & Reminders" actionLabel="All rules ›" onAction={() => setShowRules(true)} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+
+        {rulesVotingOpen && (
+          <button
+            className="iff-card"
+            onClick={() => setShowRules(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', textAlign: 'left', width: '100%',
+              border: '1.5px solid rgba(74,222,128,0.5)',
+              background: 'linear-gradient(135deg, rgba(74,222,128,0.14), var(--iff-surface) 60%)',
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🗳️</span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 800 }}>Voting is open</span>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+                {openProposals.length} proposal{openProposals.length === 1 ? '' : 's'} need your vote
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+          </button>
+        )}
+
+        {seasonRules.map((r) => {
+          const meta = categoryMeta(r.category)
+          return (
+            <button
+              key={r.id}
+              className="iff-card"
+              onClick={() => setShowRules(true)}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 16px', textAlign: 'left', width: '100%', borderLeft: '3px solid var(--iff-green)' }}
+            >
+              <span style={{ fontSize: 17, lineHeight: 1.2 }}>📌</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: meta.color, background: `${meta.color}22`, padding: '2px 6px', borderRadius: 5 }}>
+                    {meta.glyph} {r.category ?? 'Misc'}
+                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: 700 }}>{r.title}</span>
+                </span>
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4, lineHeight: 1.45 }}>
+                  {r.summary ?? r.details ?? ''}
+                </span>
+                {(r.changes ?? []).length > 0 && (
+                  <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    {r.changes.map((c, i) => (
+                      <span key={i} className="tnum" style={{ fontSize: 10, background: 'var(--iff-elevated)', padding: '2px 7px', borderRadius: 5, color: 'var(--iff-subtext)' }}>
+                        {c.rule}: <span style={{ textDecoration: 'line-through' }}>{c.currentValue || '—'}</span>{' → '}
+                        <strong style={{ color: 'var(--iff-green)' }}>{c.newValue}</strong>
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <span style={{ display: 'block', fontSize: 9.5, color: 'var(--iff-subtext)', marginTop: 5 }}>
+                  NEW FOR {activeSeason} · passed {activeSeason}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+
+        {!rulesVotingOpen && openProposals.length > 0 && (
+          <button
+            className="iff-card"
+            onClick={() => setShowRules(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', textAlign: 'left', width: '100%' }}
+          >
+            <span style={{ fontSize: 18 }}>📜</span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
+                {openProposals.length} rule proposal{openProposals.length === 1 ? '' : 's'} on the table
+              </span>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+                Voting opens on voting day — read them now
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+          </button>
+        )}
+
+        <button
+          className="btn-outline"
+          onClick={() => setShowRules(true)}
+          style={{ alignSelf: 'flex-start', fontSize: 12, padding: '7px 16px' }}
+        >
+          ＋ Propose a rule
+        </button>
+      </div>
+    </div>
+  )
+
   const messagesSection = messages.length > 0 && (
     <div>
       <SectionHeader title="League Messages" />
@@ -348,6 +448,7 @@ export default function DashboardView({ setTab }) {
       {historyView === 'last' && <LastSeasonView onClose={() => setHistoryView(null)} />}
       {historyView === 'table' && <LeagueHistoryTable onClose={() => setHistoryView(null)} />}
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
+      {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
     </>
   )
 
@@ -376,6 +477,7 @@ export default function DashboardView({ setTab }) {
               {historyTiles}
               {matchBanner}
               {messagesSection}
+              {rulesSection}
             </div>
           </div>
         )}
@@ -419,6 +521,7 @@ export default function DashboardView({ setTab }) {
           {standingsSection}
           {tradesSection}
           {messagesSection}
+          {rulesSection}
         </div>
       )}
       {overlays}

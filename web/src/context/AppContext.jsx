@@ -303,8 +303,8 @@ export function AppProvider({ children }) {
 
   // ── Rules actions ───────────────────────────────────────────
   const proposeRule = useCallback(
-    async (title, details) => {
-      const rule = { title, details, proposedBy: userTeam, season: activeSeason }
+    async ({ title, category = 'Misc', summary = '', changes = [] }) => {
+      const rule = { title, category, summary, changes, proposedBy: userTeam, season: activeSeason }
       if (DEV_PREVIEW) {
         setRules((prev) => [
           { ...rule, id: `preview-rule-${prev.length}`, status: 'proposed', votes: {}, proposedAt: new Date() },

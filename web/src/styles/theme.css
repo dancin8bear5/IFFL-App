@@ -962,11 +962,16 @@ a { color: inherit; text-decoration: none; }
 /* keep the trophy room's hall look intact even in 90s mode — it's a shrine */
 [data-retro="1"] .troom { font-family: Georgia, 'Times New Roman', serif; }
 
-/* 6-tab bottom bar — tighter sizing so all labels fit on a phone */
-.tab-bar-6 button { font-size: 8.5px; padding: 2px 1px; gap: 2px; }
-.tab-bar-6 .tab-glyph { font-size: 18px; }
-.tab-bar-6 .tab-badge { right: calc(50% - 18px); min-width: 15px; height: 15px; font-size: 10px; }
+/* 5-tab bottom bar — tighter sizing so all labels fit on a phone */
+.tab-bar-5 button { font-size: 8.5px; padding: 2px 1px; gap: 2px; }
+.tab-bar-5 .tab-glyph { font-size: 18px; }
+.tab-bar-5 .tab-badge { right: calc(50% - 18px); min-width: 15px; height: 15px; font-size: 10px; }
 
 /* Players table: keep names readable, allow wrap */
 .players-table td { white-space: nowrap; }
 .players-table td:nth-child(2) { white-space: normal; line-height: 1.25; }
+
+/* Nested overlays (e.g. Propose form opened from the Rules overlay) must
+   stack above their parent, or the parent's backdrop eats the clicks. */
+.overlay-root .overlay-root { z-index: 60; }
+.overlay-root .overlay-root .overlay-root { z-index: 70; }

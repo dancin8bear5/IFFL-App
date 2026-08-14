@@ -22,8 +22,10 @@ const DEFAULT_SETTINGS = {
   defaultTab: 0,
   showTradeValues: true,
   fmkPublic: true,
-  accentColorName: null,
   retroMode: false,
+  accentColor: 'red',
+  textSize: 'default',
+  confetti: true,
 }
 
 export function AppProvider({ children }) {
@@ -69,11 +71,12 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  // 90s Mode — re-skins the whole app via <html data-retro="1">
+  // Appearance (90s mode, accent color, text size) applied from saved settings
   useEffect(() => {
-    if (userSettings.retroMode) document.documentElement.dataset.retro = '1'
-    else delete document.documentElement.dataset.retro
-  }, [userSettings.retroMode])
+    import('../services/appearance').then(({ applyAppearance }) =>
+      applyAppearance(userSettings, userTeam),
+    )
+  }, [userSettings.retroMode, userSettings.accentColor, userSettings.textSize, userTeam])
 
   // Dev preview: load sample data once instead of Firestore
   useEffect(() => {

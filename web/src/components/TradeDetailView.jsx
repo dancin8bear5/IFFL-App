@@ -18,7 +18,7 @@ export const TRADE_STATUS_STYLE = {
 }
 
 export default function TradeDetailView({ trade, onClose }) {
-  const { userTeam, respondToTrade, trades } = useApp()
+  const { userTeam, respondToTrade, trades, userSettings } = useApp()
   const [responding, setResponding] = useState(false)
   const [localStatus, setLocalStatus] = useState(trade.status)
   const [showCounter, setShowCounter] = useState(false)
@@ -61,6 +61,10 @@ export default function TradeDetailView({ trade, onClose }) {
     try {
       await respondToTrade(trade.id, answer)
       setLocalStatus(answer === 'yes' ? 'accepted' : 'rejected')
+      if (answer === 'yes' && (userSettings?.confetti ?? true)) {
+        const { fireConfetti } = await import('../services/appearance')
+        fireConfetti()
+      }
     } finally {
       setResponding(false)
     }

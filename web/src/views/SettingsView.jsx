@@ -1,11 +1,13 @@
-// SettingsView — port of Views/SettingsView.swift.
-// Profile, appearance, league prefs, sign out, version footer.
-import { useState } from 'react'
+// SettingsView — the full settings experience.
+// Profile, appearance (90s mode, accent, text size, confetti — all with
+// LIVE preview while editing, restored on cancel), league prefs, sign out.
+import { useEffect, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { fantasyTeams } from '../data/staticData'
+import { fantasyTeams, teamByName } from '../data/staticData'
 import { DetailOverlay } from '../components/shared'
 import { signOut } from '../services/authService'
 import * as fs from '../services/firestoreService'
+import { applyAppearance, resolveAccent, ACCENT_CHOICES, TEXT_SIZES, fireConfetti } from '../services/appearance'
 
 const APP_VERSION = 'Insanity League Web 1.0'
 const TAB_NAMES = ['Dashboard', 'Rosters', 'Market', 'League']
@@ -17,6 +19,15 @@ export default function SettingsView({ onClose }) {
   const [saving, setSaving] = useState(false)
 
   const set = (patch) => setSettings((s) => ({ ...s, ...patch }))
+
+  // LIVE preview of appearance while editing; restore saved values on close
+  useEffect(() => {
+    applyAppearance(settings, team || userTeam)
+  }, [settings.retroMode, settings.accentColor, settings.textSize, team, userTeam])
+  useEffect(() => {
+    return () => applyAppearance(userSettings, userTeam) // unmount → saved state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userSettings, userTeam])
 
   async function save() {
     setSaving(true)
@@ -60,13 +71,78 @@ export default function SettingsView({ onClose }) {
           </div>
         </Section>
 
-        <Section title="Appearance">
+        <Section title="Appearance — changes preview live">
           <Toggle
             label="📼 90s Mode"
             on={settings.retroMode ?? false}
             onChange={(v) => set({ retroMode: v })}
           />
-          <Row label="Theme" value={settings.retroMode ? 'Totally Radical' : 'Dark'} />
+
+          {/* Accent color (hidden in 90s mode — neon owns the palette) */}
+          {!settings.retroMode && (
+            <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
+              <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 10 }}>🎨 Accent Color</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {ACCENT_CHOICES.map((c) => {
+                  const swatch = c.key === 'team' ? (teamByName[team || userTeam]?.color ?? '#E63946') : c.color
+                  const active = (settings.accentColor ?? 'red') === c.key
+                  return (
+                    <button
+                      key={c.key}
+                      onClick={() => set({ accentColor: c.key })}
+                      title={c.label}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '5px 10px 5px 6px', borderRadius: 18, fontSize: 11, fontWeight: 700,
+                        background: active ? 'var(--iff-elevated)' : 'transparent',
+                        outline: active ? `2px solid ${swatch}` : '1px solid var(--iff-divider)',
+                        color: active ? 'var(--iff-text)' : 'var(--iff-subtext)',
+                      }}
+                    >
+                      <span style={{ width: 18, height: 18, borderRadius: '50%', background: swatch, flexShrink: 0 }} />
+                      {c.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Text size */}
+          <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 15 }}>🔠 Text Size</span>
+            <div style={{ display: 'flex', gap: 4, background: 'var(--iff-elevated)', borderRadius: 9, padding: 3 }}>
+              {TEXT_SIZES.map((t) => {
+                const active = (settings.textSize ?? 'default') === t.key
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => set({ textSize: t.key })}
+                    style={{
+                      padding: '4px 12px', borderRadius: 7, fontWeight: 700,
+                      fontSize: t.key === 'small' ? 11 : t.key === 'large' ? 15 : 13,
+                      background: active ? 'var(--iff-accent)' : 'transparent',
+                      color: active ? '#fff' : 'var(--iff-subtext)',
+                    }}
+                  >
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Victory confetti */}
+          <div style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 15, flex: 1 }}>🎉 Victory Confetti</span>
+            <button
+              onClick={() => fireConfetti()}
+              style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)', padding: '4px 10px', border: '1px solid var(--iff-divider)', borderRadius: 14 }}
+            >
+              try it
+            </button>
+            <MiniToggle on={settings.confetti ?? true} onChange={(v) => set({ confetti: v })} label="Victory Confetti" />
+          </div>
         </Section>
 
         <Section title="League">
@@ -165,5 +241,29 @@ function Toggle({ label, on, onChange }) {
         />
       </button>
     </div>
+  )
+}
+
+function MiniToggle({ on, onChange, label }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      onClick={() => onChange(!on)}
+      style={{
+        width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
+        background: on ? '#22C55E' : 'var(--iff-elevated)',
+        transition: 'background 0.15s',
+      }}
+    >
+      <span
+        style={{
+          position: 'absolute', top: 2, left: on ? 20 : 2,
+          width: 22, height: 22, borderRadius: '50%', background: '#fff',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.35)', transition: 'left 0.15s',
+        }}
+      />
+    </button>
   )
 }

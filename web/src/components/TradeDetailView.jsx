@@ -7,6 +7,8 @@ import { useApp } from '../context/AppContext'
 import { formatTradeDate } from '../services/models'
 import { DetailOverlay } from './shared'
 import TradeProposalView from './TradeProposalView'
+import { tradeCapImpact } from '../services/contracts'
+import TaxWarning from './TaxWarning'
 
 export const TRADE_STATUS_STYLE = {
   proposed:  { label: 'Proposed',  color: 'var(--iff-gold)', bg: 'rgba(244,162,97,0.15)' },
@@ -18,7 +20,7 @@ export const TRADE_STATUS_STYLE = {
 }
 
 export default function TradeDetailView({ trade, onClose }) {
-  const { userTeam, respondToTrade, trades, userSettings } = useApp()
+  const { userTeam, respondToTrade, trades, userSettings, allDisplayAssets, activeSeason } = useApp()
   const [responding, setResponding] = useState(false)
   const [localStatus, setLocalStatus] = useState(trade.status)
   const [showCounter, setShowCounter] = useState(false)
@@ -45,6 +47,20 @@ export default function TradeDetailView({ trade, onClose }) {
     }
     return list
   }, [trade, trades])
+
+  // TAX DAT ASS — cap impact while the offer is still live
+  const capImpact = useMemo(() => {
+    if (localStatus !== 'proposed' && localStatus !== 'accepted') return null
+    const byId = new Map(allDisplayAssets.map((a) => [a.id, a]))
+    const resolve = (refs) => (refs ?? []).map((r) => byId.get(r.assetId)).filter(Boolean)
+    const fromP = resolve(trade.assetsFromProposer)
+    const fromR = resolve(trade.assetsFromReceiver)
+    if (!fromP.length && !fromR.length) return null
+    return tradeCapImpact(
+      allDisplayAssets, activeSeason,
+      trade.proposingTeamName, trade.receivingTeamName, fromP, fromR,
+    )
+  }, [localStatus, allDisplayAssets, activeSeason, trade])
 
   // ESPN split: players must be manually swapped in ESPN; picks exist only here
   const espnPlayers = [
@@ -130,6 +146,13 @@ export default function TradeDetailView({ trade, onClose }) {
               </div>
             ))}
           </div>
+        )}
+
+        {capImpact && (
+          <TaxWarning
+            impact={capImpact}
+            names={{ proposer: trade.proposingTeamName, receiver: trade.receivingTeamName }}
+          />
         )}
 
         {canRespond && (

@@ -74,6 +74,40 @@ export function countsTowardCap(player, season) {
 }
 
 /**
+ * A team's luxury-tax exposure: the sum of drafted/kept salary among its
+ * ROSTERED players in `season`. Picks and in-season waiver pickups are
+ * exempt. Works on DisplayAssets (currentPrice) or raw player docs
+ * (prices map).
+ */
+export function teamCapTotal(assets, teamName, season) {
+  return assets
+    .filter(
+      (a) =>
+        a.teamName === teamName &&
+        !a.isPick &&
+        (a.salaryStatus ?? 'rostered') === 'rostered' &&
+        countsTowardCap(a, season),
+    )
+    .reduce((sum, a) => sum + (a.currentPrice ?? a.prices?.[String(season)] ?? 0), 0)
+}
+
+/**
+ * What both sides' cap totals become if a trade executes.
+ * `sending`/`receiving` are arrays of DisplayAssets leaving each team.
+ * Returns {proposer: {before, after}, receiver: {before, after}}.
+ */
+export function tradeCapImpact(assets, season, proposerTeam, receiverTeam, fromProposer, fromReceiver) {
+  const price = (a) => (a.isPick || !countsTowardCap(a, season) ? 0 : a.currentPrice ?? 0)
+  const out = (list) => list.reduce((s, a) => s + price(a), 0)
+  const proposerBefore = teamCapTotal(assets, proposerTeam, season)
+  const receiverBefore = teamCapTotal(assets, receiverTeam, season)
+  return {
+    proposer: { before: proposerBefore, after: proposerBefore - out(fromProposer) + out(fromReceiver) },
+    receiver: { before: receiverBefore, after: receiverBefore - out(fromReceiver) + out(fromProposer) },
+  }
+}
+
+/**
  * Validate a player's stored price map against the formula.
  * Checks every consecutive season pair present in `prices`, plus the chain
  * from originalPrice at purchaseYear when that season is present.

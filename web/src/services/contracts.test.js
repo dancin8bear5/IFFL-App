@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import {
   contractYear, nextPrice, priceInSeason, projectPrices,
   countsTowardCap, waiverResetValue, validatePrices, repairedPrices,
+  teamCapTotal, tradeCapImpact,
 } from './contracts.js'
 
 /* ── The formula against the handbook's worked examples ─────── */
@@ -107,6 +108,43 @@ test('in-season waiver pickup is cap-exempt; kept FA counts', () => {
   assert.equal(countsTowardCap(keptFA, 2026), true)
   assert.equal(countsTowardCap(auction, 2026), true)
   assert.equal(countsTowardCap(rookie, 2026), true)
+})
+
+/* ── TAX DAT ASS cap math ───────────────────────────────────── */
+
+const CAP_ASSETS = [
+  { teamName: 'Jared', isPick: false, currentPrice: 100, playerPool: 'Auction', purchaseYear: 2024 },
+  { teamName: 'Jared', isPick: false, currentPrice: 150, playerPool: 'Auction', purchaseYear: 2025 },
+  { teamName: 'Jared', isPick: false, currentPrice: 40, playerPool: 'Free Agent', purchaseYear: 2026 },  // in-season pickup — exempt
+  { teamName: 'Jared', isPick: true, currentPrice: 8, playerPool: 'Rookie Draft' },                       // pick — exempt
+  { teamName: 'Jared', isPick: false, currentPrice: 60, playerPool: 'Auction', purchaseYear: 2024, salaryStatus: 'dropped_pending' }, // dropped — off the cap
+  { teamName: 'Bill', isPick: false, currentPrice: 280, playerPool: 'Auction', purchaseYear: 2025 },
+]
+
+test('teamCapTotal counts drafted/kept rostered salary only', () => {
+  assert.equal(teamCapTotal(CAP_ASSETS, 'Jared', 2026), 250) // 100 + 150
+  assert.equal(teamCapTotal(CAP_ASSETS, 'Bill', 2026), 280)
+})
+
+test('tradeCapImpact projects both sides and flags a $300 breach', () => {
+  const fromJared = [CAP_ASSETS[0]] // $100 out
+  const fromBill = [{ teamName: 'Bill', isPick: false, currentPrice: 130, playerPool: 'Auction', purchaseYear: 2025 }]
+  const impact = tradeCapImpact(CAP_ASSETS, 2026, 'Jared', 'Bill', fromJared, fromBill)
+  assert.deepEqual(impact.proposer, { before: 250, after: 280 }) // 250 - 100 + 130
+  assert.deepEqual(impact.receiver, { before: 280, after: 250 })
+  // Jared at 280 is safe; a bigger incoming piece would breach
+  const breach = tradeCapImpact(CAP_ASSETS, 2026, 'Jared', 'Bill', [], fromBill)
+  assert.equal(breach.proposer.after, 380)
+  assert.ok(breach.proposer.after > 300)
+})
+
+test('picks and exempt pickups are worth $0 in trade cap math', () => {
+  const impact = tradeCapImpact(
+    CAP_ASSETS, 2026, 'Jared', 'Bill',
+    [CAP_ASSETS[3]], // sending a pick out — no cap change
+    [],
+  )
+  assert.equal(impact.proposer.after, impact.proposer.before)
 })
 
 /* ── Validation + repair ────────────────────────────────────── */

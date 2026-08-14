@@ -667,14 +667,54 @@ function PickConversionOverlay({ pick, onClose }) {
 // ── Trades ────────────────────────────────────────────────────
 
 function TradesSection() {
-  const { trades, activeSeason, user } = useApp()
+  const { trades, activeSeason, user, allDisplayAssets } = useApp()
   const [busyId, setBusyId] = useState(null)
   const actionable = trades.filter((t) => t.status === 'proposed' || t.status === 'accepted')
 
   async function execute(trade) {
     setBusyId(trade.id)
     try {
+      // TAX DAT ASS check at the moment of truth
+      const { tradeCapImpact } = await import('../services/contracts')
+      const { ROSTER_CAP, LUXURY_TAX_TOTAL } = await import('../data/staticData')
+      const byId = new Map(allDisplayAssets.map((a) => [a.id, a]))
+      const resolve = (refs) => (refs ?? []).map((r) => byId.get(r.assetId)).filter(Boolean)
+      const impact = tradeCapImpact(
+        allDisplayAssets, activeSeason,
+        trade.proposingTeamName, trade.receivingTeamName,
+        resolve(trade.assetsFromProposer), resolve(trade.assetsFromReceiver),
+      )
+      const breaching = [
+        { team: trade.proposingTeamName, ...impact.proposer },
+        { team: trade.receivingTeamName, ...impact.receiver },
+      ].filter((s) => s.after > ROSTER_CAP)
+
+      if (breaching.length > 0) {
+        const lines = breaching
+          .map((s) => `${s.team} lands at $${s.after} ($${s.after - ROSTER_CAP} over the $${ROSTER_CAP} cap)`)
+          .join('\n')
+        const ok = confirm(
+          `🚨 TAX DAT ASS\n\n${lines}\n\nExecuting starts the 24-hour clock on the $${LUXURY_TAX_TOTAL} luxury tax. Unpaid, the trade voids and it's -100 pts/week.\n\nExecute anyway?`,
+        )
+        if (!ok) return
+      }
+
       await fs.executeTrade(trade.id, { season: activeSeason, actorUid: user?.uid ?? null })
+
+      // Log the tax event so the ledger shows who owes and since when
+      for (const s of breaching) {
+        await fs.logTransaction({
+          type: 'tax',
+          season: activeSeason,
+          teamName: s.team,
+          playerId: null,
+          playerName: null,
+          price: LUXURY_TAX_TOTAL,
+          note: `Over the $${ROSTER_CAP} cap at $${s.after} — $${LUXURY_TAX_TOTAL} due within 24h (UNPAID)`,
+          relatedTradeId: trade.id,
+          actorUid: user?.uid ?? null,
+        }).catch(() => {})
+      }
     } catch (e) {
       // Surface it — a swallowed failure here looks like a successful trade
       alert(`Execute failed: ${e.message}`)

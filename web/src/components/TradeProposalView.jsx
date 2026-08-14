@@ -6,6 +6,8 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams } from '../data/staticData'
 import { DetailOverlay, PosBadge } from './shared'
+import { tradeCapImpact } from '../services/contracts'
+import TaxWarning from './TaxWarning'
 
 export default function TradeProposalView({ onClose, counterOf = null }) {
   const {
@@ -83,6 +85,16 @@ export default function TradeProposalView({ onClose, counterOf = null }) {
 
   const sumOf = (assets, sel) => assets.filter((a) => sel.has(a.id)).reduce((s, a) => s + a.currentPrice, 0)
 
+  // TAX DAT ASS guard — live cap impact for both sides as assets are picked
+  const capImpact = useMemo(() => {
+    if (!otherTeam || (mySelected.size === 0 && theirSelected.size === 0)) return null
+    return tradeCapImpact(
+      allDisplayAssets, activeSeason, userTeam, otherTeam,
+      myAssets.filter((a) => mySelected.has(a.id)),
+      theirAssets.filter((a) => theirSelected.has(a.id)),
+    )
+  }, [allDisplayAssets, activeSeason, userTeam, otherTeam, myAssets, theirAssets, mySelected, theirSelected])
+
   return (
     <DetailOverlay title={counterOf ? 'Counter Offer' : 'Propose Trade'} onBack={onClose}>
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -137,6 +149,8 @@ export default function TradeProposalView({ onClose, counterOf = null }) {
                 total={sumOf(theirAssets, theirSelected)}
               />
             )}
+
+            {capImpact && <TaxWarning impact={capImpact} names={{ proposer: userTeam, receiver: otherTeam }} />}
 
             {/* Note to the other manager */}
             <div className="iff-card" style={{ padding: 14 }}>

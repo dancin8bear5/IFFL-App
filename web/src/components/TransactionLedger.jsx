@@ -14,6 +14,7 @@ const TYPE_META = {
   clear:  { glyph: '✓',  label: 'Cleared', color: '#9EA8B8' },
   keep:   { glyph: '🔒', label: 'Keep',    color: '#4ADE80' },
   adjust: { glyph: '✎',  label: 'Adjust',  color: '#A855F7' },
+  tax:    { glyph: '💸', label: 'Tax',     color: '#E63946' },
 }
 const typeMeta = (t) => TYPE_META[t] ?? { glyph: '•', label: t, color: '#9EA8B8' }
 
@@ -83,7 +84,7 @@ export default function TransactionLedger({ onClose }) {
 
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {tx.playerName ?? 'Unknown asset'}
+                      {tx.playerName ?? (tx.type === 'tax' ? 'TAX DAT ASS' : 'Unknown asset')}
                     </span>
                     <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 1 }}>
                       {tx.type === 'trade' && tx.fromTeam

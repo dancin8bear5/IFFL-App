@@ -121,7 +121,7 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - [ ] **Retire legacy `PlayerInterest` collection** — old star-flag interest system superseded by FMK; remove once FMK is fully adopted
 - [ ] **Firestore security rules** — add composite indexes for `playerFMK` (userId, assetId) and `leagueHistory` (year desc)
 - [ ] **Honor `showTradeValues`** — toggle saved in UserSettings but not yet used to hide/show price columns in Rosters/Market
-- [ ] **Cap threshold support** — data model and UI need to support a minimum cap floor in addition to the $300 cap ceiling. No minimum currently but coming. `LeagueConfig` will need a `capFloor` field.
+- [ ] **Cap threshold support** — data model and UI need to support a minimum cap floor in addition to the $300 cap ceiling. No minimum currently but coming. `LeagueConfig` will need a `capFloor` field. NOTE (Aug 2026): $200 = auction budget (THE planning number pre-draft); $300 = post-draft roster cap CEILING, not a budget. Constants in web/src/data/staticData.js.
 
 ## Backlog
 

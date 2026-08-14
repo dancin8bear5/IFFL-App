@@ -110,6 +110,13 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == userId;
     }
 
+    // Keeper plans (Team Builder prototypes) — ALWAYS private to their owner.
+    // Not even the commissioner can read another manager's draft strategy.
+    match /keeperPlans/{planId} {
+      allow read, update, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+    }
+
     // FCM tokens (written by iOS AppDelegate) — owner only
     match /users/{userId} {
       allow read, write: if signedIn() && request.auth.uid == userId;

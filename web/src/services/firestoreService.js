@@ -343,6 +343,27 @@ export function setRuleStatus(ruleId, status, decidedSeason) {
   return updateDoc(doc(db, 'rules', ruleId), { status, decidedSeason })
 }
 
+// ── Keeper plans (Team Builder prototypes) — ALWAYS private ───
+// Doc: { ownerUid, name, strategy, entries:[{assetId, keep:{0,1,2}}],
+//        placeholders:[{id,label,position,prices:{0,1,2}}], updatedAt }
+
+export async function fetchKeeperPlans(uid) {
+  const q = query(collection(db, 'keeperPlans'), where('ownerUid', '==', uid))
+  const snap = await getDocs(q)
+  return snapToDocs(snap).sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0))
+}
+
+export function saveKeeperPlan(plan) {
+  const { id, ...doc_ } = plan
+  const payload = { ...doc_, updatedAt: Timestamp.now() }
+  if (id) return setDoc(doc(db, 'keeperPlans', id), payload).then(() => id)
+  return addDoc(collection(db, 'keeperPlans'), { ...payload, createdAt: Timestamp.now() }).then((r) => r.id)
+}
+
+export function deleteKeeperPlan(planId) {
+  return deleteDoc(doc(db, 'keeperPlans', planId))
+}
+
 // ── League History — doc id = season year ─────────────────────
 
 export async function fetchLeagueHistory() {

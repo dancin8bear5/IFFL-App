@@ -99,6 +99,11 @@ export const previewHistory = [
     { teamName: 'Wayne', place: 2, record: '9-5', pointsFor: 1790.1 },
     { teamName: 'Jared', place: 3, record: '9-5', pointsFor: 1745.6 },
   ], notableTrades: ['Abad lands Tyreek Hill from Foley at the deadline'] },
+  // 2008 shell — champion known; 'Klein' is a former member (tests the inactive toggle)
+  { id: '2008', season: 2008, champion: 'M. Zurek', runnerUp: 'Klein', standings: [
+    { teamName: 'M. Zurek', place: 1, record: '10-4', pointsFor: null },
+    { teamName: 'Klein', place: 2, record: '9-5', pointsFor: null },
+  ], notableTrades: [] },
 ]
 
 export const previewRules = [

@@ -1,6 +1,6 @@
 // leagueStats — all-time career stats computed from the leagueHistory
-// collection (17 seeded seasons). Powers the League History sortable table
-// and the Trophy Room.
+// collection. Powers the League History sortable table and the Trophy Room.
+import { isActiveTeam } from '../data/staticData.js'
 
 /** Parse "11-3" or "10-3-1" record strings → {w, l, t}. Null-safe. */
 export function parseRecord(record) {
@@ -73,6 +73,7 @@ export function computeAllTimeStats(history) {
 
   return [...rows.values()].map((r) => ({
     ...r,
+    active: isActiveTeam(r.team),
     pct: r.w + r.l + r.t > 0 ? (r.w + r.t * 0.5) / (r.w + r.l + r.t) : 0,
     avgFinish: r.seasons > 0 ? r.finishSum / r.seasons : null,
     pointsFor: r.hasPoints ? r.pointsFor : null,

@@ -121,6 +121,26 @@ function DatabaseSection() {
         </div>
       </div>
 
+      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>2008 Season Shell</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+            Champion: M. Zurek · standings to be seeded when full data arrives
+          </span>
+        </span>
+        <button
+          className="btn-outline"
+          onClick={() =>
+            fs.addSeasonHistory({ season: 2008, champion: 'M. Zurek', runnerUp: null, standings: [], notableTrades: [] })
+              .then(() => alert('2008 shell added — champion M. Zurek. Standings can be filled in later.'))
+              .catch((e) => alert(`Failed: ${e.message}`))
+          }
+          style={{ fontSize: 12, padding: '6px 14px' }}
+        >
+          Add 2008 Shell
+        </button>
+      </div>
+
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
         Database seeding (players, NFL teams, league history) runs from the iOS admin panel or a
         server script — not from the web app.

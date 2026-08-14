@@ -1,23 +1,35 @@
 // staticData — port of the static config in Models/DataModels.swift and
 // the milestone dates in Views/DashboardView.swift.
 
-// fantasyTeams: name, display color, beltWins (championships, ESPN history 2009–2025)
+// fantasyTeams: name, display color, beltWins (championships, ESPN history
+// 2008–2025), logo (GenAI artwork in /public/logos). All 12 are the ACTIVE
+// franchises — anyone appearing only in leagueHistory is a former member.
 export const fantasyTeams = [
-  { name: 'A. Zurek', color: '#DC2626', beltWins: 0 },
-  { name: 'Abad',     color: '#2563EB', beltWins: 1 }, // 2023
-  { name: 'Bill',     color: '#16A34A', beltWins: 2 }, // 2024, 2025
-  { name: 'Cantone',  color: '#7C3AED', beltWins: 1 }, // 2021
-  { name: 'Dugan',    color: '#EA580C', beltWins: 0 },
-  { name: 'Faybik',   color: '#CA8A04', beltWins: 1 }, // 2017
-  { name: 'Foley',    color: '#BE185D', beltWins: 0 },
-  { name: 'Jared',    color: '#0891B2', beltWins: 3 }, // 2018, 2019, 2020
-  { name: 'Jason',    color: '#4338CA', beltWins: 0 },
-  { name: 'M. Zurek', color: '#0D9488', beltWins: 1 }, // 2016
-  { name: 'Ryan',     color: '#14B8A6', beltWins: 2 }, // 2012, 2014
-  { name: 'Wayne',    color: '#92400E', beltWins: 1 }, // 2022
+  { name: 'A. Zurek', color: '#DC2626', beltWins: 0, logo: '/logos/a-zurek.jpg' },
+  { name: 'Abad',     color: '#2563EB', beltWins: 1, logo: '/logos/abad.jpg' },     // 2023
+  { name: 'Bill',     color: '#16A34A', beltWins: 2, logo: '/logos/bill.jpg' },     // 2024, 2025
+  { name: 'Cantone',  color: '#7C3AED', beltWins: 1, logo: '/logos/cantone.jpg' },  // 2021
+  { name: 'Dugan',    color: '#EA580C', beltWins: 0, logo: '/logos/dugan.jpg' },
+  { name: 'Faybik',   color: '#CA8A04', beltWins: 1, logo: '/logos/faybik.jpg' },   // 2017
+  { name: 'Foley',    color: '#BE185D', beltWins: 0, logo: '/logos/foley.jpg' },
+  { name: 'Jared',    color: '#0891B2', beltWins: 3, logo: '/logos/jared.jpg' },    // 2018, 2019, 2020
+  { name: 'Jason',    color: '#4338CA', beltWins: 0, logo: '/logos/jason.jpg' },
+  { name: 'M. Zurek', color: '#0D9488', beltWins: 2, logo: '/logos/m-zurek.jpg' },  // 2008, 2016
+  { name: 'Ryan',     color: '#14B8A6', beltWins: 2, logo: '/logos/ryan.jpg' },     // 2012, 2014
+  { name: 'Wayne',    color: '#92400E', beltWins: 1, logo: '/logos/wayne.jpg' },    // 2022
 ]
 
 export const teamByName = Object.fromEntries(fantasyTeams.map((t) => [t.name, t]))
+
+/** Active = one of the current 12 franchises; history-only names are former members. */
+export const isActiveTeam = (name) => Boolean(teamByName[name])
+
+// League money model (confirmed by commissioner Aug 2026):
+// $200 = auction budget each season — THE planning number before the draft.
+// $300 = post-draft roster cap CEILING (not a budget).
+export const AUCTION_BUDGET = 200
+export const ROSTER_CAP = 300
+export const ROSTER_SIZE = 19 // 9 starters + 10 bench
 
 // League calendar — update dates each season (mirrors BeltMilestone.all)
 export const milestones = [

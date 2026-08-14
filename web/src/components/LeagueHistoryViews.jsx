@@ -94,9 +94,11 @@ const COLUMNS = [
 export function LeagueHistoryTable({ onClose }) {
   const { leagueHistory } = useApp()
   const [sort, setSort] = useState({ key: null, desc: true }) // null = default belt order
+  const [showInactive, setShowInactive] = useState(false)
 
   const rows = useMemo(() => {
-    const stats = computeAllTimeStats(leagueHistory)
+    let stats = computeAllTimeStats(leagueHistory)
+    if (!showInactive) stats = stats.filter((r) => r.active)
     if (!sort.key) return defaultSort(stats)
     const col = COLUMNS.find((c) => c.key === sort.key)
     const dir = sort.desc ? -1 : 1
@@ -108,7 +110,7 @@ export function LeagueHistoryTable({ onClose }) {
       if (typeof av === 'string') return av.localeCompare(bv) * dir
       return (av - bv) * dir
     })
-  }, [leagueHistory, sort])
+  }, [leagueHistory, sort, showInactive])
 
   function clickSort(col) {
     setSort((s) =>
@@ -123,9 +125,21 @@ export function LeagueHistoryTable({ onClose }) {
   return (
     <DetailOverlay title="League History" onBack={onClose} desktop="wide">
       <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.5 }}>
-          All-time franchise table across {leagueHistory.length} seasons. Tap any column to sort.
-          Playoffs = Top {PLAYOFF_CUTOFF} finish.
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.5, flex: 1, minWidth: 200 }}>
+            All-time franchise table across {leagueHistory.length} seasons. Tap any column to sort.
+            Playoffs = Top {PLAYOFF_CUTOFF} finish.
+          </div>
+          <button
+            onClick={() => setShowInactive((v) => !v)}
+            style={{
+              fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 16, whiteSpace: 'nowrap',
+              background: showInactive ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+              color: showInactive ? '#fff' : 'var(--iff-subtext)',
+            }}
+          >
+            {showInactive ? 'Showing former members' : 'Show former members'}
+          </button>
         </div>
 
         {rows.length === 0 ? (

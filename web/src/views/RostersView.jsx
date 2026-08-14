@@ -166,7 +166,7 @@ function RostersDesktop({ setTab }) {
                   >
                     <PosBadge position={a.position} />
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, lineHeight: 1.25 }}>{a.name}</span>
                       <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)' }}>
                         {a.isPick ? (a.tradeHistory.at(-1) ?? 'Original') : (a.nflTeam ?? '—')}
                       </span>
@@ -373,7 +373,7 @@ function RostersMobile({ setTab }) {
                 >
                   <PosBadge position={a.position} />
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontSize: 14, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <span style={{ display: 'block', fontSize: 14, fontWeight: 500, lineHeight: 1.25 }}>
                       {a.name}
                     </span>
                     <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)', marginTop: 1 }}>

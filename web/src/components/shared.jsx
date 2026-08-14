@@ -96,6 +96,27 @@ export function Segmented({ options, value, onChange }) {
 
 export function TeamAvatar({ name, size = 36 }) {
   const team = teamByName[name]
+  if (team?.logo) {
+    return (
+      <img
+        src={team.logo}
+        alt={`${name} logo`}
+        width={size}
+        height={size}
+        loading="lazy"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '22%',
+          objectFit: 'cover',
+          flexShrink: 0,
+          background: team.color,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+        }}
+      />
+    )
+  }
+  // Former members / unknown names: colored initials fallback
   const initials = name
     .replace('.', '')
     .split(' ')

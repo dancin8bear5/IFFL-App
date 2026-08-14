@@ -1,7 +1,7 @@
 // TrophyRoomView — the GRAND hall. Old-school NCAA trophy room treatment:
 // championship banners in the rafters, an all-time podium, per-team display
 // cases with trophies and brass plaques, and a records wall.
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
@@ -9,16 +9,22 @@ import { computeAllTimeStats, computeRecords, defaultSort } from '../services/le
 
 export default function TrophyRoomView({ onClose }) {
   const { leagueHistory } = useApp()
+  const [showFormer, setShowFormer] = useState(false)
 
-  const { rows, records, banners } = useMemo(() => {
-    const stats = defaultSort(computeAllTimeStats(leagueHistory))
-    const recs = computeRecords(stats, leagueHistory)
+  const { rows, records, banners, formerCount } = useMemo(() => {
+    const all = defaultSort(computeAllTimeStats(leagueHistory))
+    const recs = computeRecords(all, leagueHistory)
     const bans = [...leagueHistory]
       .filter((s) => s.champion)
       .sort((a, b) => a.season - b.season)
       .map((s) => ({ season: s.season, team: s.champion, color: teamByName[s.champion]?.color ?? '#888' }))
-    return { rows: stats, records: recs, banners: bans }
-  }, [leagueHistory])
+    return {
+      rows: showFormer ? all : all.filter((r) => r.active),
+      records: recs,
+      banners: bans, // banners are history — every championship hangs forever
+      formerCount: all.filter((r) => !r.active).length,
+    }
+  }, [leagueHistory, showFormer])
 
   const podium = rows.slice(0, 3)
 
@@ -97,6 +103,21 @@ export default function TrophyRoomView({ onClose }) {
             {/* ── Display cases ── */}
             <section>
               <div className="troom-section-label">HALL OF FRANCHISES</div>
+              {formerCount > 0 && (
+                <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                  <button
+                    onClick={() => setShowFormer((v) => !v)}
+                    style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: 1, padding: '5px 14px', borderRadius: 16,
+                      fontFamily: 'system-ui, sans-serif',
+                      background: showFormer ? 'var(--iff-gold)' : 'var(--iff-elevated)',
+                      color: showFormer ? '#241A05' : 'var(--iff-subtext)',
+                    }}
+                  >
+                    {showFormer ? `SHOWING ${formerCount} FORMER MEMBERS` : `SHOW ${formerCount} FORMER MEMBERS`}
+                  </button>
+                </div>
+              )}
               <div className="troom-cases">
                 {rows.map((r, rank) => (
                   <div key={r.team} className="troom-case">

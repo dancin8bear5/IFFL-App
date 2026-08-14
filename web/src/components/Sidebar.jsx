@@ -43,7 +43,7 @@ export default function Sidebar({ tabs, tab, setTab, matchCount }) {
             </span>
             <BeltRow count={belts} size={8} />
           </span>
-          <span style={{ fontSize: 15, color: 'var(--iff-subtext)' }}>⚙</span>
+          <span style={{ fontSize: 24, color: 'var(--iff-text)' }}>⚙</span>
         </button>
       </div>
 

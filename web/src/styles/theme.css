@@ -128,10 +128,10 @@ a { color: inherit; text-decoration: none; }
 .nav-side.right { justify-content: flex-end; }
 
 .icon-btn {
-  font-size: 18px;
+  font-size: 28px;
   line-height: 1;
-  color: var(--iff-subtext);
-  padding: 4px;
+  color: var(--iff-text);
+  padding: 6px;
 }
 .icon-btn.accent { color: var(--iff-accent); }
 

@@ -544,7 +544,7 @@ export default function DashboardView({ setTab }) {
       <header className="dash-hero-mobile" style={{ textAlign: 'center', padding: '24px 16px 4px', position: 'relative' }}>
         <button
           className="icon-btn"
-          style={{ position: 'absolute', top: 20, right: 12 }}
+          style={{ position: 'absolute', top: 8, right: 10 }}
           onClick={() => setShowSettings(true)}
           aria-label="Settings"
         >

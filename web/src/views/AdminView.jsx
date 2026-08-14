@@ -8,7 +8,7 @@ import * as fs from '../services/firestoreService'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Areas', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -37,6 +37,7 @@ export default function AdminView() {
 
       <div style={{ padding: 14 }}>
         {section === 'Database' && <DatabaseSection />}
+        {section === 'Areas' && <AreasSection />}
         {section === 'Players' && <PlayersSection />}
         {section === 'Drops' && <DropsSection />}
         {section === 'Picks' && <PicksSection />}
@@ -263,6 +264,69 @@ function Stat({ value, label }) {
     <div>
       <div className="tnum" style={{ fontSize: 20, fontWeight: 800, color: 'var(--iff-gold)' }}>{value}</div>
       <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{label}</div>
+    </div>
+  )
+}
+
+// ── Areas — league-wide kill-switches for tabs and app sections ──
+
+const APP_AREAS = [
+  { group: 'Tabs', items: [
+    { key: 'rosters', label: 'Rosters tab', glyph: '👥' },
+    { key: 'players', label: 'Players tab', glyph: '🔎' },
+    { key: 'market',  label: 'Market tab (FMK, matches, trades)', glyph: '⇄' },
+    { key: 'builder', label: 'Team Builder tab', glyph: '🧪' },
+  ]},
+  { group: 'Dashboard sections', items: [
+    { key: 'rules',    label: 'Rules & proposals', glyph: '📜' },
+    { key: 'parlay',   label: 'Low Points Parlay', glyph: '🎯' },
+    { key: 'ledger',   label: 'Transaction Log', glyph: '🧾' },
+    { key: 'history',  label: 'Trophy Room & history tiles', glyph: '🏆' },
+    { key: 'messages', label: 'League messages', glyph: '💬' },
+  ]},
+]
+
+function AreasSection() {
+  const { disabledAreas, toggleArea } = useApp()
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Switch any tab or app section off for the whole league — hidden tabs vanish from
+        everyone's navigation instantly. You (admin) always see everything, so you can flip an
+        area back on. Dashboard itself can't be disabled.
+      </div>
+      {APP_AREAS.map((g) => (
+        <div key={g.group} className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+            {g.group}
+          </div>
+          {g.items.map((a, i) => {
+            const on = !disabledAreas.has(a.key)
+            return (
+              <div key={a.key} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                <span style={{ fontSize: 15 }}>{a.glyph}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, opacity: on ? 1 : 0.55 }}>
+                  {a.label}
+                  {!on && <span style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--iff-accent)', marginLeft: 8 }}>HIDDEN</span>}
+                </span>
+                <button
+                  role="switch"
+                  aria-checked={on}
+                  aria-label={a.label}
+                  onClick={() => toggleArea(a.key)}
+                  style={{
+                    width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
+                    background: on ? '#22C55E' : 'var(--iff-elevated)', transition: 'background 0.15s',
+                  }}
+                >
+                  <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

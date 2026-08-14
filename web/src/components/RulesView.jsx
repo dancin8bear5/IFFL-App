@@ -280,7 +280,6 @@ function ScoringSection() {
 
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 2px' }}>
         Official scoring lives in ESPN league {ESPN_LEAGUE_ID} — this card mirrors those settings.
-        D/ST points-allowed tiers below 14–17 to be confirmed.
       </div>
     </div>
   )

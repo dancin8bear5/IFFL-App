@@ -24,7 +24,7 @@ export default function DashboardView({ setTab }) {
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
-    parlayConfig, parlayEntries,
+    parlayConfig, parlayEntries, areaEnabled,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -165,7 +165,7 @@ export default function DashboardView({ setTab }) {
   )
 
   const latestSeasonYear = leagueHistory[0]?.season
-  const historyTiles = (
+  const historyTiles = areaEnabled('history') && (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <HistoryTile
         glyph="📊"
@@ -252,7 +252,7 @@ export default function DashboardView({ setTab }) {
 
   // Low Points Parlay — loud while a week is open, showing whether you're in
   const myParlayEntry = parlayEntries.find((e) => e.teamName === userTeam)
-  const parlayCard = parlayConfig?.open && (
+  const parlayCard = areaEnabled('parlay') && parlayConfig?.open && (
     <button
       className="iff-card"
       onClick={() => setShowParlay(true)}
@@ -278,7 +278,7 @@ export default function DashboardView({ setTab }) {
 
   // Slim link into the full transaction ledger — trades, drops, claims,
   // clears — the league's paper trail once the season starts.
-  const ledgerLink = (
+  const ledgerLink = areaEnabled('ledger') && (
     <button
       className="iff-card"
       onClick={() => setShowLedger(true)}
@@ -361,7 +361,7 @@ export default function DashboardView({ setTab }) {
   // Rules & Reminders — new rules read like league announcements
   const seasonRules = rules.filter((r) => r.status === 'passed' && r.decidedSeason === activeSeason)
   const openProposals = rules.filter((r) => r.status === 'proposed')
-  const rulesSection = (
+  const rulesSection = areaEnabled('rules') && (
     <div>
       <SectionHeader title="Rules & Reminders" actionLabel="All rules ›" onAction={() => setShowRules(true)} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
@@ -455,7 +455,7 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
-  const messagesSection = messages.length > 0 && (
+  const messagesSection = areaEnabled('messages') && messages.length > 0 && (
     <div>
       <SectionHeader title="League Messages" />
       {isDesktop ? (

@@ -1,6 +1,6 @@
 // leagueStats — all-time career stats computed from the leagueHistory
 // collection. Powers the League History sortable table and the Trophy Room.
-import { isActiveTeam, PLAYOFF_TEAMS } from '../data/staticData.js'
+import { isActiveTeam, teamByName, PLAYOFF_TEAMS } from '../data/staticData.js'
 
 /** Parse "11-3" or "10-3-1" record strings → {w, l, t}. Null-safe. */
 export function parseRecord(record) {
@@ -138,4 +138,109 @@ export function computeRecords(rows, history) {
   if (bestStreak.len >= 2) records.push({ label: 'Longest Title Streak', team: bestStreak.team, value: `${bestStreak.len} straight` })
 
   return records
+}
+
+/** Owner's full name for display, falling back to the master team name. */
+export const ownerName = (team) => teamByName[team]?.owner ?? team
+
+/**
+ * Per-season finish map with champion/runner-up fallback — a season whose
+ * standings are missing (like the 2008 shell) still yields place 1 for its
+ * champion and place 2 for its runner-up.
+ */
+function placeMaps(history) {
+  const maps = new Map() // season → Map(team → place)
+  for (const s of history) {
+    const m = new Map()
+    for (const row of s.standings ?? []) m.set(row.teamName, row.place)
+    if (s.champion && !m.has(s.champion)) m.set(s.champion, 1)
+    if (s.runnerUp && !m.has(s.runnerUp)) m.set(s.runnerUp, 2)
+    maps.set(s.season, m)
+  }
+  return maps
+}
+
+/**
+ * Season extremes for the Trophy Room:
+ *   bestSeason / worstSeason — highest/lowest single-season win pct
+ *   turnaround / collapse    — biggest year-over-year place jump/fall
+ * Each entry carries team, season(s), and display detail.
+ */
+export function computeSuperlatives(history) {
+  let best = null
+  let worst = null
+  for (const s of history) {
+    for (const row of s.standings ?? []) {
+      const { w, l, t } = parseRecord(row.record)
+      const games = w + l + t
+      if (games === 0) continue
+      const pct = (w + t * 0.5) / games
+      const entry = { team: row.teamName, season: s.season, record: row.record, pct, place: row.place, champion: s.champion === row.teamName }
+      if (!best || pct > best.pct) best = entry
+      if (!worst || pct < worst.pct) worst = entry
+    }
+  }
+
+  const maps = placeMaps(history)
+  const seasons = [...maps.keys()].sort((a, b) => a - b)
+  let turnaround = null // biggest improvement (prevPlace - curPlace max)
+  let collapse = null // biggest fall (curPlace - prevPlace max)
+  for (let i = 1; i < seasons.length; i++) {
+    if (seasons[i] !== seasons[i - 1] + 1) continue // gap years can't compare
+    const prev = maps.get(seasons[i - 1])
+    const cur = maps.get(seasons[i])
+    for (const [team, place] of cur) {
+      const prevPlace = prev.get(team)
+      if (prevPlace == null) continue
+      const delta = prevPlace - place
+      const entry = { team, from: prevPlace, to: place, seasonFrom: seasons[i - 1], seasonTo: seasons[i] }
+      if (delta > 0 && (!turnaround || delta > turnaround.from - turnaround.to)) turnaround = entry
+      if (delta < 0 && (!collapse || -delta > collapse.to - collapse.from)) collapse = entry
+    }
+  }
+
+  return { bestSeason: best, worstSeason: worst, turnaround, collapse }
+}
+
+/**
+ * Championship & top-3 drought table for the current 12 franchises.
+ * Droughts count from the latest completed season in history; a team that
+ * never got there shows 'never' with its seasons-played count.
+ */
+export function computeDroughts(history) {
+  const latest = Math.max(...history.map((s) => s.season))
+  const maps = placeMaps(history)
+
+  const rows = []
+  for (const teamMeta of Object.values(teamByName)) {
+    const team = teamMeta.name
+    let lastTitle = null
+    let lastTop3 = null
+    let seasonsPlayed = 0
+    for (const s of history) {
+      const place = maps.get(s.season)?.get(team)
+      if (place == null) continue
+      seasonsPlayed += 1
+      if (place === 1 && (lastTitle === null || s.season > lastTitle)) lastTitle = s.season
+      if (place <= 3 && (lastTop3 === null || s.season > lastTop3)) lastTop3 = s.season
+    }
+    if (seasonsPlayed === 0) continue
+    rows.push({
+      team,
+      owner: ownerName(team),
+      seasonsPlayed,
+      lastTitle,
+      titleDrought: lastTitle === null ? null : latest - lastTitle,
+      lastTop3,
+      top3Drought: lastTop3 === null ? null : latest - lastTop3,
+    })
+  }
+
+  // Titled teams by freshest belt first, never-titled after by tenure
+  return rows.sort((a, b) => {
+    if (a.lastTitle === null && b.lastTitle === null) return b.seasonsPlayed - a.seasonsPlayed
+    if (a.lastTitle === null) return 1
+    if (b.lastTitle === null) return -1
+    return b.lastTitle - a.lastTitle
+  })
 }

@@ -56,6 +56,8 @@ export function AppProvider({ children }) {
   const [transactions, setTransactions] = useState([])
   const [parlayConfig, setParlayConfig] = useState(null)
   const [parlayEntries, setParlayEntries] = useState([])
+  // Commissioner kill-switches: area keys hidden from the whole league
+  const [disabledAreas, setDisabledAreas] = useState(new Set())
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -131,6 +133,7 @@ export function AppProvider({ children }) {
           setActiveSeason(season)
           setIsOffSeason(config.isOffSeason ?? false)
           setRulesVotingOpen(config.rulesVotingOpen ?? false)
+          setDisabledAreas(new Set(config.disabledAreas ?? []))
           setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
           const team = config.userTeamMap?.[uid]
           if (team) {
@@ -232,6 +235,24 @@ export function AppProvider({ children }) {
       await fs.submitParlayEntry(entry)
     },
     [userTeam, parlayConfig, user],
+  )
+
+  /** Is an app area visible to the league? Admin always sees everything. */
+  const areaEnabled = useCallback(
+    (key) => isAdmin || !disabledAreas.has(key),
+    [disabledAreas, isAdmin],
+  )
+
+  /** Commissioner: flip an area on/off league-wide (optimistic). */
+  const toggleArea = useCallback(
+    async (key) => {
+      const next = new Set(disabledAreas)
+      next.has(key) ? next.delete(key) : next.add(key)
+      setDisabledAreas(next)
+      if (DEV_PREVIEW) return
+      await fs.setDisabledAreas([...next]).catch(() => setDisabledAreas(disabledAreas))
+    },
+    [disabledAreas],
   )
 
   // ── Computed (AppState computed properties) ─────────────────
@@ -500,6 +521,8 @@ export function AppProvider({ children }) {
     transactions,
     // low points parlay
     parlayConfig, parlayEntries, submitParlayPick,
+    // area kill-switches
+    disabledAreas, areaEnabled, toggleArea,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,

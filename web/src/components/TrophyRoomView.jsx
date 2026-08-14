@@ -5,13 +5,62 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
-import { computeAllTimeStats, computeRecords, defaultSort } from '../services/leagueStats'
+import {
+  computeAllTimeStats, computeRecords, defaultSort,
+  computeSuperlatives, computeDroughts, ownerName,
+} from '../services/leagueStats'
+
+const ordinal = (n) =>
+  `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+
+function ExtremeCard({ label, color, headline, detail }) {
+  return (
+    <div className="iff-card" style={{ padding: '14px 16px' }}>
+      <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 1 }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 17, fontWeight: 900, color, marginTop: 5, lineHeight: 1.25 }}>{headline}</div>
+      <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4, lineHeight: 1.45 }}>{detail}</div>
+    </div>
+  )
+}
+
+/** Blue chip for short droughts, red for long (6+), gray 'never (N yrs)'. */
+function DroughtBadge({ drought, seasons, activeLabel }) {
+  if (drought == null) {
+    return (
+      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--iff-subtext)', background: 'var(--iff-elevated)', padding: '3px 9px', borderRadius: 12, whiteSpace: 'nowrap' }}>
+        never{seasons ? ` (${seasons} yrs)` : ''}
+      </span>
+    )
+  }
+  if (drought === 0 && activeLabel) {
+    return (
+      <span style={{ fontSize: 10.5, fontWeight: 800, color: '#60A5FA', background: 'rgba(96,165,250,0.15)', padding: '3px 10px', borderRadius: 12, whiteSpace: 'nowrap' }}>
+        {activeLabel}
+      </span>
+    )
+  }
+  const long = drought >= 6
+  return (
+    <span
+      className="tnum"
+      style={{
+        fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 12,
+        color: long ? '#F87171' : '#60A5FA',
+        background: long ? 'rgba(248,113,113,0.15)' : 'rgba(96,165,250,0.15)',
+      }}
+    >
+      {drought}
+    </span>
+  )
+}
 
 export default function TrophyRoomView({ onClose }) {
   const { leagueHistory } = useApp()
   const [showFormer, setShowFormer] = useState(false)
 
-  const { rows, records, banners, formerCount } = useMemo(() => {
+  const { rows, records, banners, formerCount, superlatives, droughts } = useMemo(() => {
     const all = defaultSort(computeAllTimeStats(leagueHistory))
     const recs = computeRecords(all, leagueHistory)
     const bans = [...leagueHistory]
@@ -23,6 +72,8 @@ export default function TrophyRoomView({ onClose }) {
       records: recs,
       banners: bans, // banners are history — every championship hangs forever
       formerCount: all.filter((r) => !r.active).length,
+      superlatives: leagueHistory.length ? computeSuperlatives(leagueHistory) : null,
+      droughts: leagueHistory.length ? computeDroughts(leagueHistory) : [],
     }
   }, [leagueHistory, showFormer])
 
@@ -96,6 +147,87 @@ export default function TrophyRoomView({ onClose }) {
                       <div className="troom-plaque-value">{r.value}</div>
                     </div>
                   ))}
+                </div>
+              </section>
+            )}
+
+            {/* ── Season extremes ── */}
+            {superlatives?.bestSeason && (
+              <section>
+                <div className="troom-section-label">SEASON EXTREMES</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                  <ExtremeCard
+                    label="Best Single Season"
+                    color="#4ADE80"
+                    headline={`${ownerName(superlatives.bestSeason.team)} — ${superlatives.bestSeason.record} (${(superlatives.bestSeason.pct * 100).toFixed(1)}%)`}
+                    detail={`${superlatives.bestSeason.season} · ${superlatives.bestSeason.champion ? 'won the belt' : `finished #${superlatives.bestSeason.place}${superlatives.bestSeason.place === 2 ? ', no ring to show for it' : ''}`}`}
+                  />
+                  {superlatives.worstSeason && (
+                    <ExtremeCard
+                      label="Worst Single Season"
+                      color="#F87171"
+                      headline={`${ownerName(superlatives.worstSeason.team)} — ${superlatives.worstSeason.record} (${(superlatives.worstSeason.pct * 100).toFixed(1)}%)`}
+                      detail={`${superlatives.worstSeason.season} · finished #${superlatives.worstSeason.place}`}
+                    />
+                  )}
+                  {superlatives.turnaround && (
+                    <ExtremeCard
+                      label="Biggest 1-Year Turnaround"
+                      color="#4ADE80"
+                      headline={`${ownerName(superlatives.turnaround.team)} — ${ordinal(superlatives.turnaround.from)} → ${ordinal(superlatives.turnaround.to)}`}
+                      detail={`${superlatives.turnaround.seasonFrom} to ${superlatives.turnaround.seasonTo}`}
+                    />
+                  )}
+                  {superlatives.collapse && (
+                    <ExtremeCard
+                      label="Biggest 1-Year Collapse"
+                      color="#F87171"
+                      headline={`${ownerName(superlatives.collapse.team)} — ${ordinal(superlatives.collapse.from)} → ${ordinal(superlatives.collapse.to)}`}
+                      detail={`${superlatives.collapse.seasonFrom} to ${superlatives.collapse.seasonTo}`}
+                    />
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* ── Drought table ── */}
+            {droughts.length > 0 && (
+              <section>
+                <div className="troom-section-label">CHAMPIONSHIP &amp; TOP-3 DROUGHT</div>
+                <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 480 }}>
+                      <thead>
+                        <tr style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left' }}>
+                          <th style={{ padding: '10px 14px' }}>Owner</th>
+                          <th style={{ padding: '10px 8px' }}>Last Title</th>
+                          <th style={{ padding: '10px 8px' }}>Title Drought</th>
+                          <th style={{ padding: '10px 8px' }}>Last Top-3</th>
+                          <th style={{ padding: '10px 14px 10px 8px' }}>Top-3 Drought</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {droughts.map((d, i) => (
+                          <tr key={d.team} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                            <td style={{ padding: '9px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                <TeamAvatar name={d.team} size={20} />
+                                {d.owner}
+                              </span>
+                            </td>
+                            <td className="tnum" style={{ padding: '9px 8px', color: 'var(--iff-subtext)' }}>{d.lastTitle ?? '—'}</td>
+                            <td style={{ padding: '9px 8px' }}>
+                              <DroughtBadge drought={d.titleDrought} seasons={d.seasonsPlayed} activeLabel="active champ" />
+                            </td>
+                            <td className="tnum" style={{ padding: '9px 8px', color: 'var(--iff-subtext)' }}>{d.lastTop3 ?? '—'}</td>
+                            <td style={{ padding: '9px 14px 9px 8px' }}>
+                              <DroughtBadge drought={d.top3Drought} seasons={d.seasonsPlayed} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </section>
             )}

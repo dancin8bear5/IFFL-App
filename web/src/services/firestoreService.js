@@ -79,6 +79,11 @@ export function saveTeamEmailMap(map) {
 
 // ── Players ───────────────────────────────────────────────────
 
+/** Commissioner kill-switches: area keys hidden from the whole league. */
+export function setDisabledAreas(areaKeys) {
+  return updateDoc(doc(db, COL.config, 'league'), { disabledAreas: areaKeys })
+}
+
 export function listenToPlayers(callback) {
   const q = query(collection(db, COL.players), where('isActive', '==', true))
   return onSnapshot(q, (snap) => callback(snapToDocs(snap)))

@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseRecord, computeAllTimeStats, computeRecords, defaultSort } from './leagueStats.js'
+import {
+  parseRecord, computeAllTimeStats, computeRecords, defaultSort,
+  computeSuperlatives, computeDroughts,
+} from './leagueStats.js'
 
 const HISTORY = [
   {
@@ -61,6 +64,42 @@ test('playoff cutoff is top 8 (2025 League Document)', () => {
 test('defaultSort puts most belts first', () => {
   const sorted = defaultSort(computeAllTimeStats(HISTORY))
   assert.equal(sorted[0].team, 'Bill')
+})
+
+test('superlatives: best/worst season and turnaround/collapse', () => {
+  const sup = computeSuperlatives(HISTORY)
+  assert.equal(sup.bestSeason.team, 'Bill') // 12-2 in 2024
+  assert.equal(sup.bestSeason.season, 2024)
+  assert.equal(sup.worstSeason.team, 'Ryan') // 6-8 in 2024
+  // Jared 3rd → 2nd and Ryan 7th → 6th tie at +1; first found wins
+  assert.equal(sup.turnaround.from - sup.turnaround.to, 1)
+  assert.ok(['Jared', 'Ryan'].includes(sup.turnaround.team))
+  assert.equal(sup.collapse.team, 'Abad')
+  assert.deepEqual([sup.collapse.from, sup.collapse.to], [2, 4])
+})
+
+test('droughts count from the latest season; never-titled sorts last', () => {
+  const rows = computeDroughts(HISTORY)
+  const bill = rows.find((r) => r.team === 'Bill')
+  assert.equal(bill.lastTitle, 2025)
+  assert.equal(bill.titleDrought, 0) // active champ
+  const ryan = rows.find((r) => r.team === 'Ryan')
+  assert.equal(ryan.lastTitle, null)
+  assert.equal(ryan.titleDrought, null)
+  const jared = rows.find((r) => r.team === 'Jared')
+  assert.equal(jared.lastTop3, 2025) // runner-up counts as top 3
+  assert.equal(jared.top3Drought, 0)
+  // ordering: titled teams first (fresh belts first), never-titled after
+  assert.equal(rows[0].team, 'Bill')
+  assert.ok(rows.findIndex((r) => r.team === 'Ryan') > rows.findIndex((r) => r.team === 'Bill'))
+})
+
+test('champion-only shell season still yields a place-1 finish', () => {
+  const withShell = [...HISTORY, { season: 2008, champion: 'M. Zurek', runnerUp: null, standings: [] }]
+  const rows = computeDroughts(withShell)
+  const mz = rows.find((r) => r.team === 'M. Zurek')
+  assert.equal(mz.lastTitle, 2008)
+  assert.equal(mz.titleDrought, 2025 - 2008)
 })
 
 test('records wall includes title streak for back-to-back champs', () => {

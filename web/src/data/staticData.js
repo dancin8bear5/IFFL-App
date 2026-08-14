@@ -122,6 +122,21 @@ export const SCORING = {
     { label: '0 points allowed', value: 10 },
     { label: '1–6 points allowed', value: 7 },
     { label: '7–13 points allowed', value: 4 },
+    { label: '14–17 points allowed', value: 1 },
+    { label: '18–21 points allowed', value: 0 }, // not listed in ESPN settings → scores 0
+    { label: '22–27 points allowed', value: -1 },
+    { label: '28–34 points allowed', value: -4 },
+    { label: '35–45 points allowed', value: -7 },
+    { label: '46+ points allowed', value: -10 },
+  ],
+  Miscellaneous: [
+    { label: 'Kickoff return yard', value: 0.04 },
+    { label: 'Punt return yard', value: 0.04 },
+    { label: 'Kickoff return TD', value: 6 },
+    { label: 'Punt return TD', value: 6 },
+    { label: 'Fumble recovered for TD', value: 6 },
+    { label: 'Fumble lost', value: -2 },
+    { label: 'Fumble return TD', value: 6 },
   ],
 }
 

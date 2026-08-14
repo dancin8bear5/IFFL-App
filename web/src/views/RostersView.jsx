@@ -7,7 +7,6 @@ import { useIsDesktop, useMediaQuery } from '../hooks/useBreakpoint'
 import { fantasyTeams } from '../data/staticData'
 import { Segmented, PosBadge, LoadingList, TeamAvatar, ChipScroller } from '../components/shared'
 import AssetDetailView, { AssetDetailBody } from '../components/AssetDetailView'
-import KeeperBuilder from '../components/KeeperBuilder'
 import SettingsView from './SettingsView'
 
 const POSITIONS = ['All', 'QB', 'RB', 'WR', 'TE', 'Picks']
@@ -26,7 +25,6 @@ function RostersDesktop({ setTab }) {
   } = useApp()
 
   const [allMode, setAllMode] = useState(false)
-  const [builderMode, setBuilderMode] = useState(false)
   const [search, setSearch] = useState('')
   const [posFilter, setPosFilter] = useState('All')
   const [sort, setSort] = useState({ key: 'p0', desc: true }) // p0/p1/p2 = season prices
@@ -68,35 +66,16 @@ function RostersDesktop({ setTab }) {
 
   function handleProposeTrade(asset) {
     proposeTradeFor(asset)
-    setTab(2)
+    setTab(3)
   }
 
   const arrow = (key) => (sort.key === key ? (sort.desc ? ' ↓' : ' ↑') : '')
-
-  if (builderMode) {
-    return (
-      <div>
-        <div className="dash-hero-desktop">
-          <h1>Team Builder</h1>
-          <button className="btn-outline" onClick={() => setBuilderMode(false)} style={{ fontSize: 12, padding: '7px 16px' }}>
-            ← Back to Rosters
-          </button>
-        </div>
-        <KeeperBuilder />
-      </div>
-    )
-  }
 
   return (
     <div>
       <div className="dash-hero-desktop">
         <h1>Rosters</h1>
-        <span style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <button className="btn-outline" onClick={() => setBuilderMode(true)} style={{ fontSize: 12, padding: '7px 16px' }}>
-            🧪 Team Builder
-          </button>
-          <span className="season-chip">{rows.length} assets shown</span>
-        </span>
+        <span className="season-chip">{rows.length} assets shown</span>
       </div>
 
       <div className="roster-desktop">
@@ -290,7 +269,7 @@ function RostersMobile({ setTab }) {
   function handleProposeTrade(asset) {
     setDetailAsset(null)
     proposeTradeFor(asset)
-    setTab(2)
+    setTab(3)
   }
 
   const list = mode === 'By Team' ? teamAssets : filteredAssets
@@ -305,11 +284,9 @@ function RostersMobile({ setTab }) {
         </div>
       </div>
 
-      <Segmented options={['By Team', 'All Assets', 'Builder']} value={mode} onChange={setMode} />
+      <Segmented options={['By Team', 'All Assets']} value={mode} onChange={setMode} />
 
-      {mode === 'Builder' ? (
-        <KeeperBuilder />
-      ) : mode === 'By Team' ? (
+      {mode === 'By Team' ? (
         <div style={{ padding: '0 14px 10px', borderBottom: '1px solid var(--iff-divider)' }}>
           <ChipScroller>
             <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
@@ -372,7 +349,7 @@ function RostersMobile({ setTab }) {
         </div>
       )}
 
-      {mode === 'Builder' ? null : !isInitialLoadComplete ? (
+      {!isInitialLoadComplete ? (
         <LoadingList />
       ) : list.length === 0 ? (
         <div className="empty-state">

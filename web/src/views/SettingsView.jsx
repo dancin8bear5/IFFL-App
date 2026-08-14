@@ -13,10 +13,11 @@ const APP_VERSION = 'Insanity League Web 1.0'
 const TAB_NAMES = ['Dashboard', 'Rosters', 'Market', 'League']
 
 export default function SettingsView({ onClose }) {
-  const { user, userTeam, setUserTeam, setSelectedTeam, userSettings, saveUserSettings } = useApp()
+  const { user, userTeam, setUserTeam, setSelectedTeam, userSettings, saveUserSettings, isAdmin } = useApp()
   const [settings, setSettings] = useState(userSettings)
   const [team, setTeam] = useState(userTeam)
   const [saving, setSaving] = useState(false)
+  const [showAdmin, setShowAdmin] = useState(false)
 
   const set = (patch) => setSettings((s) => ({ ...s, ...patch }))
 
@@ -166,6 +167,21 @@ export default function SettingsView({ onClose }) {
           <Row label="🔔 Push notifications" value="coming soon" small />
         </Section>
 
+        {/* Commissioner tools — only ever visible to the commissioner */}
+        {isAdmin && (
+          <Section title="Commissioner">
+            <button
+              onClick={() => setShowAdmin(true)}
+              style={{ ...rowStyle, width: '100%', textAlign: 'left', borderBottom: 'none' }}
+            >
+              <span>🔧 Admin Panel</span>
+              <span style={{ color: 'var(--iff-subtext)', fontSize: 13 }}>
+                database · players · trades · teams · GroupMe ›
+              </span>
+            </button>
+          </Section>
+        )}
+
         <button className="btn-primary" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -183,6 +199,21 @@ export default function SettingsView({ onClose }) {
           {APP_VERSION}
         </div>
       </div>
+
+      {showAdmin && <AdminOverlay onClose={() => setShowAdmin(false)} />}
+    </DetailOverlay>
+  )
+}
+
+/** Admin panel opened from Settings — commissioner only. */
+function AdminOverlay({ onClose }) {
+  const [AdminView, setAdminView] = useState(null)
+  useEffect(() => {
+    import('./AdminView').then((m) => setAdminView(() => m.default))
+  }, [])
+  return (
+    <DetailOverlay title="Admin" onBack={onClose} desktop="wide">
+      {AdminView ? <AdminView /> : <div className="empty-state"><div>Loading admin…</div></div>}
     </DetailOverlay>
   )
 }

@@ -1,43 +1,46 @@
-// TabLayout — mirrors IFFLContentView's TabView.
-// Mobile (<900px): bottom tab bar, single-column frame (unchanged).
-// Desktop (≥900px): left sidebar + wide content area.
+// TabLayout — app shell.
+// Mobile (<900px): bottom tab bar. Desktop (≥900px): left sidebar.
+// Six tabs; Admin lives inside Settings (commissioner only), and the old
+// League tab was absorbed — standings sit on the Dashboard, history opens
+// from the Dashboard tiles, and Rules is its own tab.
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import Sidebar from '../components/Sidebar'
 import DashboardView from './DashboardView'
 import RostersView from './RostersView'
+import PlayersView from './PlayersView'
 import MarketView from './MarketView'
-import LeagueView from './LeagueView'
-import AdminView from './AdminView'
+import BuilderView from './BuilderView'
+import RulesTab from './RulesTab'
 
 const TABS = [
   { label: 'Dashboard', glyph: '▦' },
   { label: 'Rosters',   glyph: '👥' },
+  { label: 'Players',   glyph: '🔎' },
   { label: 'Market',    glyph: '⇄' },
-  { label: 'League',    glyph: '🏟' },
+  { label: 'Builder',   glyph: '🧪' },
+  { label: 'Rules',     glyph: '📜' },
 ]
 
 export default function TabLayout({ tab, setTab }) {
-  const { isAdmin, incomingTradeCount } = useApp()
+  const { incomingTradeCount } = useApp()
   const isDesktop = useIsDesktop()
-  const tabs = isAdmin ? [...TABS, { label: 'Admin', glyph: '🔧' }] : TABS
-  // Badge = trade offers awaiting YOUR response (ESPN-style action signal)
-  const matchCount = incomingTradeCount
 
   const screens = (
     <>
       {tab === 0 && <DashboardView setTab={setTab} />}
       {tab === 1 && <RostersView setTab={setTab} />}
-      {tab === 2 && <MarketView setTab={setTab} />}
-      {tab === 3 && <LeagueView />}
-      {tab === 4 && isAdmin && <AdminView />}
+      {tab === 2 && <PlayersView setTab={setTab} />}
+      {tab === 3 && <MarketView setTab={setTab} />}
+      {tab === 4 && <BuilderView />}
+      {tab === 5 && <RulesTab />}
     </>
   )
 
   if (isDesktop) {
     return (
       <div className="desktop-shell">
-        <Sidebar tabs={tabs} tab={tab} setTab={setTab} matchCount={matchCount} />
+        <Sidebar tabs={TABS} tab={tab} setTab={setTab} matchCount={incomingTradeCount} />
         <main className="desktop-main" key={tab}>
           <div className="desktop-content">{screens}</div>
         </main>
@@ -51,13 +54,13 @@ export default function TabLayout({ tab, setTab }) {
         {screens}
       </div>
 
-      <nav className="tab-bar">
-        {tabs.map((t, i) => (
+      <nav className="tab-bar tab-bar-6">
+        {TABS.map((t, i) => (
           <button key={t.label} className={i === tab ? 'active' : ''} onClick={() => setTab(i)}>
             <span className="tab-glyph">{t.glyph}</span>
             {t.label}
-            {t.label === 'Market' && matchCount > 0 && (
-              <span className="tab-badge">{matchCount}</span>
+            {t.label === 'Market' && incomingTradeCount > 0 && (
+              <span className="tab-badge">{incomingTradeCount}</span>
             )}
           </button>
         ))}

@@ -65,7 +65,7 @@ export default function DashboardView({ setTab }) {
   function handleProposeTrade(asset) {
     setDetailAsset(null)
     proposeTradeFor(asset)
-    setTab(2)
+    setTab(3)
   }
 
   // ── Sections (identical building blocks on both layouts) ──────
@@ -119,7 +119,7 @@ export default function DashboardView({ setTab }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
         <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
-        <button className="btn-outline" onClick={() => setTab(2)}>⇄ Market</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ Market</button>
       </div>
     </div>
   )
@@ -182,7 +182,7 @@ export default function DashboardView({ setTab }) {
   )
 
   const matchBanner = myMatchCount > 0 && (
-    <button className="iff-card" onClick={() => setTab(2)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
+    <button className="iff-card" onClick={() => setTab(3)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
       <span style={{ width: 40, height: 40, background: 'rgba(230,57,70,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>⇄</span>
       <span style={{ flex: 1 }}>
         <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
@@ -244,7 +244,7 @@ export default function DashboardView({ setTab }) {
 
   const tradesSection = recentTrades.length > 0 && (
     <div>
-      <SectionHeader title="Recent Trades" actionLabel="See All" onAction={() => setTab(2)} />
+      <SectionHeader title="Recent Trades" actionLabel="See All" onAction={() => setTab(3)} />
       <div className="iff-card" style={{ marginTop: 10 }}>
         {recentTrades.map((t, i) => (
           <div
@@ -266,6 +266,42 @@ export default function DashboardView({ setTab }) {
             <div style={{ fontSize: 10, color: 'var(--iff-subtext)', whiteSpace: 'nowrap' }}>
               {formatTradeDate(t.date)}
             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // League standings — absorbed from the retired League tab
+  const latestSeason = leagueHistory[0]
+  const standingsSection = latestSeason?.standings?.length > 0 && (
+    <div>
+      <SectionHeader title={`${latestSeason.season} Standings`} actionLabel="Full history" onAction={() => setHistoryView('table')} />
+      <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '9px 14px', fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--iff-divider)' }}>
+          <span /><span>Team</span><span style={{ textAlign: 'center' }}>W-L</span><span style={{ textAlign: 'right' }}>PF</span>
+        </div>
+        {[...latestSeason.standings].sort((a, b) => a.place - b.place).map((s) => (
+          <div
+            key={s.teamName}
+            style={{
+              display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '7px 14px',
+              fontSize: 13, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)',
+              background: s.teamName === userTeam ? 'rgba(230,57,70,0.08)' : 'transparent',
+            }}
+          >
+            <span className="tnum" style={{ fontWeight: 700, color: s.place === 1 ? 'var(--iff-gold)' : s.place === 2 ? '#B8B8C8' : s.place === 3 ? '#CD7F32' : 'var(--iff-subtext)' }}>
+              {s.place}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+              <TeamAvatar name={s.teamName} size={20} />
+              <span style={{ fontWeight: s.teamName === userTeam ? 700 : 400 }}>{s.teamName}</span>
+              <BeltRow count={teamByName[s.teamName]?.beltWins ?? 0} size={8} />
+            </span>
+            <span className="tnum" style={{ textAlign: 'center', color: 'var(--iff-subtext)', fontSize: 12 }}>{s.record ?? '—'}</span>
+            <span className="tnum" style={{ textAlign: 'right', fontSize: 12, color: s.place <= 6 ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
+              {s.pointsFor != null ? s.pointsFor.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'}
+            </span>
           </div>
         ))}
       </div>
@@ -333,6 +369,7 @@ export default function DashboardView({ setTab }) {
               {teamCard}
               {calendar}
               {teamsGrid}
+              {standingsSection}
               {tradesSection}
             </div>
             <div className="dash-rail">
@@ -379,6 +416,7 @@ export default function DashboardView({ setTab }) {
           {matchBanner}
           {calendar}
           {teamsGrid}
+          {standingsSection}
           {tradesSection}
           {messagesSection}
         </div>

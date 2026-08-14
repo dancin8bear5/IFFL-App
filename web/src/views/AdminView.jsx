@@ -15,12 +15,6 @@ export default function AdminView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <div className="nav-bar">
-        <div className="nav-side" />
-        <div className="nav-title">Admin</div>
-        <div className="nav-side right" />
-      </div>
-
       <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
         <ChipScroller>
           <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>

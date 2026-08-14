@@ -2,13 +2,13 @@
 // Sections: Database, Players, Picks, Trades, Messages, Teams, Access.
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { fantasyTeams } from '../data/staticData'
+import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
 import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
 import * as fs from '../services/firestoreService'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Areas', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -38,6 +38,7 @@ export default function AdminView() {
       <div style={{ padding: 14 }}>
         {section === 'Database' && <DatabaseSection />}
         {section === 'Areas' && <AreasSection />}
+        {section === 'Rules' && <RulesAdminSection />}
         {section === 'Records' && <RecordsSection />}
         {section === 'Players' && <PlayersSection />}
         {section === 'Drops' && <DropsSection />}
@@ -328,6 +329,222 @@ function AreasSection() {
           })}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Rules — commissioner manual entry ─────────────────────────
+// Full control the member proposal form doesn't give: any status
+// (standing rule, passed, failed, proposed), decided season, proposer.
+
+const RULE_STATUSES = [
+  { key: 'passed',   label: 'Passed',   note: 'shows under New Rules for its season' },
+  { key: 'proposed', label: 'Proposed', note: 'goes on the ballot like a member proposal' },
+  { key: 'failed',   label: 'Failed',   note: 'archived under Past Rules' },
+]
+
+const EMPTY_RULE = {
+  title: '', category: 'Operations', summary: '', proposedBy: 'Commissioner',
+  status: 'passed', decidedSeason: '', changes: [{ rule: '', currentValue: '', newValue: '' }],
+}
+
+function RulesAdminSection() {
+  const { rules, activeSeason } = useApp()
+  const [form, setForm] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const setChange = (i, patch) =>
+    setForm((f) => ({ ...f, changes: f.changes.map((row, idx) => (idx === i ? { ...row, ...patch } : row)) }))
+
+  const openNew = () => setForm({ ...EMPTY_RULE, decidedSeason: String(activeSeason) })
+  const openEdit = (r) =>
+    setForm({
+      ...EMPTY_RULE,
+      ...r,
+      decidedSeason: r.decidedSeason ? String(r.decidedSeason) : String(activeSeason),
+      changes: r.changes?.length ? r.changes : [{ rule: '', currentValue: '', newValue: '' }],
+    })
+
+  async function save() {
+    if (!form.title.trim()) return
+    setBusy(true)
+    try {
+      const { id, ...rest } = form
+      const payload = {
+        ...rest,
+        title: form.title.trim(),
+        summary: form.summary.trim(),
+        proposedBy: form.proposedBy.trim() || 'Commissioner',
+        changes: form.changes.filter((c) => c.rule.trim() || c.newValue.trim()),
+        decidedSeason: form.status === 'proposed' ? null : Number(form.decidedSeason) || activeSeason,
+      }
+      await fs.saveRule(id ? { id, ...payload } : payload)
+      setForm(null) // the rules listener refreshes the list
+    } catch (e) {
+      alert(`Failed: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(rule) {
+    if (!confirm(`Delete rule "${rule.title}"? This removes it for the whole league.`)) return
+    await fs.deleteRule(rule.id).catch((e) => alert(`Failed: ${e.message}`))
+  }
+
+  const groups = [
+    { label: `New Rules — ${activeSeason}`, items: rules.filter((r) => r.status === 'passed' && r.decidedSeason === activeSeason) },
+    { label: 'On the Ballot', items: rules.filter((r) => r.status === 'proposed') },
+    { label: 'Past / Other', items: rules.filter((r) => !(r.status === 'passed' && r.decidedSeason === activeSeason) && r.status !== 'proposed') },
+  ]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Enter rules directly — set them straight to <b>Passed</b> for a season (standing rules,
+        decisions made outside the app), put them on the ballot, or fix anything a member submitted.
+      </div>
+
+      <button className="btn-primary" onClick={openNew} style={{ alignSelf: 'flex-start', padding: '10px 20px', fontSize: 14 }}>
+        ＋ Add Rule
+      </button>
+
+      {groups.map((g) => (
+        <div key={g.label} className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 14px', fontSize: 13, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+            {g.label} ({g.items.length})
+          </div>
+          {g.items.length === 0 && <div style={{ padding: 14, fontSize: 12, color: 'var(--iff-subtext)' }}>None.</div>}
+          {g.items.map((r, i) => (
+            <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {r.title}
+                </span>
+                <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+                  {r.category ?? 'Operations'} · {r.status}{r.decidedSeason ? ` ${r.decidedSeason}` : ''} · {r.proposedBy}
+                </span>
+              </span>
+              <button className="btn-outline" onClick={() => openEdit(r)} style={{ fontSize: 11, padding: '5px 12px' }}>
+                Edit
+              </button>
+              <button onClick={() => remove(r)} style={{ fontSize: 12, color: '#EF4444', padding: '5px 8px' }} aria-label={`Delete ${r.title}`}>
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      {form && (
+        <DetailOverlay title={form.id ? 'Edit Rule' : 'Add Rule'} onBack={() => setForm(null)}>
+          <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Field label="Title">
+              <input type="text" placeholder="e.g. 0.5 PPR at every position" value={form.title} onChange={(e) => set({ title: e.target.value })} />
+            </Field>
+
+            <Field label="Category">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {RULE_CATEGORIES.map((c) => {
+                  const active = form.category === c.key
+                  return (
+                    <button
+                      key={c.key}
+                      onClick={() => set({ category: c.key })}
+                      style={{
+                        padding: '7px 14px', borderRadius: 18, fontSize: 12, fontWeight: 700,
+                        background: active ? c.color : 'var(--iff-elevated)',
+                        color: active ? '#0A0D1A' : 'var(--iff-subtext)',
+                      }}
+                    >
+                      {c.glyph} {c.key}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            <Field label="Status">
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {RULE_STATUSES.map((s) => {
+                  const active = form.status === s.key
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => set({ status: s.key })}
+                      style={{
+                        padding: '7px 14px', borderRadius: 18, fontSize: 12, fontWeight: 700,
+                        background: active ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+                        color: active ? '#fff' : 'var(--iff-subtext)',
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  )
+                })}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--iff-subtext)', marginTop: 5 }}>
+                {RULE_STATUSES.find((s) => s.key === form.status)?.note}
+              </div>
+            </Field>
+
+            {form.status !== 'proposed' && (
+              <Field label="Season decided">
+                <input
+                  type="number" className="tnum" value={form.decidedSeason}
+                  onChange={(e) => set({ decidedSeason: e.target.value })}
+                  style={{ maxWidth: 120 }}
+                />
+              </Field>
+            )}
+
+            <Field label="Summary">
+              <textarea
+                rows={3}
+                placeholder="What the rule is and why it exists."
+                value={form.summary}
+                onChange={(e) => set({ summary: e.target.value })}
+                style={{ resize: 'vertical' }}
+              />
+            </Field>
+
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 6 }}>Rule Changes (optional)</div>
+              <div className="iff-card" style={{ overflow: 'hidden' }}>
+                {form.changes.map((c, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) 1fr 1fr 26px', gap: 6, padding: '7px 10px', alignItems: 'center', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <input type="text" placeholder="Rule" value={c.rule} onChange={(e) => setChange(i, { rule: e.target.value })} style={{ fontSize: 12, padding: '7px 8px' }} />
+                    <input type="text" placeholder="Current" value={c.currentValue} onChange={(e) => setChange(i, { currentValue: e.target.value })} style={{ fontSize: 12, padding: '7px 8px', textAlign: 'center' }} />
+                    <input type="text" placeholder="New" value={c.newValue} onChange={(e) => setChange(i, { newValue: e.target.value })} style={{ fontSize: 12, padding: '7px 8px', textAlign: 'center' }} />
+                    <button
+                      onClick={() => set({ changes: form.changes.length === 1 ? form.changes : form.changes.filter((_, idx) => idx !== i) })}
+                      aria-label="Remove change row"
+                      style={{ color: 'var(--iff-subtext)', fontSize: 13, textAlign: 'center' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={() => set({ changes: [...form.changes, { rule: '', currentValue: '', newValue: '' }] })}
+                  style={{ width: '100%', padding: '9px 10px', fontSize: 12, fontWeight: 700, color: 'var(--iff-gold)', textAlign: 'left', borderTop: '1px solid var(--iff-divider)' }}
+                >
+                  ＋ Add another rule change
+                </button>
+              </div>
+            </div>
+
+            <Field label="Proposed / entered by">
+              <input type="text" value={form.proposedBy} onChange={(e) => set({ proposedBy: e.target.value })} style={{ maxWidth: 220 }} />
+            </Field>
+
+            <button className="btn-primary" onClick={save} disabled={busy || !form.title.trim()}>
+              {busy ? 'Saving…' : form.id ? 'Save Changes' : 'Add Rule'}
+            </button>
+          </div>
+        </DetailOverlay>
+      )}
     </div>
   )
 }

@@ -84,7 +84,10 @@ service cloud.firestore {
     // the commissioner has the portal open; status changes commissioner-only
     match /rules/{ruleId} {
       allow read: if isMember();
-      allow create: if isMember() && request.resource.data.status == 'proposed';
+      // Members propose; the commissioner can also enter rules directly
+      // with any status (manual entry / seeding passed rules)
+      allow create: if isCommissioner() ||
+        (isMember() && request.resource.data.status == 'proposed');
       allow update: if isCommissioner() || (
         isMember() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) &&

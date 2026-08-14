@@ -504,6 +504,25 @@ export function proposeRule(rule) {
   })
 }
 
+/**
+ * Commissioner manual entry — create or update a rule with full control
+ * (any status, decided season, proposer). proposedAt is always stamped on
+ * create: the rules listener orders by it, so a doc without it vanishes.
+ */
+export function saveRule(rule) {
+  const { id, ...data } = rule
+  if (id) return updateDoc(doc(db, 'rules', id), data).then(() => id)
+  return addDoc(collection(db, 'rules'), {
+    votes: {},
+    ...data,
+    proposedAt: Timestamp.now(),
+  }).then((r) => r.id)
+}
+
+export function deleteRule(ruleId) {
+  return deleteDoc(doc(db, 'rules', ruleId))
+}
+
 /** One vote per team; re-voting overwrites while the portal is open. */
 export function voteOnRule(ruleId, teamName, vote) {
   return updateDoc(doc(db, 'rules', ruleId), { [`votes.${teamName}`]: vote })

@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   showTradeValues: true,
   fmkPublic: true,
   retroMode: false,
+  uiTheme: 'default',
   accentColor: 'red',
   textSize: 'default',
   confetti: true,
@@ -81,7 +82,7 @@ export function AppProvider({ children }) {
     import('../services/appearance').then(({ applyAppearance }) =>
       applyAppearance(userSettings, userTeam),
     )
-  }, [userSettings.retroMode, userSettings.accentColor, userSettings.textSize, userTeam])
+  }, [userSettings.retroMode, userSettings.uiTheme, userSettings.accentColor, userSettings.textSize, userTeam])
 
   // Dev preview: load sample data once instead of Firestore
   useEffect(() => {

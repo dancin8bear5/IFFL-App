@@ -7,7 +7,7 @@ import { fantasyTeams, teamByName } from '../data/staticData'
 import { DetailOverlay } from '../components/shared'
 import { signOut } from '../services/authService'
 import * as fs from '../services/firestoreService'
-import { applyAppearance, resolveAccent, ACCENT_CHOICES, TEXT_SIZES, fireConfetti } from '../services/appearance'
+import { applyAppearance, resolveAccent, resolveTheme, ACCENT_CHOICES, TEXT_SIZES, UI_THEMES, fireConfetti } from '../services/appearance'
 
 const APP_VERSION = 'Insanity League Web 1.0'
 const TAB_NAMES = ['Dashboard', 'Rosters', 'Market', 'League']
@@ -24,7 +24,7 @@ export default function SettingsView({ onClose }) {
   // LIVE preview of appearance while editing; restore saved values on close
   useEffect(() => {
     applyAppearance(settings, team || userTeam)
-  }, [settings.retroMode, settings.accentColor, settings.textSize, team, userTeam])
+  }, [settings.retroMode, settings.uiTheme, settings.accentColor, settings.textSize, team, userTeam])
   useEffect(() => {
     return () => applyAppearance(userSettings, userTeam) // unmount → saved state
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,14 +81,36 @@ export default function SettingsView({ onClose }) {
         </Section>
 
         <Section title="Appearance — changes preview live">
-          <Toggle
-            label="📼 90s Mode"
-            on={settings.retroMode ?? false}
-            onChange={(v) => set({ retroMode: v })}
-          />
+          {/* Era themes — each decade reskins the whole app */}
+          <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
+            <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 10 }}>🕰️ Era</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+              {UI_THEMES.map((t) => {
+                const active = resolveTheme(settings) === t.key
+                return (
+                  <button
+                    key={t.key}
+                    // retroMode kept in sync so pre-era saved settings stay valid
+                    onClick={() => set({ uiTheme: t.key, retroMode: t.key === '90s' })}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
+                      padding: '9px 11px', borderRadius: 10, textAlign: 'left',
+                      background: active ? 'var(--iff-elevated)' : 'transparent',
+                      outline: active ? '2px solid var(--iff-accent)' : '1px solid var(--iff-divider)',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: active ? 'var(--iff-text)' : 'var(--iff-subtext)' }}>
+                      {t.glyph} {t.label}
+                    </span>
+                    <span style={{ fontSize: 9.5, color: 'var(--iff-subtext)', lineHeight: 1.35 }}>{t.blurb}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-          {/* Accent color (hidden in 90s mode — neon owns the palette) */}
-          {!settings.retroMode && (
+          {/* Accent color (era themes own their palettes — Modern only) */}
+          {resolveTheme(settings) === 'default' && (
             <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
               <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 10 }}>🎨 Accent Color</div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>

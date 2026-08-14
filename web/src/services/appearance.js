@@ -3,6 +3,23 @@
 // editing, restored on cancel).
 import { teamByName } from '../data/staticData'
 
+// Era themes — each reskins the whole app to a decade (or to Soldier Field).
+// '90s' keeps the original data-retro CSS; the rest use data-era blocks.
+export const UI_THEMES = [
+  { key: 'default', label: 'Modern',   glyph: '🏟️', blurb: 'The standard Insanity League look' },
+  { key: '50s',     label: '1950s',    glyph: '🍒', blurb: 'Chrome diner — cream, cherry red & teal' },
+  { key: '60s',     label: '1960s',    glyph: '☮️', blurb: 'Groovy — mustard, burnt orange & flower power' },
+  { key: '70s',     label: '1970s',    glyph: '🕺', blurb: 'Funk — harvest gold, avocado & shag stripes' },
+  { key: '80s',     label: '1980s',    glyph: '🕹️', blurb: 'Synthwave — neon on the grid' },
+  { key: '90s',     label: '1990s',    glyph: '📼', blurb: 'Saved by the Bell — full Memphis cheese' },
+  { key: '2000s',   label: '2000s',    glyph: '💿', blurb: 'Y2K — glossy aqua, silver & Frutiger air' },
+  { key: 'bears',   label: 'Da Bears', glyph: '🐻', blurb: 'BEAR DOWN. Navy & orange, Monsters of the Midway' },
+]
+
+/** Active theme key, honoring the old retroMode boolean from before eras existed. */
+export const resolveTheme = (settings) =>
+  settings.uiTheme ?? (settings.retroMode ? '90s' : 'default')
+
 export const ACCENT_CHOICES = [
   { key: 'red',    label: 'Classic Red',  color: '#E63946' },
   { key: 'team',   label: 'My Team',      color: null }, // resolved from team
@@ -25,11 +42,16 @@ export function resolveAccent(accentColor, userTeam) {
 /** Apply appearance settings to the live document. */
 export function applyAppearance(settings, userTeam) {
   const root = document.documentElement
-  // 90s mode
-  if (settings.retroMode) root.dataset.retro = '1'
+  const theme = resolveTheme(settings)
+
+  // Era theme: 90s rides the original data-retro CSS; others use data-era
+  if (theme === '90s') root.dataset.retro = '1'
   else delete root.dataset.retro
-  // Accent (90s mode owns its own neon accent — don't fight it)
-  if (!settings.retroMode && settings.accentColor && settings.accentColor !== 'red') {
+  if (theme !== 'default' && theme !== '90s') root.dataset.era = theme
+  else delete root.dataset.era
+
+  // Accent — era themes own their own palette; don't fight them
+  if (theme === 'default' && settings.accentColor && settings.accentColor !== 'red') {
     root.style.setProperty('--iff-accent', resolveAccent(settings.accentColor, userTeam))
   } else {
     root.style.removeProperty('--iff-accent')

@@ -15,21 +15,39 @@
 // turns up.
 const TRIGGER_PHRASES = ["official", "trade is done", "deal is done", "trade complete"];
 
-// Name variants -> master team name, built from real GroupMe history.
-// Deliberately does NOT map bare "zurek" — M. Zurek and A. Zurek both
-// have that surname, so an unqualified mention must stay ambiguous
-// rather than guess. Extend this table as more variants show up.
+// Name variants -> master team name, built from real GroupMe history +
+// the group's Members list (real names/nicknames shown in parens next
+// to each GroupMe display name). Deliberately does NOT map bare "zurek"
+// (M. Zurek and A. Zurek both have that surname — stays ambiguous
+// rather than guessed) or bare first names that collide with real NFL
+// player names already relevant to this league (e.g. "josh" — Josh
+// Allen is a rostered player, so a lone "josh" alias would wrongly
+// pull Cantone into any trade message that just happens to mention
+// him). Extend this table as more variants show up.
 const TEAM_ALIASES = {
   jared: "Jared",
   bill: "Bill",
+  "b2b champ": "Bill",
+  "bill belichik": "Bill",
   ryan: "Ryan",
+  "ryan schwerman": "Ryan",
+  "r schwerm": "Ryan",
   wayne: "Wayne",
+  "wayne vh": "Wayne",
   jason: "Jason",
+  shadeson: "Jason",
+  "jason alt": "Jason",
   dugan: "Dugan",
   "mike dugan": "Dugan",
+  doogs: "Dugan",
   foley: "Foley",
+  "brett foley": "Foley",
   cantone: "Cantone",
+  "ceo of water": "Cantone",
+  "josh cantone": "Cantone",
   abad: "Abad",
+  "johnson-rods": "Abad",
+  "corey a": "Abad",
   faybik: "Faybik",
   "michael faybik": "Faybik",
   "mike faybik": "Faybik",
@@ -38,6 +56,7 @@ const TEAM_ALIASES = {
   "m zurek": "M. Zurek",
   "a. zurek": "A. Zurek",
   "a zurek": "A. Zurek",
+  "cinderella story": "A. Zurek",
 };
 
 const ORDINAL_WORD_TO_ROUND = {

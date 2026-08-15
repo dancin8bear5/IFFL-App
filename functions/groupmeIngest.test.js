@@ -1,6 +1,20 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const {looksLikeTradeConfirmation, findPickMentions, resolveGroupMeTrade, TEAM_ALIASES} = require("./groupmeIngest.js");
+const {looksLikeTradeConfirmation, findPickMentions, resolveGroupMeTrade, TEAM_ALIASES, findNamedTeams} = require("./groupmeIngest.js");
+
+test("TEAM_ALIASES resolves joke nicknames and real names from the group's Members list", () => {
+  assert.deepEqual(findNamedTeams("B2B Champ traded with CEO OF WATER", TEAM_ALIASES), new Set(["Bill", "Cantone"]));
+  assert.deepEqual(findNamedTeams("Johnson-Rods sent it to Shadeson", TEAM_ALIASES), new Set(["Abad", "Jason"]));
+  assert.deepEqual(findNamedTeams("Doogs and Wayne VH worked something out", TEAM_ALIASES), new Set(["Dugan", "Wayne"]));
+  assert.deepEqual(findNamedTeams("Cinderella Story is in on this one", TEAM_ALIASES), new Set(["A. Zurek"]));
+});
+
+test("TEAM_ALIASES does not map bare first names that collide with real player names", () => {
+  // "Josh" alone must NOT resolve to Cantone (Josh Cantone) — a message
+  // mentioning "Josh Allen" the player would otherwise wrongly pull
+  // Cantone in as a trade side.
+  assert.deepEqual(findNamedTeams("we talked about Josh Allen", TEAM_ALIASES), new Set());
+});
 
 test("looksLikeTradeConfirmation triggers on 'official'", () => {
   assert.equal(looksLikeTradeConfirmation("Make it official. 🚨"), true);

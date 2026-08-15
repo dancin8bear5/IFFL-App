@@ -60,6 +60,7 @@ export function AppProvider({ children }) {
   const [parlayEntries, setParlayEntries] = useState([])
   // Commissioner kill-switches: area keys hidden from the whole league
   const [disabledAreas, setDisabledAreas] = useState(new Set())
+  const [rolloverArmed, setRolloverArmed] = useState(false)
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -141,6 +142,7 @@ export function AppProvider({ children }) {
           setIsOffSeason(config.isOffSeason ?? false)
           setRulesVotingOpen(config.rulesVotingOpen ?? false)
           setDisabledAreas(new Set(config.disabledAreas ?? []))
+          setRolloverArmed(config.rolloverArmed ?? false)
           setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
           const team = config.userTeamMap?.[uid]
           if (team) {
@@ -260,6 +262,17 @@ export function AppProvider({ children }) {
       await fs.setDisabledAreas([...next]).catch(() => setDisabledAreas(disabledAreas))
     },
     [disabledAreas],
+  )
+
+  /** Commissioner: arm/disarm the season rollover safety switch (optimistic). */
+  const armRollover = useCallback(
+    async (armed) => {
+      const prev = rolloverArmed
+      setRolloverArmed(armed)
+      if (DEV_PREVIEW) return
+      await fs.setRolloverArmed(armed).catch(() => setRolloverArmed(prev))
+    },
+    [rolloverArmed],
   )
 
   // ── Computed (AppState computed properties) ─────────────────
@@ -536,6 +549,7 @@ export function AppProvider({ children }) {
     parlayConfig, parlayEntries, submitParlayPick,
     // area kill-switches
     disabledAreas, areaEnabled, toggleArea,
+    rolloverArmed, armRollover,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,
     triggerTradeProposal, setTriggerTradeProposal, proposeTradeFor,

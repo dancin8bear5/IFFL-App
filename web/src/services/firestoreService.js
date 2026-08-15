@@ -73,6 +73,66 @@ export function setOffSeason(value) {
   return updateDoc(doc(db, COL.config, 'league'), { isOffSeason: value })
 }
 
+// ── Season rollover — disarmed by default (see services/seasonRollover.js) ──
+// A deliberate two-step safety: arming and applying are separate actions,
+// and a successful apply auto-disarms so the same arm can't fire twice.
+
+export function setRolloverArmed(armed) {
+  return updateDoc(doc(db, COL.config, 'league'), { rolloverArmed: armed })
+}
+
+/**
+ * Apply a rollover plan (services/seasonRollover.computeRolloverPlan):
+ * extend price maps, generate next year's picks, advance activeSeasonYear,
+ * auto-disarm. One 'rollover' transaction-ledger entry per updated player
+ * (batched, chunked under the 500-op Firestore limit).
+ */
+export async function applyRollover(plan, meta = {}) {
+  const ops = []
+
+  for (const row of plan.priceUpdates) {
+    ops.push((batch) => {
+      batch.update(doc(db, COL.players, row.id), {
+        prices: row.prices,
+        contractYearsRemaining: row.contractYearsRemaining,
+      })
+      batch.set(txRef(), {
+        type: 'rollover',
+        season: plan.toSeason,
+        teamName: row.teamName,
+        playerId: row.id,
+        playerName: row.name,
+        price: row.prices[plan.toSeason] ?? null,
+        note: `Season rollover ${plan.fromSeason} → ${plan.toSeason} — price map extended`,
+        actorUid: meta.actorUid ?? null,
+        createdAt: Timestamp.now(),
+      })
+    })
+  }
+
+  for (const pick of plan.newPicks) {
+    ops.push((batch) => {
+      batch.set(doc(collection(db, COL.draftPicks)), pick)
+    })
+  }
+
+  const CHUNK = 200
+  for (let i = 0; i < ops.length; i += CHUNK) {
+    const batch = writeBatch(db)
+    for (const op of ops.slice(i, i + CHUNK)) op(batch)
+    await batch.commit()
+  }
+
+  // Season advance + auto-disarm as one final write, after the bulk data
+  // lands, so a mid-batch failure never leaves the season flipped early.
+  await updateDoc(doc(db, COL.config, 'league'), {
+    activeSeasonYear: plan.toSeason,
+    rolloverArmed: false,
+  })
+
+  return { playersUpdated: plan.priceUpdates.length, picksGenerated: plan.newPicks.length }
+}
+
 /** Replace the whole email→team auto-link map (keys are literal emails). */
 export function saveTeamEmailMap(map) {
   return updateDoc(doc(db, COL.config, 'league'), { teamEmailMap: map })

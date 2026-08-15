@@ -6,10 +6,11 @@ import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
 import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
+import { computeRolloverPlan } from '../services/seasonRollover'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Keeper Import', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Keeper Import', 'Rollover', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -39,6 +40,7 @@ export default function AdminView() {
       <div style={{ padding: 14 }}>
         {section === 'Database' && <DatabaseSection />}
         {section === 'Keeper Import' && <KeeperImportSection />}
+        {section === 'Rollover' && <RolloverSection />}
         {section === 'Areas' && <AreasSection />}
         {section === 'Rules' && <RulesAdminSection />}
         {section === 'Records' && <RecordsSection />}
@@ -491,6 +493,146 @@ function DiffList({ rows, render }) {
           {render(r)}
         </div>
       ))}
+    </div>
+  )
+}
+
+// ── Season Rollover — the guided routine for the day after the season
+// ends. Built and fully previewable, but disarmed by default: arming and
+// applying are two separate deliberate actions, and a successful apply
+// auto-disarms so the same arm can't fire twice by accident.
+
+function RolloverSection() {
+  const { players, activeSeason, leagueHistory, rolloverArmed, armRollover } = useApp()
+  const [confirmText, setConfirmText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const toSeason = activeSeason + 1
+  const plan = useMemo(
+    () => computeRolloverPlan(players, toSeason, leagueHistory.map((h) => h.season)),
+    [players, toSeason, leagueHistory],
+  )
+  const expectedConfirm = `${plan.fromSeason}→${plan.toSeason}`
+  const canApply = rolloverArmed && confirmText.trim() === expectedConfirm
+
+  async function apply() {
+    if (!canApply) return
+    setBusy(true)
+    try {
+      const r = await fs.applyRollover(plan, {})
+      setResult(r)
+      setConfirmText('')
+    } catch (e) {
+      alert(`Rollover failed: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        The once-a-year routine for the day after the season ends: extends every rostered player's
+        price map one more year, generates next year's 24 rookie picks ($2 R1 / $1 R2, unslotted),
+        and advances the active season. Dropped-pending and cleared players are skipped — resolve
+        those first. This does <b>not</b> touch league history or standings — ESPN owns final
+        results, so that stays a manual step.
+      </div>
+
+      <div
+        className="iff-card"
+        style={{
+          padding: 14, display: 'flex', alignItems: 'center', gap: 12,
+          border: rolloverArmed ? '1.5px solid rgba(230,57,70,0.5)' : '1px solid rgba(74,222,128,0.35)',
+          background: rolloverArmed
+            ? 'linear-gradient(135deg, rgba(230,57,70,0.14), var(--iff-surface) 60%)'
+            : 'linear-gradient(135deg, rgba(74,222,128,0.1), var(--iff-surface) 60%)',
+        }}
+      >
+        <span style={{ fontSize: 20 }}>{rolloverArmed ? '🔓' : '🔒'}</span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 13.5, fontWeight: 800 }}>
+            {rolloverArmed ? 'Armed — apply is live' : 'Disarmed (default)'}
+          </span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+            {rolloverArmed
+              ? 'The preview below is only a plan until you type the confirmation and apply.'
+              : "Nothing below can be applied until you arm it. Leave this off until the season is actually over."}
+          </span>
+        </span>
+        <button
+          role="switch"
+          aria-checked={rolloverArmed}
+          aria-label="Arm rollover"
+          onClick={() => armRollover(!rolloverArmed)}
+          style={{
+            width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
+            background: rolloverArmed ? '#DC2626' : 'var(--iff-elevated)', transition: 'background 0.15s',
+          }}
+        >
+          <span style={{ position: 'absolute', top: 2, left: rolloverArmed ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+        </button>
+      </div>
+
+      {result && (
+        <div className="iff-card" style={{ padding: 14, border: '1.5px solid rgba(74,222,128,0.5)', background: 'linear-gradient(135deg, rgba(74,222,128,0.12), var(--iff-surface) 60%)' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-green)' }}>✓ Rolled to {toSeason}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', marginTop: 3 }}>
+            {result.playersUpdated} player{result.playersUpdated === 1 ? '' : 's'} updated, {result.picksGenerated} picks generated. Rollover auto-disarmed.
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 15, fontWeight: 800 }}>{plan.fromSeason} → {plan.toSeason}</div>
+
+      {plan.historyReminder && (
+        <div className="iff-card" style={{ padding: 12, fontSize: 11.5, color: 'var(--iff-gold)', border: '1px solid rgba(244,162,97,0.4)' }}>
+          ⚠ {plan.fromSeason} isn't in League History yet — seed final standings under Database
+          before or after rolling over.
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+        <SummaryTile label="Price maps extended" count={plan.priceUpdates.length} color="var(--iff-green)" />
+        <SummaryTile label="New picks" count={plan.newPicks.length} color="var(--iff-gold)" />
+        <SummaryTile label="Skipped" count={plan.skipped.length} color="#EF4444" />
+      </div>
+
+      {plan.skipped.length > 0 && (
+        <>
+          <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', padding: '0 2px' }}>
+            Resolve these via Drops or Keeper Import before applying — rollover leaves them untouched.
+          </div>
+          <DiffList rows={plan.skipped} render={(r) => `${r.teamName} — ${r.name}: ${r.reason}`} />
+        </>
+      )}
+
+      <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', padding: '0 2px' }}>
+        {plan.newPicks.length} picks for {plan.toSeason + 1}, 2 per team (R1 $2, R2 $1).
+      </div>
+
+      <div className="iff-card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>
+          Type <strong className="tnum" style={{ color: 'var(--iff-text)' }}>{expectedConfirm}</strong> to enable Apply.
+        </div>
+        <input
+          type="text"
+          placeholder={expectedConfirm}
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          disabled={!rolloverArmed}
+          style={{ maxWidth: 200 }}
+        />
+        <button
+          className="btn-primary"
+          onClick={apply}
+          disabled={!canApply || busy}
+          style={{ background: canApply ? '#16A34A' : undefined }}
+        >
+          {busy ? 'Applying…' : !rolloverArmed ? 'Arm above to enable' : `Apply Rollover — ${plan.priceUpdates.length + plan.newPicks.length} writes`}
+        </button>
+      </div>
     </div>
   )
 }

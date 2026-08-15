@@ -1,6 +1,7 @@
 // firestoreService — direct port of Services/FirestoreDataService.swift.
 // Same collections, same queries, same batch semantics. Listener functions
 // return an unsubscribe fn (the JS analogue of ListenerRegistration.remove()).
+import { keeperDocId } from './keeperImport.js'
 import {
   collection,
   doc,
@@ -533,6 +534,85 @@ export function saveGroupMeConfig(config) {
 /** Master pause for all GroupMe DMs (checked server-side before every send). */
 export function setGroupMePaused(paused) {
   return setDoc(doc(db, COL.config, 'groupme'), { paused }, { merge: true })
+}
+
+// ── Keeper-deadline CSV reconciliation (see services/keeperImport.js) ──
+// Applies a reviewed diff {added, changed} from diffKeeperImport. New
+// players get a stable id (team+name slug) so re-importing the same sheet
+// is always an update, never a duplicate. Every write also drops a 'keep'
+// ledger entry — this is the once-a-year bulk election, worth a paper trail.
+// Firestore batches cap at 500 ops; chunk defensively since each row here
+// is 2 ops (player + ledger entry).
+export async function applyKeeperImport(diff, meta = {}) {
+  const ops = []
+
+  for (const row of diff.added) {
+    const id = keeperDocId(row.name, row.position)
+    ops.push((batch) => {
+      batch.set(doc(db, COL.players, id), {
+        name: row.name,
+        position: row.position,
+        teamName: row.team,
+        prices: Object.fromEntries(Object.entries(row.prices).map(([y, p]) => [String(y), p])),
+        originalPrice: row.originalPrice ?? row.prices[meta.season] ?? 0,
+        purchaseYear: row.purchaseYear ?? meta.season,
+        contractYearsRemaining: row.contractYearsRemaining ?? 1,
+        playerPool: row.playerPool ?? 'Auction',
+        rookieRound: row.rookieRound ?? null,
+        rookieDraftYear: row.rookieDraftYear ?? null,
+        tradeHistory: row.tradeNote ? [row.tradeNote] : [],
+        isActive: true,
+        salaryStatus: 'rostered',
+      })
+      batch.set(txRef(), {
+        type: 'keep',
+        season: meta.season ?? null,
+        teamName: row.team,
+        playerId: id,
+        playerName: row.name,
+        price: row.prices[meta.season] ?? null,
+        note: 'Keeper-deadline import — new player',
+        actorUid: meta.actorUid ?? null,
+        createdAt: Timestamp.now(),
+      })
+    })
+  }
+
+  for (const row of diff.changed) {
+    ops.push((batch) => {
+      const patch = {}
+      if (row.changedFields.includes('team')) patch.teamName = row.team
+      if (row.changedFields.includes('position')) patch.position = row.position
+      if (row.changedFields.some((f) => f.startsWith('prices.'))) {
+        patch.prices = { ...row.existing.prices, ...Object.fromEntries(Object.entries(row.prices).map(([y, p]) => [String(y), p])) }
+      }
+      if (row.changedFields.includes('originalPrice')) patch.originalPrice = row.originalPrice
+      if (row.changedFields.includes('purchaseYear')) patch.purchaseYear = row.purchaseYear
+      if (row.changedFields.includes('contractYearsRemaining')) patch.contractYearsRemaining = row.contractYearsRemaining
+      if (row.changedFields.includes('playerPool')) patch.playerPool = row.playerPool
+      batch.update(doc(db, COL.players, row.existingId), patch)
+      batch.set(txRef(), {
+        type: 'keep',
+        season: meta.season ?? null,
+        teamName: row.team,
+        playerId: row.existingId,
+        playerName: row.name,
+        price: row.prices[meta.season] ?? null,
+        note: `Keeper-deadline import — updated ${row.changedFields.join(', ')}`,
+        actorUid: meta.actorUid ?? null,
+        createdAt: Timestamp.now(),
+      })
+    })
+  }
+
+  const CHUNK = 200 // ×2 ops each, well under the 500-op batch limit
+  for (let i = 0; i < ops.length; i += CHUNK) {
+    const batch = writeBatch(db)
+    for (const op of ops.slice(i, i + CHUNK)) op(batch)
+    await batch.commit()
+  }
+
+  return { added: diff.added.length, changed: diff.changed.length }
 }
 
 // ── Rules — proposals + voting (Firestore: "rules") ───────────

@@ -5,10 +5,11 @@ import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
 import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
 import * as fs from '../services/firestoreService'
+import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Keeper Import', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
@@ -37,6 +38,7 @@ export default function AdminView() {
 
       <div style={{ padding: 14 }}>
         {section === 'Database' && <DatabaseSection />}
+        {section === 'Keeper Import' && <KeeperImportSection />}
         {section === 'Areas' && <AreasSection />}
         {section === 'Rules' && <RulesAdminSection />}
         {section === 'Records' && <RecordsSection />}
@@ -296,6 +298,199 @@ function Stat({ value, label }) {
     <div>
       <div className="tnum" style={{ fontSize: 20, fontWeight: 800, color: 'var(--iff-gold)' }}>{value}</div>
       <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{label}</div>
+    </div>
+  )
+}
+
+// ── Keeper Import — the once-a-year keeper-deadline reconciliation ────
+// Paste or upload the Keeper Master CSV export; preview a diff against the
+// live roster; apply. Replaces hand-typing keeper elections one at a time.
+
+function KeeperImportSection() {
+  const { players, activeSeason } = useApp()
+  const [text, setText] = useState('')
+  const [fileName, setFileName] = useState(null)
+  const [parsed, setParsed] = useState(null) // {rows, pickRows, errors}
+  const [diff, setDiff] = useState(null)
+  const [expand, setExpand] = useState(null) // 'added' | 'changed' | 'missing' | null
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+
+  function onFile(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setFileName(file.name)
+    const reader = new FileReader()
+    reader.onload = () => setText(String(reader.result ?? ''))
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  function preview() {
+    setResult(null)
+    const p = parseKeeperCSV(text, activeSeason)
+    setParsed(p)
+    if (p.rows.length === 0) { setDiff(null); return }
+    setDiff(diffKeeperImport(p.rows, players, activeSeason))
+  }
+
+  async function apply() {
+    if (!diff || (diff.added.length === 0 && diff.changed.length === 0)) return
+    if (!confirm(`Write ${diff.added.length} new player${diff.added.length === 1 ? '' : 's'} and ${diff.changed.length} update${diff.changed.length === 1 ? '' : 's'}? This can't be bulk-undone.`)) return
+    setBusy(true)
+    try {
+      const r = await fs.applyKeeperImport(diff, { season: activeSeason })
+      setResult(r)
+      setDiff(null)
+      setParsed(null)
+      setText('')
+    } catch (e) {
+      alert(`Import failed: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        The once-a-year bulk step for the keeper deadline. Paste or upload the Keeper Master CSV
+        export (Team, Position, Player, {activeSeason} Price, {activeSeason + 1} Price,
+        {' '}{activeSeason + 2} Price, Original Price, Purchase Year, Contract Year, Player Pool).
+        Preview shows exactly what changes before anything writes — new players, price/team drift,
+        and anyone in the app who's missing from the sheet. Draft Pick rows are skipped; picks
+        reconcile separately. Re-running the same sheet is always safe — it only ever updates.
+      </div>
+
+      <div className="iff-card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <label className="btn-outline" style={{ fontSize: 12, padding: '7px 16px', cursor: 'pointer' }}>
+            Upload CSV
+            <input type="file" accept=".csv,text/csv" onChange={onFile} style={{ display: 'none' }} />
+          </label>
+          {fileName && <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>{fileName}</span>}
+          <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>or paste below</span>
+        </div>
+        <textarea
+          rows={6}
+          placeholder="Team,Position,Player,2026 Price,2027 Price,2028 Price,Original Price,Purchase Year,Contract Year,Player Pool&#10;Jared,QB,Patrick Mahomes,$85,$105,$130,$70,2023,4,Auction"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          style={{ fontFamily: 'monospace', fontSize: 11, resize: 'vertical' }}
+        />
+        <button className="btn-primary" onClick={preview} disabled={!text.trim()} style={{ alignSelf: 'flex-start', padding: '8px 20px', fontSize: 13 }}>
+          Preview Import
+        </button>
+      </div>
+
+      {result && (
+        <div className="iff-card" style={{ padding: 14, border: '1.5px solid rgba(74,222,128,0.5)', background: 'linear-gradient(135deg, rgba(74,222,128,0.12), var(--iff-surface) 60%)' }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-green)' }}>✓ Import applied</div>
+          <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', marginTop: 3 }}>
+            {result.added} new player{result.added === 1 ? '' : 's'} added, {result.changed} updated. Logged to the transaction ledger.
+          </div>
+        </div>
+      )}
+
+      {parsed && parsed.errors.length > 0 && (
+        <div className="iff-card" style={{ padding: 14, border: '1px solid rgba(239,68,68,0.4)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#EF4444', marginBottom: 6 }}>
+            {parsed.errors.length} row{parsed.errors.length === 1 ? '' : 's'} skipped
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {parsed.errors.slice(0, 12).map((e, i) => (
+              <div key={i} style={{ fontSize: 10.5, color: 'var(--iff-subtext)' }}>Line {e.line}: {e.message}</div>
+            ))}
+            {parsed.errors.length > 12 && (
+              <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)' }}>…and {parsed.errors.length - 12} more</div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {diff && (
+        <>
+          {diff.overCap.length > 0 && (
+            <div className="iff-card" style={{ padding: 14, border: '1.5px solid rgba(230,57,70,0.5)', background: 'linear-gradient(135deg, rgba(230,57,70,0.12), var(--iff-surface) 60%)' }}>
+              <div style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--iff-accent)' }}>⚠ Over the $300 cap in this sheet</div>
+              {diff.overCap.map((t) => (
+                <div key={t.team} className="tnum" style={{ fontSize: 11.5, marginTop: 4 }}>
+                  {t.team}: <strong style={{ color: 'var(--iff-accent)' }}>${t.total}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+            <SummaryTile label="New" count={diff.added.length} color="var(--iff-green)" onClick={() => setExpand(expand === 'added' ? null : 'added')} active={expand === 'added'} />
+            <SummaryTile label="Changed" count={diff.changed.length} color="var(--iff-gold)" onClick={() => setExpand(expand === 'changed' ? null : 'changed')} active={expand === 'changed'} />
+            <SummaryTile label="Unchanged" count={diff.unchanged.length} color="var(--iff-subtext)" />
+            <SummaryTile label="Missing" count={diff.missing.length} color="#EF4444" onClick={() => setExpand(expand === 'missing' ? null : 'missing')} active={expand === 'missing'} />
+          </div>
+
+          {expand === 'added' && (
+            <DiffList
+              rows={diff.added}
+              render={(r) => `${r.team} — ${r.name} (${r.position}) · $${r.prices[activeSeason] ?? 0}`}
+            />
+          )}
+          {expand === 'changed' && (
+            <DiffList
+              rows={diff.changed}
+              render={(r) => `${r.team} — ${r.name}: ${r.changedFields.join(', ')}`}
+            />
+          )}
+          {expand === 'missing' && (
+            <>
+              <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', padding: '0 2px' }}>
+                On a roster in the app but not in this sheet. Not touched automatically — deactivate
+                manually under Players if they're really gone.
+              </div>
+              <DiffList rows={diff.missing} render={(r) => `${r.teamName} — ${r.name}`} />
+            </>
+          )}
+
+          <button
+            className="btn-primary"
+            onClick={apply}
+            disabled={busy || (diff.added.length === 0 && diff.changed.length === 0)}
+            style={{ background: '#16A34A' }}
+          >
+            {busy ? 'Applying…' : `Apply — ${diff.added.length + diff.changed.length} write${diff.added.length + diff.changed.length === 1 ? '' : 's'}`}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+function SummaryTile({ label, count, color, onClick, active }) {
+  const El = onClick ? 'button' : 'div'
+  return (
+    <El
+      onClick={onClick}
+      className="iff-card"
+      style={{
+        padding: '10px 8px', textAlign: 'center',
+        outline: active ? `2px solid ${color}` : 'none',
+        cursor: onClick ? 'pointer' : 'default',
+      }}
+    >
+      <div className="tnum" style={{ fontSize: 20, fontWeight: 900, color }}>{count}</div>
+      <div style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 2 }}>{label}</div>
+    </El>
+  )
+}
+
+function DiffList({ rows, render }) {
+  if (rows.length === 0) return null
+  return (
+    <div className="iff-card" style={{ padding: 0, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
+      {rows.map((r, i) => (
+        <div key={i} style={{ padding: '8px 12px', fontSize: 11.5, borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+          {render(r)}
+        </div>
+      ))}
     </div>
   )
 }

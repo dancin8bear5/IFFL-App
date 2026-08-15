@@ -85,6 +85,9 @@ export const WAIVER_KEEPER_VALUE = 2   // any waiver player, regardless of FAAB 
 export const WAIVER_CLEARS_REQUIRED = 2 // FAAB auctions a dropped player must clear
 export const ROOKIE_SALARY = { 1: 2, 2: 1 } // round → salary
 export const PRACTICAL_MAX_CONTRACT_YEAR = 6 // no hard cap; price is the brake
+// Keeper-eligibility price line for off-season planning: anyone priced
+// above this won't realistically be kept, so keeper analytics ignore them.
+export const KEEPER_PRICE_MAX = 60
 
 // ── Scoring (ESPN league 331652 — 0.5 PPR all positions) ──────
 export const ESPN_LEAGUE_ID = '331652'

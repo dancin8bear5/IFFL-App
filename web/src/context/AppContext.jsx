@@ -94,6 +94,7 @@ export function AppProvider({ children }) {
     import('../data/previewData').then((d) => {
       setUserTeam('Jared')
       setSelectedTeam('Jared')
+      setIsOffSeason(true)
       setPlayers(d.previewPlayers)
       setDraftPicks(d.previewPicks)
       setTrades(d.previewTrades)

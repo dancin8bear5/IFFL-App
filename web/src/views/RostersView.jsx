@@ -78,6 +78,16 @@ function RostersDesktop({ setTab }) {
         <span className="season-chip">{rows.length} assets shown</span>
       </div>
 
+      {/* The how-to hint lives at the top of the page, not buried in the rail */}
+      {!selectedAsset && (
+        <div className="iff-card" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', marginBottom: 14 }}>
+          <span style={{ fontSize: 15 }}>👆</span>
+          <span style={{ fontSize: 12.5, color: 'var(--iff-subtext)' }}>
+            Select any player to see their <b style={{ color: 'var(--iff-text)' }}>contract, ratings &amp; trade options</b>.
+          </span>
+        </div>
+      )}
+
       <div className="roster-desktop">
         {/* ── Team pane ── */}
         <aside className="roster-teams">
@@ -136,7 +146,7 @@ function RostersDesktop({ setTab }) {
             ))}
           </div>
 
-          <div className="iff-card" style={{ overflow: 'hidden' }}>
+          <div className="iff-card" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
             <div className={`roster-thead ${allMode ? 'with-team' : ''}`}>
               <button onClick={() => clickSort('pos')}>Pos{arrow('pos')}</button>
               <button onClick={() => clickSort('name')} style={{ textAlign: 'left' }}>Player{arrow('name')}</button>
@@ -166,7 +176,7 @@ function RostersDesktop({ setTab }) {
                   >
                     <PosBadge position={a.position} />
                     <span style={{ minWidth: 0 }}>
-                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, lineHeight: 1.25 }}>{a.name}</span>
+                      <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>{a.name}</span>
                       <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)' }}>
                         {a.isPick ? (a.tradeHistory.at(-1) ?? 'Original') : (a.nflTeam ?? '—')}
                       </span>
@@ -221,9 +231,9 @@ function RostersDesktop({ setTab }) {
               <AssetDetailBody asset={selectedAsset} onProposeTrade={handleProposeTrade} />
             </div>
           ) : (
-            <div className="iff-card empty-state" style={{ padding: '48px 20px' }}>
+            <div className="iff-card empty-state" style={{ padding: '40px 20px' }}>
               <div className="glyph">👈</div>
-              <div style={{ fontSize: 13 }}>Select a player to see contract, ratings &amp; trade options.</div>
+              <div style={{ fontSize: 12 }}>No player selected.</div>
             </div>
           )}
         </aside>
@@ -285,6 +295,18 @@ function RostersMobile({ setTab }) {
       </div>
 
       <Segmented options={['By Team', 'All Assets']} value={mode} onChange={setMode} />
+
+      {/* the how-to hint sits at the top, before the list */}
+      {!detailAsset && (
+        <div style={{ padding: '0 14px 10px' }}>
+          <div className="iff-card" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px' }}>
+            <span style={{ fontSize: 13 }}>👆</span>
+            <span style={{ fontSize: 11.5, color: 'var(--iff-subtext)' }}>
+              Tap any player to see their <b style={{ color: 'var(--iff-text)' }}>contract, ratings &amp; trade options</b>.
+            </span>
+          </div>
+        </div>
+      )}
 
       {mode === 'By Team' ? (
         <div style={{ padding: '0 14px 10px', borderBottom: '1px solid var(--iff-divider)' }}>

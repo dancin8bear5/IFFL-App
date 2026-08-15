@@ -10,6 +10,57 @@ import TradeProposalView from '../components/TradeProposalView'
 import TradeDetailView from '../components/TradeDetailView'
 import SettingsView from './SettingsView'
 
+/**
+ * Plain-english F.M.K. primer — this flow is brand new to the league,
+ * so the whole game is explained in as few words as possible.
+ */
+function FMKGuide() {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="iff-card" style={{ overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', textAlign: 'left' }}
+      >
+        <span style={{ fontSize: 15 }}>🎓</span>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 800 }}>How F.M.K. works</span>
+        <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>{open ? '▴ hide' : '▾ show'}</span>
+      </button>
+      {open && (
+        <div style={{ padding: '0 14px 12px', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ flexShrink: 0 }}>🔥</span>
+            <span><b style={{ color: 'var(--iff-gold)' }}>F — swipe right.</b> I want to trade for this player.</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ flexShrink: 0 }}>💍</span>
+            <span><b style={{ color: '#22C55E' }}>Marry — swipe up.</b> Elite — I'd build my team around them. Counts as wanting them too.</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ flexShrink: 0 }}>💀</span>
+            <span><b style={{ color: '#EF4444' }}>Kill — swipe left.</b> Not interested. Skips the player, tells no one.</span>
+          </div>
+          <div style={{ borderTop: '1px solid var(--iff-divider)', paddingTop: 8, display: 'flex', gap: 8 }}>
+            <span style={{ flexShrink: 0 }}>🤝</span>
+            <span>
+              <b>Matches:</b> when you 🔥/💍 someone's player AND they 🔥/💍 one of yours at a similar
+              price, that's a <b>Match</b> — find yours in the <b>Matches</b> tab (the red badge counts them).
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <span style={{ flexShrink: 0 }}>📨</span>
+            <span>
+              <b>Do something about it:</b> open a match → <b>Propose Trade</b> — the trade form comes
+              pre-filled with both players. They accept, decline, or counter. Nobody sees your swipes,
+              only mutual matches.
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function MarketView({ setTab }) {
   const isDesktop = useIsDesktop()
   const {
@@ -72,7 +123,7 @@ export default function MarketView({ setTab }) {
     return (
       <div>
         <div className="dash-hero-desktop">
-          <h1>Market</h1>
+          <h1>F.M.K. Market</h1>
           <button className="btn-outline" onClick={() => setShowProposal(true)} style={{ fontSize: 12, padding: '7px 16px' }}>
             ＋ Propose Trade
           </button>
@@ -80,6 +131,7 @@ export default function MarketView({ setTab }) {
 
         <div className="market-grid">
           <div className="market-main">
+            <FMKGuide />
             <div className="iff-card" style={{ padding: '4px 0 16px' }}>
               <FMKSwiperCard />
             </div>
@@ -151,7 +203,7 @@ export default function MarketView({ setTab }) {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <div className="nav-bar">
         <div className="nav-side" />
-        <div className="nav-title">Market</div>
+        <div className="nav-title">F.M.K. Market</div>
         <div className="nav-side right">
           <button className="icon-btn accent" onClick={() => setShowProposal(true)} aria-label="Propose trade">⊕</button>
           <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">⚙</button>
@@ -160,7 +212,14 @@ export default function MarketView({ setTab }) {
 
       <Segmented options={['Interest', 'Matches', 'Trades']} value={section} onChange={setSection} />
 
-      {section === 'Interest' && <FMKSwiperCard />}
+      {section === 'Interest' && (
+        <>
+          <div style={{ padding: '12px 14px 0' }}>
+            <FMKGuide />
+          </div>
+          <FMKSwiperCard />
+        </>
+      )}
 
       {section === 'Matches' && (
         <div>

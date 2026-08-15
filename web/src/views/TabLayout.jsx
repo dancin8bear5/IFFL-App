@@ -14,12 +14,13 @@ import PlayersView from './PlayersView'
 import MarketView from './MarketView'
 import BuilderView from './BuilderView'
 
+// `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 const TABS = [
-  { label: 'Dashboard', glyph: '▦' },                    // always on
-  { label: 'Rosters',   glyph: '👥', area: 'rosters' },
-  { label: 'Players',   glyph: '🔎', area: 'players' },
-  { label: 'Market',    glyph: '⇄',  area: 'market' },
-  { label: 'Builder',   glyph: '🧪', area: 'builder' },
+  { label: 'Dashboard',        short: 'Dashboard', glyph: '▦' },  // always on
+  { label: 'Rosters',          short: 'Rosters',   glyph: '👥', area: 'rosters' },
+  { label: 'Players',          short: 'Players',   glyph: '🔎', area: 'players' },
+  { label: 'F.M.K. Market',    short: 'F.M.K.',    glyph: '⇄',  area: 'market' },
+  { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', area: 'builder' },
 ]
 
 export default function TabLayout({ tab, setTab }) {
@@ -69,8 +70,8 @@ export default function TabLayout({ tab, setTab }) {
           return (
             <button key={t.label} className={i === activeTab ? 'active' : ''} onClick={() => setTab(i)}>
               <span className="tab-glyph">{t.glyph}</span>
-              {t.label}
-              {t.label === 'Market' && incomingTradeCount > 0 && (
+              {t.short}
+              {t.area === 'market' && incomingTradeCount > 0 && (
                 <span className="tab-badge">{incomingTradeCount}</span>
               )}
             </button>

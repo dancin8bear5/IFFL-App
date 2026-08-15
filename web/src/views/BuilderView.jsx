@@ -12,13 +12,13 @@ export default function BuilderView() {
     <div>
       {isDesktop ? (
         <div className="dash-hero-desktop">
-          <h1>Team Builder</h1>
+          <h1>myTeam Worksheet</h1>
           <span className="season-chip">🔒 private keeper planning</span>
         </div>
       ) : (
         <div className="nav-bar">
           <div className="nav-side" />
-          <div className="nav-title">Team Builder</div>
+          <div className="nav-title">myTeam Worksheet</div>
           <div className="nav-side right">
             <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">⚙</button>
           </div>

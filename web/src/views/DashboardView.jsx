@@ -5,7 +5,7 @@
 import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
-import { fantasyTeams, teamByName, milestones } from '../data/staticData'
+import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
 import AssetDetailView from '../components/AssetDetailView'
@@ -18,13 +18,22 @@ import ParlayView from '../components/ParlayView'
 import SettingsView from './SettingsView'
 import { useEffect } from 'react'
 
+const KEEPER_POS = ['QB', 'RB', 'WR', 'TE']
+
+const ordinal = (n) =>
+  `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+
+/** League-rank coloring: top third green, middle gold, bottom red. */
+const rankColor = (rank) =>
+  !rank ? 'var(--iff-subtext)' : rank <= 4 ? 'var(--iff-green)' : rank <= 8 ? 'var(--iff-gold)' : '#F87171'
+
 export default function DashboardView({ setTab }) {
   const {
     userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
-    parlayConfig, parlayEntries, areaEnabled,
+    parlayConfig, parlayEntries, areaEnabled, isOffSeason,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -34,6 +43,7 @@ export default function DashboardView({ setTab }) {
   const [showRules, setShowRules] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
   const [showParlay, setShowParlay] = useState(false)
+  const [teamView, setTeamView] = useState(null) // null = season-appropriate default
 
   useEffect(() => {
     loadLeagueHistory()
@@ -49,6 +59,44 @@ export default function DashboardView({ setTab }) {
   )
   const myCapTotal = useMemo(() => myAssets.reduce((sum, a) => sum + a.currentPrice, 0), [myAssets])
   const belts = teamByName[userTeam]?.beltWins ?? 0
+
+  // ── Keeper Outlook math — only players at or under the keeper price
+  // line count; anyone pricier won't be kept, so they're ignored. ──
+  const keeperStats = useMemo(() => {
+    const teams = {}
+    for (const t of fantasyTeams) {
+      teams[t.name] = { total: 0, pos: Object.fromEntries(KEEPER_POS.map((p) => [p, { value: 0, count: 0 }])) }
+    }
+    for (const a of allDisplayAssets) {
+      if (a.isPick || !KEEPER_POS.includes(a.position) || a.currentPrice > KEEPER_PRICE_MAX) continue
+      const t = teams[a.teamName]
+      if (!t) continue
+      t.pos[a.position].value += a.currentPrice
+      t.pos[a.position].count += 1
+      t.total += a.currentPrice
+    }
+    const byPos = {}
+    for (const p of KEEPER_POS) {
+      const order = [...fantasyTeams.map((t) => t.name)].sort((x, y) => teams[y].pos[p].value - teams[x].pos[p].value)
+      const values = order.map((n) => teams[n].pos[p].value)
+      byPos[p] = {
+        order,
+        max: values[0] ?? 0,
+        avg: values.reduce((s, v) => s + v, 0) / (values.length || 1),
+      }
+    }
+    const totalOrder = [...fantasyTeams.map((t) => t.name)].sort((x, y) => teams[y].total - teams[x].total)
+    return { teams, byPos, totalOrder }
+  }, [allDisplayAssets])
+
+  const myKeeperCore = useMemo(
+    () =>
+      myAssets
+        .filter((a) => !a.isPick && a.currentPrice <= KEEPER_PRICE_MAX)
+        .sort((a, b) => b.currentPrice - a.currentPrice)
+        .slice(0, 6),
+    [myAssets],
+  )
 
   const recentTrades = useMemo(
     () =>
@@ -78,22 +126,142 @@ export default function DashboardView({ setTab }) {
 
   // ── Sections (identical building blocks on both layouts) ──────
 
-  const teamCard = (
-    <div className="iff-card">
-      <div style={{ padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 3 }}>My Team</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8 }}>{userTeam || '—'}</span>
-            <BeltRow count={belts} size={11} />
+  // My Team — two views. Keeper Outlook (default in the off-season) answers
+  // "who do I keep, who do I chase" — cap totals are a season problem.
+  const outlookDefault = isOffSeason ? 'outlook' : 'classic'
+  const view = teamView ?? outlookDefault
+
+  const myOverallRank = keeperStats.totalOrder.indexOf(userTeam) + 1
+  const myKeeperTotal = keeperStats.teams[userTeam]?.total ?? 0
+
+  const viewToggle = (
+    <div style={{ display: 'flex', gap: 4, background: 'var(--iff-elevated)', borderRadius: 9, padding: 3 }}>
+      {[['outlook', 'Keeper Outlook'], ['classic', 'Classic']].map(([key, label]) => (
+        <button
+          key={key}
+          onClick={() => setTeamView(key)}
+          style={{
+            padding: '4px 10px', borderRadius: 7, fontSize: 10.5, fontWeight: 700,
+            background: view === key ? 'var(--iff-accent)' : 'transparent',
+            color: view === key ? '#fff' : 'var(--iff-subtext)',
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const teamCardHeader = (
+    <div style={{ padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 3 }}>My Team</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8 }}>{userTeam || '—'}</span>
+          <BeltRow count={belts} size={11} />
+        </div>
+        {belts > 0 && (
+          <div style={{ fontSize: 10, color: 'var(--iff-gold)', opacity: 0.85, marginTop: 2 }}>
+            {belts}× League Champion
           </div>
-          {belts > 0 && (
-            <div style={{ fontSize: 10, color: 'var(--iff-gold)', opacity: 0.85, marginTop: 2 }}>
-              {belts}× League Champion
+        )}
+      </div>
+      {viewToggle}
+    </div>
+  )
+
+  const teamCard = view === 'outlook' ? (
+    <div className="iff-card">
+      {teamCardHeader}
+
+      {/* Headline: where the keeper war chest ranks league-wide */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>
+        <span className="tnum" style={{ fontSize: 26, fontWeight: 900, color: rankColor(myOverallRank) }}>
+          #{myOverallRank || '—'}
+        </span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700 }}>Keeper strength — league rank</span>
+          <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 1 }}>
+            ${myKeeperTotal} of keepable talent (players ${KEEPER_PRICE_MAX} &amp; under)
+          </span>
+        </span>
+      </div>
+
+      {/* Position strength vs the league — keeper-eligible value only */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--iff-divider)' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+          Position strength vs league
+        </div>
+        {KEEPER_POS.map((p) => {
+          const mine = keeperStats.teams[userTeam]?.pos[p] ?? { value: 0, count: 0 }
+          const { max, avg, order } = keeperStats.byPos[p]
+          const rank = order.indexOf(userTeam) + 1
+          return (
+            <div key={p} style={{ display: 'grid', gridTemplateColumns: '34px 1fr 84px', gap: 10, alignItems: 'center', marginBottom: 9 }}>
+              <PosBadge position={p} />
+              <div style={{ position: 'relative', height: 10, background: 'var(--iff-elevated)', borderRadius: 5 }}>
+                <div
+                  style={{
+                    position: 'absolute', inset: '0 auto 0 0', width: `${max ? Math.max((mine.value / max) * 100, 2) : 2}%`,
+                    background: 'var(--iff-gold)', borderRadius: 5, transition: 'width 0.3s',
+                  }}
+                />
+                {/* league-average tick */}
+                {max > 0 && (
+                  <div style={{ position: 'absolute', top: -2, bottom: -2, left: `${(avg / max) * 100}%`, width: 2, background: 'var(--iff-subtext)', opacity: 0.7, borderRadius: 1 }} />
+                )}
+              </div>
+              <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <span className="tnum" style={{ fontSize: 12, fontWeight: 700 }}>${mine.value}</span>
+                <span className="tnum" style={{ fontSize: 10, fontWeight: 800, color: rankColor(rank), marginLeft: 6 }}>
+                  {rank ? ordinal(rank) : '—'}
+                </span>
+              </span>
             </div>
-          )}
+          )
+        })}
+        <div style={{ fontSize: 9, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          bar = your keepable $ at the position · tick = league average
         </div>
       </div>
+
+      {/* Keeper core — the players actually worth keeping, with next-year cost */}
+      {myKeeperCore.length > 0 && (
+        <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--iff-divider)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Keeper core
+            </span>
+            <span className="tnum" style={{ fontSize: 9.5, color: 'var(--iff-subtext)' }}>now → next yr</span>
+          </div>
+          {myKeeperCore.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => setDetailAsset(a)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', width: '100%', textAlign: 'left' }}
+            >
+              <PosBadge position={a.position} />
+              <span style={{ fontSize: 13.5, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
+              <span className="tnum" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--iff-green)' }}>${a.currentPrice}</span>
+              <span className="tnum" style={{ fontSize: 11, color: 'var(--iff-gold)' }}>
+                → ${a.prices?.[String(activeSeason + 1)] ?? '—'}
+              </span>
+            </button>
+          ))}
+          <div style={{ fontSize: 9, color: 'var(--iff-subtext)', marginTop: 5 }}>
+            Ignores anyone over ${KEEPER_PRICE_MAX} — they won't be kept. Use the worksheet to plan combos.
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
+        <button className="btn-outline" onClick={() => setTab(4)}>🧪 Worksheet</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ F.M.K. Market</button>
+      </div>
+    </div>
+  ) : (
+    <div className="iff-card">
+      {teamCardHeader}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>
         <div style={{ textAlign: 'center', padding: '10px 8px' }}>
@@ -127,7 +295,7 @@ export default function DashboardView({ setTab }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
         <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
-        <button className="btn-outline" onClick={() => setTab(3)}>⇄ Market</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ F.M.K. Market</button>
       </div>
     </div>
   )
@@ -204,25 +372,34 @@ export default function DashboardView({ setTab }) {
     </button>
   )
 
-  const calendar = upcoming.length > 0 && (
+  // Off-season: a 5-week look-ahead (this week + next 4) with every league
+  // activity in the window. In-season: the old next-milestones strip.
+  const calendar = isOffSeason ? (
     <div>
       <SectionHeader title="League Calendar" />
-      {isDesktop ? (
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
-          {upcoming.map((m) => (
-            <MilestoneCard key={m.name} milestone={m} />
-          ))}
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
-          <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
+      <WeeklyCalendar isDesktop={isDesktop} />
+    </div>
+  ) : (
+    upcoming.length > 0 && (
+      <div>
+        <SectionHeader title="League Calendar" />
+        {isDesktop ? (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
             {upcoming.map((m) => (
               <MilestoneCard key={m.name} milestone={m} />
             ))}
           </div>
-        </div>
-      )}
-    </div>
+        ) : (
+          <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
+            <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
+              {upcoming.map((m) => (
+                <MilestoneCard key={m.name} milestone={m} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
   )
 
   const teamsGrid = (
@@ -515,20 +692,20 @@ export default function DashboardView({ setTab }) {
         ) : (
           <div className="dash-grid">
             <div className="dash-main">
+              {calendar}
               {offerBanners}
               {parlayCard}
               {teamCard}
-              {calendar}
               {teamsGrid}
               {standingsSection}
               {tradesSection}
               {ledgerLink}
             </div>
             <div className="dash-rail">
+              {rulesSection}
               {historyTiles}
               {matchBanner}
               {messagesSection}
-              {rulesSection}
             </div>
           </div>
         )}
@@ -563,21 +740,92 @@ export default function DashboardView({ setTab }) {
         <LoadingList count={4} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
+          {calendar}
+          {rulesSection}
           {offerBanners}
           {parlayCard}
           {teamCard}
           {historyTiles}
           {matchBanner}
-          {calendar}
           {teamsGrid}
           {standingsSection}
           {tradesSection}
           {ledgerLink}
           {messagesSection}
-          {rulesSection}
         </div>
       )}
       {overlays}
+    </div>
+  )
+}
+
+/**
+ * Off-season calendar: the current week plus the next four, each showing
+ * the league activities that fall inside it. Desktop: five columns.
+ * Mobile: five stacked rows.
+ */
+function WeeklyCalendar({ isDesktop }) {
+  const today = new Date()
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay()) // Sunday
+  const weeks = Array.from({ length: 5 }, (_, i) => {
+    const from = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i * 7)
+    const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7)
+    const events = milestones.filter((m) => m.date >= from && m.date < to)
+    const fmt = (d) => d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate() - 1)
+    return {
+      key: i,
+      label: i === 0 ? 'This Week' : i === 1 ? 'Next Week' : `${fmt(from)} – ${fmt(end)}`,
+      sub: i <= 1 ? `${fmt(from)} – ${fmt(end)}` : null,
+      events,
+    }
+  })
+
+  const weekCell = (w) => (
+    <div
+      key={w.key}
+      className="iff-card"
+      style={{
+        padding: '10px 12px', minWidth: 0,
+        border: w.key === 0 ? '1.5px solid rgba(230,57,70,0.45)' : '1px solid transparent',
+        opacity: w.events.length || w.key === 0 ? 1 : 0.72,
+      }}
+    >
+      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: w.key === 0 ? 'var(--iff-accent)' : 'var(--iff-text)' }}>
+        {w.label}
+      </div>
+      {w.sub && <div style={{ fontSize: 9, color: 'var(--iff-subtext)', marginTop: 1 }}>{w.sub}</div>}
+      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {w.events.length === 0 ? (
+          <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', opacity: 0.7 }}>No league events</div>
+        ) : (
+          w.events.map((m) => (
+            <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+              <span style={{ width: 24, height: 24, borderRadius: '50%', background: `${m.color}26`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }}>
+                {m.icon}
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>
+                  {m.name}
+                </span>
+                <span style={{ display: 'block', fontSize: 9, color: m.color, fontWeight: 700 }}>
+                  {m.date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                </span>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+
+  return isDesktop ? (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
+      {weeks.map(weekCell)}
+    </div>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+      {weeks.map(weekCell)}
     </div>
   )
 }

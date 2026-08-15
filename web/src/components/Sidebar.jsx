@@ -27,7 +27,7 @@ export default function Sidebar({ tabs, tab, setTab, matchCount }) {
           >
             <span className="sidebar-glyph">{t.glyph}</span>
             <span>{t.label}</span>
-            {t.label === 'Market' && matchCount > 0 && (
+            {t.area === 'market' && matchCount > 0 && (
               <span className="sidebar-badge">{matchCount}</span>
             )}
           </button>

@@ -168,11 +168,41 @@ function DatabaseSection() {
         </button>
       </div>
 
+      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>Seed 2026 Rookie Class</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+            All 24 picks from the Jul 16 rookie draft (Keeper Master p5) land on their teams —
+            R1 at $2, R2 at $1 — and the spent 2026 pick assets retire. Safe to re-run; never
+            duplicates. NFL teams start blank — fill them in under Players as rookies sign.
+          </span>
+        </span>
+        <button
+          className="btn-outline"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              const { rookieClass2026 } = await import('../data/rookieDraft2026')
+              const r = await fs.seedRookieClass(rookieClass2026, 2026)
+              alert(`Rookies: ${r.added} added, ${r.skipped} already existed. ${r.picksRetired} spent 2026 pick${r.picksRetired === 1 ? '' : 's'} retired.`)
+            } catch (e) {
+              alert(`Failed: ${e.message}`)
+            } finally {
+              setBusy(false)
+            }
+          }}
+          style={{ fontSize: 12, padding: '6px 14px' }}
+        >
+          Seed Rookies
+        </button>
+      </div>
+
       <ValidateContractsCard players={players} />
 
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
-        Database seeding (players, NFL teams, league history) runs from the iOS admin panel or a
-        server script — not from the web app.
+        Bulk seeding (full player list, NFL teams, league history) runs from the iOS admin panel or
+        a server script — not from the web app.
       </div>
     </div>
   )

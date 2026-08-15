@@ -93,6 +93,55 @@ export function addPlayer(player) {
   return addDoc(collection(db, COL.players), player)
 }
 
+/**
+ * Seed a rookie draft class (data/rookieDraft2026.js) into the players
+ * collection. Idempotent: deterministic doc ids + name check, so re-running
+ * never duplicates. Also retires that season's draft-pick assets — the
+ * picks were spent at the draft, the players now exist instead.
+ * Returns {added, skipped, picksRetired}.
+ */
+export async function seedRookieClass(rookies, season) {
+  const existing = snapToDocs(await getDocs(collection(db, COL.players)))
+  const names = new Set(existing.filter((p) => p.isActive !== false).map((p) => p.name.toLowerCase()))
+
+  const batch = writeBatch(db)
+  let added = 0
+  for (const r of rookies) {
+    if (names.has(r.name.toLowerCase())) continue
+    const id = `rookie${season}-${r.slot.replace('.', '-')}`
+    batch.set(doc(db, COL.players, id), {
+      name: r.name,
+      position: r.position,
+      teamName: r.team,
+      nflTeam: r.nflTeam ?? null,
+      prices: Object.fromEntries(Object.entries(r.prices).map(([y, p]) => [String(y), p])),
+      originalPrice: r.originalPrice,
+      purchaseYear: season,
+      contractYearsRemaining: 1,
+      playerPool: 'Rookie Draft',
+      rookieRound: r.round,
+      rookieDraftYear: season,
+      tradeHistory: r.via ? [`${season} ${r.slot} ${r.via}`] : [],
+      isActive: true,
+      salaryStatus: 'rostered',
+    })
+    added++
+  }
+
+  // Retire the spent picks: any still-available draft pick for this season
+  const pickSnap = await getDocs(
+    query(collection(db, COL.draftPicks), where('season', '==', season), where('status', '==', 'available')),
+  )
+  let picksRetired = 0
+  for (const p of pickSnap.docs) {
+    batch.update(p.ref, { status: 'used' })
+    picksRetired++
+  }
+
+  await batch.commit()
+  return { added, skipped: rookies.length - added, picksRetired }
+}
+
 export function updatePlayer(playerId, player) {
   return setDoc(doc(db, COL.players, playerId), player)
 }

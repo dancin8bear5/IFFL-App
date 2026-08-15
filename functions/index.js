@@ -2,6 +2,7 @@ const {onDocumentWritten} = require("firebase-functions/v2/firestore");
 const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
+const {Timestamp, FieldValue} = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const {validatePayload, matchPlayers, pickSides} = require("./tradeIngest");
 
@@ -352,7 +353,7 @@ exports.ingestEspnTrade = onRequest(
         problems: match.problems,
         tradeDateRaw: tradeDate ?? null,
         rawText: rawText ?? null,
-        receivedAt: admin.firestore.Timestamp.now(),
+        receivedAt: Timestamp.now(),
       });
       await sendGroupMeDM(
         COMMISSIONER_TEAM_NAME,
@@ -380,7 +381,7 @@ exports.ingestEspnTrade = onRequest(
       for (const m of match.resolved) {
         tx.update(db.collection("players").doc(m.assetId), {
           teamName: m.toTeam,
-          tradeHistory: admin.firestore.FieldValue.arrayUnion(`via ${m.fromTeam} (ESPN)`),
+          tradeHistory: FieldValue.arrayUnion(`via ${m.fromTeam} (ESPN)`),
         });
         tx.set(db.collection("transactions").doc(), {
           type: "trade",
@@ -393,7 +394,7 @@ exports.ingestEspnTrade = onRequest(
           relatedTradeId: tradeRef.id,
           note: "Auto-recorded from ESPN trade email",
           actorUid: null,
-          createdAt: admin.firestore.Timestamp.now(),
+          createdAt: Timestamp.now(),
         });
       }
       tx.set(tradeRef, {
@@ -405,8 +406,8 @@ exports.ingestEspnTrade = onRequest(
         season,
         status: "completed",
         source: "espn-email",
-        date: admin.firestore.Timestamp.now(),
-        completedAt: admin.firestore.Timestamp.now(),
+        date: Timestamp.now(),
+        completedAt: Timestamp.now(),
       });
       tx.set(ingestRef, {
         sourceId,
@@ -415,7 +416,7 @@ exports.ingestEspnTrade = onRequest(
         moves: match.resolved,
         tradeDateRaw: tradeDate ?? null,
         rawText: rawText ?? null,
-        receivedAt: admin.firestore.Timestamp.now(),
+        receivedAt: Timestamp.now(),
       });
     });
 

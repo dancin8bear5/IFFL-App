@@ -1535,6 +1535,7 @@ function PickConversionOverlay({ pick, onClose }) {
 function TradesSection() {
   const { trades } = useApp()
   const pending = trades.filter((t) => t.status === 'proposed')
+  const [prefill, setPrefill] = useState(null) // {teamA, teamB} from a flagged ingest, or null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1559,7 +1560,8 @@ function TradesSection() {
         )}
       </div>
 
-      <ExternalTradeSection />
+      <EspnIngestQueue onFixManually={setPrefill} />
+      <ExternalTradeSection prefill={prefill} onPrefillConsumed={() => setPrefill(null)} />
     </div>
   )
 }
@@ -1571,7 +1573,76 @@ function TradesSection() {
  * immediately and logs it with its source so it's distinguishable from
  * an app-native deal in the ledger.
  */
-function ExternalTradeSection() {
+/**
+ * Trades the ESPN email auto-import couldn't apply on its own — a
+ * player name didn't match exactly one player on the roster ESPN said
+ * he was coming from (typo, not-yet-synced roster, duplicate name).
+ * Nothing was guessed; these sit here until the commissioner resolves
+ * them, either by fixing it through Record External Trade below or by
+ * dismissing it as a false positive / already handled elsewhere.
+ */
+function EspnIngestQueue({ onFixManually }) {
+  const [items, setItems] = useState(null) // null = loading
+  const [busyId, setBusyId] = useState(null)
+
+  useEffect(() => {
+    fs.fetchPendingIngests().then(setItems).catch(() => setItems([]))
+  }, [])
+
+  async function dismiss(id) {
+    setBusyId(id)
+    try {
+      await fs.dismissTradeIngest(id)
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch (e) {
+      alert(`Failed: ${e.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function fixManually(item) {
+    // Only safe to prefill both team selects when every move in this
+    // ingest event agrees on the same two teams — the common case.
+    const teams = new Set(item.moves?.flatMap((m) => [m.fromTeam, m.toTeam]) ?? [])
+    const [teamA, teamB] = [...teams]
+    onFixManually({ teamA: teamA ?? '', teamB: teams.size === 2 ? teamB : '' })
+  }
+
+  if (items === null || items.length === 0) return null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-accent)' }}>
+        ⚠ ESPN Auto-Import — Needs Review ({items.length})
+      </div>
+      {items.map((item) => (
+        <div key={item.id} className="iff-card" style={{ padding: 12, border: '1px solid rgba(230,57,70,0.4)' }}>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 6 }}>
+            {item.tradeDateRaw ?? item.receivedAt?.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? 'unknown date'}
+          </div>
+          {(item.problems ?? []).map((p, i) => (
+            <div key={i} style={{ fontSize: 12.5, marginBottom: 3 }}>• {p.reason}</div>
+          ))}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+            <button className="btn-outline" onClick={() => fixManually(item)} style={{ fontSize: 11, padding: '5px 12px' }}>
+              Fix Manually ↓
+            </button>
+            <button
+              onClick={() => dismiss(item.id)}
+              disabled={busyId === item.id}
+              style={{ fontSize: 11, color: 'var(--iff-subtext)', padding: '5px 12px' }}
+            >
+              {busyId === item.id ? 'Dismissing…' : 'Dismiss'}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ExternalTradeSection({ prefill, onPrefillConsumed }) {
   const { allDisplayAssets, activeSeason } = useApp()
   const [teamA, setTeamA] = useState('')
   const [teamB, setTeamB] = useState('')
@@ -1580,6 +1651,17 @@ function ExternalTradeSection() {
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(null)
+
+  // Coming from a flagged ESPN import — set the teams so the commissioner
+  // only has to fix the ambiguous player(s), not re-pick everything.
+  useEffect(() => {
+    if (!prefill) return
+    setTeamA(prefill.teamA ?? '')
+    setTeamB(prefill.teamB ?? '')
+    setFromA(new Set())
+    setFromB(new Set())
+    onPrefillConsumed?.()
+  }, [prefill, onPrefillConsumed])
 
   const assetsA = useMemo(
     () => allDisplayAssets.filter((a) => a.teamName === teamA).sort((a, b) => b.currentPrice - a.currentPrice),

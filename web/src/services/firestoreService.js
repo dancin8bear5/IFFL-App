@@ -679,6 +679,23 @@ export async function applyKeeperImport(diff, meta = {}) {
   return { added: diff.added.length, changed: diff.changed.length }
 }
 
+// ── ESPN trade auto-import review queue ────────────────────────
+// Written by the ingestEspnTrade Cloud Function (Admin SDK) whenever a
+// parsed trade's players don't resolve cleanly against the live roster.
+// Commissioner-only — see firestore.rules.
+
+export async function fetchPendingIngests() {
+  const q = query(collection(db, 'tradeIngests'), where('status', '==', 'needs_review'))
+  const snap = await getDocs(q)
+  return snapToDocs(snap)
+    .map((i) => ({ ...i, receivedAt: tsToDate(i.receivedAt) }))
+    .sort((a, b) => (b.receivedAt ?? 0) - (a.receivedAt ?? 0))
+}
+
+export function dismissTradeIngest(id) {
+  return updateDoc(doc(db, 'tradeIngests', id), { status: 'ignored', resolvedAt: Timestamp.now() })
+}
+
 // ── Rules — proposals + voting (Firestore: "rules") ───────────
 
 export function listenToRules(callback) {

@@ -133,6 +133,14 @@ service cloud.firestore {
       allow write: if isCommissioner();
     }
 
+    // ESPN trade auto-import log (functions/index.js ingestEspnTrade) —
+    // internal ops data, not league-facing. Written by the Cloud
+    // Function via the Admin SDK (bypasses rules entirely); commissioner
+    // can read the review queue and dismiss/update entries from Admin.
+    match /tradeIngests/{ingestId} {
+      allow read, write: if isCommissioner();
+    }
+
     // Transaction ledger — the league's paper trail. Readable by everyone,
     // written only by the commissioner (entries ride along with executeTrade
     // and repair batches). Never updated or deleted — it's an audit log.

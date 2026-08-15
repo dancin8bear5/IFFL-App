@@ -1,8 +1,9 @@
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
+const {validatePayload, matchPlayers, pickSides} = require("./tradeIngest");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -12,8 +13,17 @@ const db = admin.firestore();
 // Never lives in git, the app bundle, or Firestore.
 const GROUPME_TOKEN = defineSecret("GROUPME_TOKEN");
 
+// Shared secret the ESPN-trade-ingest webhook checks on every request —
+// set once from the Mac terminal:
+//   firebase functions:secrets:set TRADE_INGEST_SECRET
+// Generate it with e.g. `openssl rand -hex 32`. Never lives in git, the
+// app bundle, or Firestore. The Make.com scenario sends it back on every
+// call as the X-Ingest-Secret header.
+const TRADE_INGEST_SECRET = defineSecret("TRADE_INGEST_SECRET");
+
 const APP_URL = "https://iffl-auth.web.app";
 const COMMISSIONER_EMAIL = "jaredrogtaylor@gmail.com";
+const COMMISSIONER_TEAM_NAME = "Jared";
 
 /**
  * Resolves a fantasy team name to an FCM token by inverting
@@ -88,6 +98,25 @@ async function sendGroupMeDM(teamName, text) {
 function assetSummary(refs) {
   const names = (refs ?? []).map((a) => a.displayName);
   return names.length ? names.join(", ") : "nothing";
+}
+
+/**
+ * The "it's official" notification — fired whenever a trade lands on
+ * status 'completed', whichever path got it there: a member's accept
+ * auto-executing, the commissioner's Record External Trade tool, or the
+ * ESPN email auto-import. `source` tags the message so recipients know
+ * how it got there.
+ */
+async function notifyCompleted(proposer, receiver, youGet, theyGet, source) {
+  const tag = source === "espn-email" ? " (auto-recorded from an ESPN trade email)"
+    : source === "espn" ? " (recorded from ESPN)"
+    : "";
+  await sendPush(proposer, "Trade Executed", `Your trade with ${receiver} has been completed${tag}.`);
+  await sendPush(receiver, "Trade Executed", `Your trade with ${proposer} has been completed${tag}.`);
+  await sendGroupMeDM(proposer,
+    `🤝 Trade with ${receiver} is executed and official${tag}. Rosters are updated in the app.`);
+  await sendGroupMeDM(receiver,
+    `🤝 Trade with ${proposer} is executed and official${tag}. Rosters are updated in the app.`);
 }
 
 /**
@@ -169,6 +198,13 @@ exports.onTradeWrite = onDocumentWritten(
 
     // New trade created
     if (!before) {
+      // Created directly as 'completed' — Record External Trade or the
+      // ESPN email auto-import. There was no offer to notify anyone
+      // about; it's already done.
+      if (after.status === "completed") {
+        await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
+        return null;
+      }
       // Counter-offers: the original trade's status→countered already notified
       // the proposer via push; but the DM for a counter should reach the NEW
       // receiver (the original proposer) with the new terms — send it here.
@@ -229,14 +265,7 @@ exports.onTradeWrite = onDocumentWritten(
         break;
 
       case "completed":
-        await sendPush(proposer, "Trade Executed",
-          `Your trade with ${receiver} has been completed.`);
-        await sendPush(receiver, "Trade Executed",
-          `Your trade with ${proposer} has been completed.`);
-        await sendGroupMeDM(proposer,
-          `🤝 Trade with ${receiver} is executed and official. Rosters are updated in the app.`);
-        await sendGroupMeDM(receiver,
-          `🤝 Trade with ${proposer} is executed and official. Rosters are updated in the app.`);
+        await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
         break;
 
       default:
@@ -244,6 +273,153 @@ exports.onTradeWrite = onDocumentWritten(
     }
 
     return null;
+  },
+);
+
+/**
+ * ESPN trade auto-import. Called by the Make.com scenario that scrapes
+ * the Gmail ESPN-trade-notification emails and parses them — this
+ * function is the "verify if we already know it, then ingest and update
+ * the data store" half of that pipeline.
+ *
+ * POST { sourceId, tradeDate?, moves: [{player, fromEspnTeam, toEspnTeam}], rawText? }
+ * Header: X-Ingest-Secret: <TRADE_INGEST_SECRET>
+ *
+ * Flow:
+ *   1. Verify — sourceId is checked against tradeIngests/{sourceId}. If
+ *      it already exists, this exact event was already processed
+ *      (applied OR flagged) and nothing happens again. This is the
+ *      literal "do we already know this trade" check, keyed on
+ *      whatever stable id the scraper sends (Gmail message id is ideal).
+ *   2. Ingest — every move's player name is matched against the LIVE
+ *      roster of the team ESPN says he's coming from. Only when every
+ *      leg resolves to exactly one player does it apply: all assets
+ *      transfer, a trade doc lands as 'completed' with source
+ *      'espn-email', and it's logged to the transaction ledger — same
+ *      shape as any other completed trade, so Rosters/cap/Keeper
+ *      Outlook all just see it. A trade that doesn't resolve cleanly
+ *      (typo, name not on the roster this app has, ambiguous duplicate
+ *      name) is written to tradeIngests as 'needs_review' instead of
+ *      guessed at, and the commissioner gets a GroupMe DM — resolve it
+ *      from Admin → Trades.
+ */
+exports.ingestEspnTrade = onRequest(
+  {secrets: [TRADE_INGEST_SECRET, GROUPME_TOKEN]},
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ok: false, error: "POST only"});
+      return;
+    }
+    if (req.get("X-Ingest-Secret") !== TRADE_INGEST_SECRET.value()) {
+      res.status(401).json({ok: false, error: "Unauthorized"});
+      return;
+    }
+
+    const validation = validatePayload(req.body);
+    if (!validation.ok) {
+      res.status(400).json({ok: false, error: validation.error});
+      return;
+    }
+    const {sourceId, tradeDate, rawText} = req.body;
+    const moves = validation.moves;
+
+    // Step 1: verify — have we already seen this exact source event?
+    const ingestRef = db.collection("tradeIngests").doc(sourceId);
+    const existing = await ingestRef.get();
+    if (existing.exists) {
+      res.status(200).json({ok: true, status: "duplicate", previousStatus: existing.data().status});
+      return;
+    }
+
+    // Live roster snapshot for the teams this trade touches (targeted —
+    // Firestore 'in' caps at 30, a trade never touches more than a
+    // handful of the league's 12 teams).
+    const teams = [...new Set(moves.map((m) => m.fromTeam))];
+    const rosterSnap = await db.collection("players")
+      .where("teamName", "in", teams)
+      .where("isActive", "==", true)
+      .get();
+    const roster = rosterSnap.docs.map((d) => ({id: d.id, name: d.data().name, teamName: d.data().teamName}));
+
+    const match = matchPlayers(moves, roster);
+
+    // Step 2a: ingest failed to resolve cleanly — flag for review, don't guess.
+    if (!match.ok) {
+      await ingestRef.set({
+        sourceId,
+        status: "needs_review",
+        moves,
+        problems: match.problems,
+        tradeDateRaw: tradeDate ?? null,
+        rawText: rawText ?? null,
+        receivedAt: admin.firestore.Timestamp.now(),
+      });
+      await sendGroupMeDM(
+        COMMISSIONER_TEAM_NAME,
+        `⚠️ ESPN trade auto-import needs review:\n` +
+        match.problems.map((p) => `• ${p.reason}`).join("\n") +
+        `\nResolve it from Admin → Trades: ${APP_URL}`,
+      ).catch(() => {});
+      res.status(200).json({ok: true, status: "needs_review", problems: match.problems});
+      return;
+    }
+
+    // Step 2b: every leg resolved — ingest it. Same shape as any other
+    // completed trade (Rosters/cap/Keeper Outlook don't need to know
+    // where it came from), tagged source:'espn-email' for the ledger.
+    const configSnap = await db.doc("config/league").get();
+    const season = configSnap.data()?.activeSeasonYear ?? null;
+    const {proposingTeamName, receivingTeamName} = pickSides(match.resolved);
+    const tradeRef = db.collection("trades").doc();
+
+    const toRef = (m) => ({assetType: "player", assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
+    const assetsFromProposer = match.resolved.filter((m) => m.fromTeam === proposingTeamName).map(toRef);
+    const assetsFromReceiver = match.resolved.filter((m) => m.fromTeam !== proposingTeamName).map(toRef);
+
+    await db.runTransaction(async (tx) => {
+      for (const m of match.resolved) {
+        tx.update(db.collection("players").doc(m.assetId), {
+          teamName: m.toTeam,
+          tradeHistory: admin.firestore.FieldValue.arrayUnion(`via ${m.fromTeam} (ESPN)`),
+        });
+        tx.set(db.collection("transactions").doc(), {
+          type: "trade",
+          season,
+          teamName: m.toTeam,
+          fromTeam: m.fromTeam,
+          playerId: m.assetId,
+          playerName: m.displayName,
+          assetType: "player",
+          relatedTradeId: tradeRef.id,
+          note: "Auto-recorded from ESPN trade email",
+          actorUid: null,
+          createdAt: admin.firestore.Timestamp.now(),
+        });
+      }
+      tx.set(tradeRef, {
+        proposingTeamName,
+        receivingTeamName,
+        assetsFromProposer,
+        assetsFromReceiver,
+        notes: null,
+        season,
+        status: "completed",
+        source: "espn-email",
+        date: admin.firestore.Timestamp.now(),
+        completedAt: admin.firestore.Timestamp.now(),
+      });
+      tx.set(ingestRef, {
+        sourceId,
+        status: "applied",
+        tradeId: tradeRef.id,
+        moves: match.resolved,
+        tradeDateRaw: tradeDate ?? null,
+        rawText: rawText ?? null,
+        receivedAt: admin.firestore.Timestamp.now(),
+      });
+    });
+
+    res.status(200).json({ok: true, status: "applied", tradeId: tradeRef.id});
   },
 );
 

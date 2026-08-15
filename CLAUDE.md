@@ -151,6 +151,32 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - [ ] **Merge open branches** — `claude/repo-cleanup-and-security` and `claude/claude-md-init` into main once build is confirmed working on device.
 - [ ] **Rotate serviceAccountKey.json** — old key was committed to git history; rotate in Google Cloud Console.
 
+### ESPN trade auto-import (webhook — needs one-time secret + Make.com wiring)
+Trades that happen directly in ESPN (never proposed in this app) used to require manually re-entering them via Admin → Trades → Record External Trade. As of Aug 2026 there's a webhook (`exports.ingestEspnTrade` in `functions/index.js`) that the existing Gmail-scraper Make.com scenario can POST parsed trade emails to, and it applies them automatically.
+
+**One-time setup on the Mac:**
+```bash
+# Generate a secret and set it (needed once; never in git)
+openssl rand -hex 32
+firebase functions:secrets:set TRADE_INGEST_SECRET
+firebase deploy --only functions
+```
+Then in the Make.com scenario, add a final HTTP module: `POST https://us-central1-iffl-auth.cloudfunctions.net/ingestEspnTrade`, header `X-Ingest-Secret: <the secret above>`, JSON body:
+```json
+{
+  "sourceId": "<Gmail message id — anything stable and unique per email>",
+  "tradeDate": "2026-08-14T18:32:00Z",
+  "moves": [
+    { "player": "Justin Jefferson", "fromEspnTeam": "bill pony club", "toEspnTeam": "Shoot the Moon: IV" },
+    { "player": "Patrick Mahomes",  "fromEspnTeam": "Shoot the Moon: IV", "toEspnTeam": "bill pony club" }
+  ],
+  "rawText": "optional — the raw email text, kept for audit only"
+}
+```
+One `moves` entry per player that changed teams (`fromEspnTeam`/`toEspnTeam` are ESPN's own team names — the function resolves them against the p17 identity map in `functions/tradeIngest.js`, which must be kept in sync with `web/src/data/staticData.js`'s `espnName` fields if the league ever renames a team). Response is always 200 with `{ok:true, status: "applied"|"needs_review"|"duplicate"}` (or `ok:false` for a malformed request / bad secret) — Make can just log it.
+
+**What happens on each call:** duplicate `sourceId` → no-op. Every player name resolves to exactly one player on the roster ESPN says he's coming from → applied instantly (assets transfer, ledger entry, `trades` doc lands as `completed` with `source: "espn-email"`). Anything ambiguous (typo, name not found, duplicate name) → nothing is guessed; it's queued in Admin → Trades → "ESPN Auto-Import — Needs Review" and Jared gets a GroupMe DM.
+
 ## TestFlight — manual steps (until Fastlane is set up)
 
 1. Xcode toolbar → change destination to **"Any iOS Device (arm64)"**

@@ -808,8 +808,8 @@ function WeeklyCalendar({ isDesktop }) {
                 <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>
                   {m.name}
                 </span>
-                <span style={{ display: 'block', fontSize: 9, color: m.color, fontWeight: 700 }}>
-                  {m.date.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800, color: m.color, marginTop: 1 }}>
+                  {m.date.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </span>
               </span>
             </div>
@@ -862,17 +862,17 @@ function HistoryTile({ glyph, title, sub, onClick, gold }) {
       className="iff-card"
       onClick={onClick}
       style={{
-        display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+        display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
         textAlign: 'left', width: '100%',
         ...(gold ? { background: 'linear-gradient(135deg, rgba(244,162,97,0.14), var(--iff-surface) 60%)' } : {}),
       }}
     >
-      <span style={{ width: 44, height: 44, background: gold ? 'rgba(244,162,97,0.2)' : 'var(--iff-elevated)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+      <span style={{ width: 36, height: 36, background: gold ? 'rgba(244,162,97,0.2)' : 'var(--iff-elevated)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
         {glyph}
       </span>
-      <span style={{ flex: 1 }}>
-        <span style={{ display: 'block', fontSize: 15, fontWeight: 600 }}>{title}</span>
-        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>{sub}</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600 }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 2 }}>{sub}</span>
       </span>
       <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
     </button>

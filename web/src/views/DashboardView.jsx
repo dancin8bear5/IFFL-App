@@ -693,6 +693,7 @@ export default function DashboardView({ setTab }) {
           <div className="dash-grid">
             <div className="dash-main">
               {calendar}
+              {messagesSection}
               {offerBanners}
               {parlayCard}
               {teamCard}
@@ -705,7 +706,6 @@ export default function DashboardView({ setTab }) {
               {rulesSection}
               {historyTiles}
               {matchBanner}
-              {messagesSection}
             </div>
           </div>
         )}
@@ -741,6 +741,7 @@ export default function DashboardView({ setTab }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
           {calendar}
+          {messagesSection}
           {rulesSection}
           {offerBanners}
           {parlayCard}
@@ -751,7 +752,6 @@ export default function DashboardView({ setTab }) {
           {standingsSection}
           {tradesSection}
           {ledgerLink}
-          {messagesSection}
         </div>
       )}
       {overlays}
@@ -760,72 +760,60 @@ export default function DashboardView({ setTab }) {
 }
 
 /**
- * Off-season calendar: the current week plus the next four, each showing
- * the league activities that fall inside it. Desktop: five columns.
- * Mobile: five stacked rows.
+ * Off-season calendar: every league activity inside the current week +
+ * next four, one tile per activity — just the title and its exact date.
  */
 function WeeklyCalendar({ isDesktop }) {
   const today = new Date()
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay()) // Sunday
-  const weeks = Array.from({ length: 5 }, (_, i) => {
-    const from = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i * 7)
-    const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 7)
-    const events = milestones.filter((m) => m.date >= from && m.date < to)
-    const fmt = (d) => d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
-    const end = new Date(to.getFullYear(), to.getMonth(), to.getDate() - 1)
-    return {
-      key: i,
-      label: i === 0 ? 'This Week' : i === 1 ? 'Next Week' : `${fmt(from)} – ${fmt(end)}`,
-      sub: i <= 1 ? `${fmt(from)} – ${fmt(end)}` : null,
-      events,
-    }
-  })
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const windowStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() - dayStart.getDay()) // Sunday
+  const windowEnd = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate() + 35)
+  const events = milestones.filter((m) => m.date >= windowStart && m.date < windowEnd)
 
-  const weekCell = (w) => (
-    <div
-      key={w.key}
-      className="iff-card"
-      style={{
-        padding: '10px 12px', minWidth: 0,
-        border: w.key === 0 ? '1.5px solid rgba(230,57,70,0.45)' : '1px solid transparent',
-        opacity: w.events.length || w.key === 0 ? 1 : 0.72,
-      }}
-    >
-      <div style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: w.key === 0 ? 'var(--iff-accent)' : 'var(--iff-text)' }}>
-        {w.label}
+  const eventCard = (m) => {
+    const days = Math.round((m.date - dayStart) / 86400000)
+    const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days < 0 ? 'Done' : `in ${days} days`
+    return (
+      <div
+        key={m.name}
+        className="iff-card"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', minWidth: 0,
+          border: days >= 0 && days <= 7 ? '1.5px solid rgba(230,57,70,0.45)' : '1px solid transparent',
+          opacity: days < 0 ? 0.6 : 1,
+        }}
+      >
+        <span style={{ width: 32, height: 32, borderRadius: '50%', background: `${m.color}26`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+          {m.icon}
+        </span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 800, lineHeight: 1.2 }}>{m.name}</span>
+          <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: m.color, marginTop: 2 }}>
+            {m.date.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </span>
+        </span>
+        <span style={{ fontSize: 9.5, fontWeight: 700, color: m.color, background: `${m.color}1F`, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+          {daysLabel}
+        </span>
       </div>
-      {w.sub && <div style={{ fontSize: 9, color: 'var(--iff-subtext)', marginTop: 1 }}>{w.sub}</div>}
-      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {w.events.length === 0 ? (
-          <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', opacity: 0.7 }}>No league events</div>
-        ) : (
-          w.events.map((m) => (
-            <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-              <span style={{ width: 24, height: 24, borderRadius: '50%', background: `${m.color}26`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }}>
-                {m.icon}
-              </span>
-              <span style={{ minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, lineHeight: 1.2 }}>
-                  {m.name}
-                </span>
-                <span style={{ display: 'block', fontSize: 10.5, fontWeight: 800, color: m.color, marginTop: 1 }}>
-                  {m.date.toLocaleString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                </span>
-              </span>
-            </div>
-          ))
-        )}
+    )
+  }
+
+  if (events.length === 0) {
+    return (
+      <div className="iff-card" style={{ marginTop: 10, padding: '12px 14px', fontSize: 12, color: 'var(--iff-subtext)' }}>
+        Quiet stretch — no league events in the next 5 weeks.
       </div>
-    </div>
-  )
+    )
+  }
 
   return isDesktop ? (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10, marginTop: 10 }}>
-      {weeks.map(weekCell)}
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(events.length, 3)}, minmax(0, 1fr))`, gap: 10, marginTop: 10 }}>
+      {events.map(eventCard)}
     </div>
   ) : (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-      {weeks.map(weekCell)}
+      {events.map(eventCard)}
     </div>
   )
 }

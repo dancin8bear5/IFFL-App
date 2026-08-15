@@ -311,21 +311,22 @@ export function counterTrade(originalTradeId, newTrade) {
 }
 
 /**
- * Atomic: transfer every asset on both sides, then mark the trade completed.
- * Mirrors executeTrade + applyTransfer.
+ * Commissioner-only: record a trade that happened OUTSIDE the app — e.g.
+ * two teams executed it directly in ESPN without ever proposing it here.
+ * There's no pre-existing trade doc and no member consent step to wait
+ * on (it already happened); this creates the trade doc as 'completed'
+ * and transfers every asset in the same atomic batch, tagged with its
+ * source so it's distinguishable in the ledger from an app-native deal.
+ *
+ * Accepting an in-app trade proposal no longer goes through this —
+ * that's now executed server-side by the onTradeWrite Cloud Function the
+ * instant a member accepts, since members don't have write access to
+ * players/draftPicks directly. This function exists ONLY for the
+ * commissioner to backfill a deal this app never saw proposed.
  */
-export async function executeTrade(tradeId, meta = {}) {
-  const tradeSnap = await getDoc(doc(db, COL.trades, tradeId))
-  if (!tradeSnap.exists()) throw new Error('Trade not found')
-  const trade = tradeSnap.data()
-  // Guard against double-execution: re-applying the swaps would trade the
-  // assets straight back (and stack bogus tradeHistory entries).
-  if (trade.status === 'completed') throw new Error('Trade already executed')
-  if (trade.status !== 'accepted' && trade.status !== 'proposed') {
-    throw new Error(`Trade is ${trade.status} — only accepted trades can be executed`)
-  }
-
+export function recordExternalTrade({ proposingTeamName, receivingTeamName, assetsFromProposer, assetsFromReceiver, notes, season, source = 'espn' }, meta = {}) {
   const batch = writeBatch(db)
+  const tradeRef = doc(collection(db, COL.trades))
   const note = (from) => `via ${from}`
 
   const applyTransfer = (assetRef, toTeam, fromTeam) => {
@@ -340,34 +341,37 @@ export async function executeTrade(tradeId, meta = {}) {
         tradeHistory: arrayUnion(note(fromTeam)),
       })
     }
-    // Ledger entry in the same batch — the trade and its history land
-    // atomically or not at all
     batch.set(doc(collection(db, COL.transactions)), {
       type: 'trade',
-      season: meta.season ?? trade.season ?? null,
+      season: season ?? null,
       teamName: toTeam,
       fromTeam,
       playerId: assetRef.assetId,
       playerName: assetRef.displayName ?? null,
       assetType: assetRef.assetType,
-      relatedTradeId: tradeId,
+      relatedTradeId: tradeRef.id,
+      note: `Recorded from ${source} (manual entry)`,
       actorUid: meta.actorUid ?? null,
       createdAt: Timestamp.now(),
     })
   }
 
-  for (const ref of trade.assetsFromProposer ?? []) {
-    applyTransfer(ref, trade.receivingTeamName, trade.proposingTeamName)
-  }
-  for (const ref of trade.assetsFromReceiver ?? []) {
-    applyTransfer(ref, trade.proposingTeamName, trade.receivingTeamName)
-  }
+  for (const ref of assetsFromProposer ?? []) applyTransfer(ref, receivingTeamName, proposingTeamName)
+  for (const ref of assetsFromReceiver ?? []) applyTransfer(ref, proposingTeamName, receivingTeamName)
 
-  batch.update(doc(db, COL.trades, tradeId), {
+  batch.set(tradeRef, {
+    proposingTeamName,
+    receivingTeamName,
+    assetsFromProposer: assetsFromProposer ?? [],
+    assetsFromReceiver: assetsFromReceiver ?? [],
+    notes: notes || null,
+    season: season ?? null,
     status: 'completed',
+    source,
+    date: Timestamp.now(),
     completedAt: Timestamp.now(),
   })
-  return batch.commit()
+  return batch.commit().then(() => tradeRef.id)
 }
 
 // ── Dropped-player lifecycle (§Rosters + §Luxury Tax) ─────────

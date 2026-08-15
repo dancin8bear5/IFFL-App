@@ -7,6 +7,8 @@ import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
 import { computeRolloverPlan } from '../services/seasonRollover'
+import { tradeCapImpact } from '../services/contracts'
+import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
@@ -1523,89 +1525,175 @@ function PickConversionOverlay({ pick, onClose }) {
 }
 
 // ── Trades ────────────────────────────────────────────────────
+// Every in-app trade executes itself the instant the receiving team
+// accepts — no commissioner approval step. This section is now: (1) a
+// live audit view of trades still waiting on a response, and (2) the
+// tool for the one case that still needs a human: a deal that happened
+// OUTSIDE the app (e.g. executed directly in ESPN) and needs recording
+// here so this app's rosters/cap/keeper math stay in sync with reality.
 
 function TradesSection() {
-  const { trades, activeSeason, user, allDisplayAssets } = useApp()
-  const [busyId, setBusyId] = useState(null)
-  const actionable = trades.filter((t) => t.status === 'proposed' || t.status === 'accepted')
+  const { trades } = useApp()
+  const pending = trades.filter((t) => t.status === 'proposed')
 
-  async function execute(trade) {
-    setBusyId(trade.id)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Trades execute themselves the moment the other team accepts — assets move, the cap updates,
+        and it's logged, all automatically. Nothing to approve here. Waiting-on-response trades are
+        listed below for visibility only.
+      </div>
+
+      <div className="iff-card">
+        {pending.length === 0 ? (
+          <div className="empty-state" style={{ padding: 32 }}><div>No trades waiting on a response.</div></div>
+        ) : (
+          pending.map((t, i) => (
+            <div key={t.id} style={{ padding: '12px 14px', borderBottom: i < pending.length - 1 ? '1px solid var(--iff-divider)' : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>{t.proposingTeamName} ↔ {t.receivingTeamName}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)' }}>PROPOSED — awaiting {t.receivingTeamName}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <ExternalTradeSection />
+    </div>
+  )
+}
+
+/**
+ * Record a trade this app never saw proposed — it happened directly in
+ * ESPN (or by phone call, or in the parking lot). There's no consent
+ * step to wait on since it already happened; this transfers the assets
+ * immediately and logs it with its source so it's distinguishable from
+ * an app-native deal in the ledger.
+ */
+function ExternalTradeSection() {
+  const { allDisplayAssets, activeSeason } = useApp()
+  const [teamA, setTeamA] = useState('')
+  const [teamB, setTeamB] = useState('')
+  const [fromA, setFromA] = useState(new Set())
+  const [fromB, setFromB] = useState(new Set())
+  const [notes, setNotes] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState(null)
+
+  const assetsA = useMemo(
+    () => allDisplayAssets.filter((a) => a.teamName === teamA).sort((a, b) => b.currentPrice - a.currentPrice),
+    [allDisplayAssets, teamA],
+  )
+  const assetsB = useMemo(
+    () => allDisplayAssets.filter((a) => a.teamName === teamB).sort((a, b) => b.currentPrice - a.currentPrice),
+    [allDisplayAssets, teamB],
+  )
+
+  const toggle = (set, setter, id) => {
+    const next = new Set(set)
+    next.has(id) ? next.delete(id) : next.add(id)
+    setter(next)
+  }
+  const toRef = (a) => ({ assetType: a.assetType, assetId: a.id, displayName: a.name, teamName: a.teamName })
+
+  const capImpact = useMemo(() => {
+    if (!teamA || !teamB || (fromA.size === 0 && fromB.size === 0)) return null
+    return tradeCapImpact(
+      allDisplayAssets, activeSeason, teamA, teamB,
+      assetsA.filter((a) => fromA.has(a.id)),
+      assetsB.filter((a) => fromB.has(a.id)),
+    )
+  }, [allDisplayAssets, activeSeason, teamA, teamB, assetsA, assetsB, fromA, fromB])
+
+  const canRecord = teamA && teamB && teamA !== teamB && (fromA.size > 0 || fromB.size > 0) && !busy
+
+  async function record() {
+    setBusy(true)
     try {
-      // TAX DAT ASS check at the moment of truth
-      const { tradeCapImpact } = await import('../services/contracts')
-      const { ROSTER_CAP, LUXURY_TAX_TOTAL } = await import('../data/staticData')
-      const byId = new Map(allDisplayAssets.map((a) => [a.id, a]))
-      const resolve = (refs) => (refs ?? []).map((r) => byId.get(r.assetId)).filter(Boolean)
-      const impact = tradeCapImpact(
-        allDisplayAssets, activeSeason,
-        trade.proposingTeamName, trade.receivingTeamName,
-        resolve(trade.assetsFromProposer), resolve(trade.assetsFromReceiver),
-      )
-      const breaching = [
-        { team: trade.proposingTeamName, ...impact.proposer },
-        { team: trade.receivingTeamName, ...impact.receiver },
-      ].filter((s) => s.after > ROSTER_CAP)
-
-      if (breaching.length > 0) {
-        const lines = breaching
-          .map((s) => `${s.team} lands at $${s.after} ($${s.after - ROSTER_CAP} over the $${ROSTER_CAP} cap)`)
-          .join('\n')
-        const ok = confirm(
-          `🚨 TAX DAT ASS\n\n${lines}\n\nExecuting starts the 24-hour clock on the $${LUXURY_TAX_TOTAL} luxury tax. Unpaid, the trade voids and it's -100 pts/week.\n\nExecute anyway?`,
-        )
-        if (!ok) return
-      }
-
-      await fs.executeTrade(trade.id, { season: activeSeason, actorUid: user?.uid ?? null })
-
-      // Log the tax event so the ledger shows who owes and since when
-      for (const s of breaching) {
-        await fs.logTransaction({
-          type: 'tax',
-          season: activeSeason,
-          teamName: s.team,
-          playerId: null,
-          playerName: null,
-          price: LUXURY_TAX_TOTAL,
-          note: `Over the $${ROSTER_CAP} cap at $${s.after} — $${LUXURY_TAX_TOTAL} due within 24h (UNPAID)`,
-          relatedTradeId: trade.id,
-          actorUid: user?.uid ?? null,
-        }).catch(() => {})
-      }
+      const id = await fs.recordExternalTrade({
+        proposingTeamName: teamA,
+        receivingTeamName: teamB,
+        assetsFromProposer: assetsA.filter((a) => fromA.has(a.id)).map(toRef),
+        assetsFromReceiver: assetsB.filter((a) => fromB.has(a.id)).map(toRef),
+        notes: notes.trim(),
+        season: activeSeason,
+        source: 'espn',
+      })
+      setDone(id)
+      setTeamA(''); setTeamB(''); setFromA(new Set()); setFromB(new Set()); setNotes('')
     } catch (e) {
-      // Surface it — a swallowed failure here looks like a successful trade
-      alert(`Execute failed: ${e.message}`)
+      alert(`Failed: ${e.message}`)
     } finally {
-      setBusyId(null)
+      setBusy(false)
     }
   }
 
   return (
-    <div className="iff-card">
-      {actionable.length === 0 && (
-        <div className="empty-state" style={{ padding: 32 }}><div>No pending or accepted trades.</div></div>
-      )}
-      {actionable.map((t, i) => (
-        <div key={t.id} style={{ padding: '12px 14px', borderBottom: i < actionable.length - 1 ? '1px solid var(--iff-divider)' : 'none' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, fontWeight: 700 }}>{t.proposingTeamName} ↔ {t.receivingTeamName}</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: t.status === 'accepted' ? '#22C55E' : 'var(--iff-gold)' }}>
-              {t.status.toUpperCase()}
-            </span>
-          </div>
-          {t.status === 'accepted' && (
-            <button
-              className="btn-outline"
-              onClick={() => execute(t)}
-              disabled={busyId === t.id}
-              style={{ marginTop: 8, fontSize: 11, padding: '6px 14px' }}
-            >
-              {busyId === t.id ? 'Executing…' : 'Execute Trade (ESPN Confirmed)'}
-            </button>
-          )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 13, fontWeight: 800 }}>Record External Trade</div>
+      <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.55 }}>
+        For a deal that happened outside the app — most often executed straight in ESPN. Pick both
+        teams and what moved; it transfers immediately, no waiting on anyone's response.
+      </div>
+
+      {done && (
+        <div className="iff-card" style={{ padding: 12, fontSize: 12, color: 'var(--iff-green)', border: '1px solid rgba(74,222,128,0.4)' }}>
+          ✓ Recorded and executed.
         </div>
-      ))}
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <select value={teamA} onChange={(e) => { setTeamA(e.target.value); setFromA(new Set()) }}>
+          <option value="">Team A…</option>
+          {fantasyTeams.filter((t) => t.name !== teamB).map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+        </select>
+        <select value={teamB} onChange={(e) => { setTeamB(e.target.value); setFromB(new Set()) }}>
+          <option value="">Team B…</option>
+          {fantasyTeams.filter((t) => t.name !== teamA).map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
+        </select>
+      </div>
+
+      {teamA && (
+        <ExternalAssetPickList title={`${teamA} sends`} assets={assetsA} selected={fromA} onToggle={(id) => toggle(fromA, setFromA, id)} />
+      )}
+      {teamB && (
+        <ExternalAssetPickList title={`${teamB} sends`} assets={assetsB} selected={fromB} onToggle={(id) => toggle(fromB, setFromB, id)} />
+      )}
+
+      {capImpact && <TaxWarning impact={capImpact} names={{ proposer: teamA, receiver: teamB }} />}
+
+      <textarea
+        rows={2}
+        placeholder="Note (optional) — e.g. 'confirmed via GroupMe, executed in ESPN 8/14'"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        style={{ resize: 'vertical' }}
+      />
+
+      <button className="btn-primary" onClick={record} disabled={!canRecord} style={{ background: canRecord ? '#16A34A' : undefined }}>
+        {busy ? 'Recording…' : 'Record & Execute'}
+      </button>
+    </div>
+  )
+}
+
+function ExternalAssetPickList({ title, assets, selected, onToggle }) {
+  return (
+    <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div style={{ padding: '9px 12px', fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', borderBottom: '1px solid var(--iff-divider)' }}>
+        {title}
+      </div>
+      <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+        {assets.map((a) => (
+          <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={selected.has(a.id)} onChange={() => onToggle(a.id)} />
+            <PosBadge position={a.position} />
+            <span style={{ flex: 1, fontSize: 12.5 }}>{a.name}</span>
+            <span className="tnum" style={{ fontSize: 11.5, color: 'var(--iff-green)' }}>${a.currentPrice}</span>
+          </label>
+        ))}
+      </div>
     </div>
   )
 }

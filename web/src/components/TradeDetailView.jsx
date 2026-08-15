@@ -2,12 +2,14 @@
 // negotiate loop). Both sides, status badge, accept/decline/counter for the
 // receiving team, offer notes, counter chain history, and the ESPN execution
 // checklist (players swap in ESPN; picks move only in this app).
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatTradeDate } from '../services/models'
 import { DetailOverlay } from './shared'
 import TradeProposalView from './TradeProposalView'
 import { tradeCapImpact } from '../services/contracts'
+import { ROSTER_CAP, LUXURY_TAX_TOTAL } from '../data/staticData'
+import * as fs from '../services/firestoreService'
 import TaxWarning from './TaxWarning'
 
 export const TRADE_STATUS_STYLE = {
@@ -20,10 +22,15 @@ export const TRADE_STATUS_STYLE = {
 }
 
 export default function TradeDetailView({ trade, onClose }) {
-  const { userTeam, respondToTrade, trades, userSettings, allDisplayAssets, activeSeason } = useApp()
+  const { userTeam, respondToTrade, trades, userSettings, allDisplayAssets, activeSeason, user } = useApp()
   const [responding, setResponding] = useState(false)
   const [localStatus, setLocalStatus] = useState(trade.status)
   const [showCounter, setShowCounter] = useState(false)
+
+  // Accepting now executes immediately (no commissioner approval step) —
+  // status flips 'accepted' → 'completed' within a second or two server-side.
+  // Stay in sync with the live doc so that lands on screen without a reopen.
+  useEffect(() => setLocalStatus(trade.status), [trade.status])
 
   const style = TRADE_STATUS_STYLE[localStatus] ?? TRADE_STATUS_STYLE.proposed
   const canRespond = localStatus === 'proposed' && trade.receivingTeamName === userTeam
@@ -72,11 +79,47 @@ export default function TradeDetailView({ trade, onClose }) {
     ...receiverAssets.filter((a) => a.assetType === 'draftPick'),
   ]
 
+  // Cap breach on the side(s) this accept would push over $300 — computed
+  // here so respond() can gate on it without recomputing.
+  function breachingSides() {
+    if (!capImpact) return []
+    return [
+      { team: trade.proposingTeamName, ...capImpact.proposer },
+      { team: trade.receivingTeamName, ...capImpact.receiver },
+    ].filter((s) => s.after > ROSTER_CAP)
+  }
+
   async function respond(answer) {
+    // Accepting is final and immediate — no later commissioner review to
+    // catch a cap breach, so this confirm is the one moment of truth.
+    const breaching = answer === 'yes' ? breachingSides() : []
+    if (breaching.length > 0) {
+      const lines = breaching
+        .map((s) => `${s.team} lands at $${s.after} ($${s.after - ROSTER_CAP} over the $${ROSTER_CAP} cap)`)
+        .join('\n')
+      const ok = confirm(
+        `🚨 TAX DAT ASS\n\n${lines}\n\nAccepting starts the 24-hour clock on the $${LUXURY_TAX_TOTAL} luxury tax. Unpaid, the trade voids and it's -100 pts/week.\n\nAccept anyway?`,
+      )
+      if (!ok) return
+    }
+
     setResponding(true)
     try {
       await respondToTrade(trade.id, answer)
       setLocalStatus(answer === 'yes' ? 'accepted' : 'rejected')
+      for (const s of breaching) {
+        await fs.logTransaction({
+          type: 'tax',
+          season: activeSeason,
+          teamName: s.team,
+          playerId: null,
+          playerName: null,
+          price: LUXURY_TAX_TOTAL,
+          note: `Over the $${ROSTER_CAP} cap at $${s.after} — $${LUXURY_TAX_TOTAL} due within 24h (UNPAID)`,
+          relatedTradeId: trade.id,
+          actorUid: user?.uid ?? null,
+        }).catch(() => {})
+      }
       if (answer === 'yes' && (userSettings?.confetti ?? true)) {
         const { fireConfetti } = await import('../services/appearance')
         fireConfetti()
@@ -181,16 +224,18 @@ export default function TradeDetailView({ trade, onClose }) {
           </>
         )}
 
-        {/* ESPN execution checklist — shown once a deal is agreed */}
+        {/* ESPN execution checklist — shown once a deal is agreed. Rosters in
+            THIS app update themselves instantly on accept; ESPN doesn't, so
+            players still need a manual swap there. */}
         {(localStatus === 'accepted' || localStatus === 'completed') && (
           <div className="iff-card" style={{ padding: 14, border: '1px solid rgba(244,162,97,0.35)' }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-              {localStatus === 'completed' ? 'Execution Summary' : 'Next Steps — Commissioner'}
+              {localStatus === 'completed' ? 'Done Here — One Step Left' : 'Finalizing…'}
             </div>
             {espnPlayers.length > 0 && (
               <div style={{ marginBottom: appOnlyPicks.length ? 10 : 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  🏈 Swap in ESPN {localStatus === 'completed' ? '(done)' : '(manual)'}
+                  🏈 Swap in ESPN (manual — this app can't do it for you)
                 </div>
                 {espnPlayers.map((a, i) => (
                   <div key={i} style={{ fontSize: 12, color: 'var(--iff-subtext)', padding: '2px 0 2px 18px' }}>
@@ -211,8 +256,13 @@ export default function TradeDetailView({ trade, onClose }) {
             )}
             {localStatus === 'accepted' && (
               <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 10, lineHeight: 1.5 }}>
-                Once the player swap is confirmed in ESPN, the commissioner executes this trade from
-                Admin → Trades, which moves all assets here.
+                Rosters here update themselves — this usually clears in a second or two.
+              </div>
+            )}
+            {localStatus === 'completed' && espnPlayers.length > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 10, lineHeight: 1.5 }}>
+                Rosters, cap totals and keeper values are already updated here — the only thing left
+                is the ESPN swap above.
               </div>
             )}
           </div>

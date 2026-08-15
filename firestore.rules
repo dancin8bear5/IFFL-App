@@ -71,7 +71,11 @@ service cloud.firestore {
     // status) happens with commissioner privileges.
     match /trades/{tradeId} {
       allow read: if isMember();
-      allow create: if isMember() && request.resource.data.status == 'proposed';
+      // Members propose (status 'proposed'); the commissioner can also
+      // create a trade directly as 'completed' — recording a deal that
+      // happened outside the app (e.g. executed on ESPN).
+      allow create: if isCommissioner() ||
+        (isMember() && request.resource.data.status == 'proposed');
       allow update: if isCommissioner() || (
         isMember() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response', 'status']) &&

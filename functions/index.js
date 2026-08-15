@@ -91,6 +91,67 @@ function assetSummary(refs) {
 }
 
 /**
+ * Every accepted trade is a legit trade — no separate commissioner
+ * approval step. This is what actually makes an accept real: it runs
+ * with the Admin SDK (trusted, bypasses Firestore rules), so members
+ * never need write access to players/draftPicks/transactions — they
+ * only ever write status:'accepted' on their own trade doc, which the
+ * existing rules already allow.
+ *
+ * Wrapped in a transaction that re-reads the trade fresh and no-ops if
+ * it's not still 'accepted' — Cloud Functions redeliver events at least
+ * once, and this makes a duplicate delivery a safe no-op instead of a
+ * double-executed trade.
+ *
+ * Flipping status to 'completed' here is itself a new document write,
+ * so onTradeWrite fires again automatically and the "completed" case
+ * below sends the real notification — no separate messaging needed here.
+ */
+async function executeTradeAssets(tradeId) {
+  await db.runTransaction(async (tx) => {
+    const tradeRef = db.collection("trades").doc(tradeId);
+    const snap = await tx.get(tradeRef);
+    if (!snap.exists) return;
+    const trade = snap.data();
+    if (trade.status !== "accepted") return; // already executed, or moved on
+
+    const note = (from) => `via ${from}`;
+    const applyTransfer = (assetRef, toTeam, fromTeam) => {
+      const col = assetRef.assetType === "player" ? "players" : "draftPicks";
+      const field = assetRef.assetType === "player" ? "teamName" : "currentTeamName";
+      tx.update(db.collection(col).doc(assetRef.assetId), {
+        [field]: toTeam,
+        tradeHistory: admin.firestore.FieldValue.arrayUnion(note(fromTeam)),
+      });
+      tx.set(db.collection("transactions").doc(), {
+        type: "trade",
+        season: trade.season ?? null,
+        teamName: toTeam,
+        fromTeam,
+        playerId: assetRef.assetId,
+        playerName: assetRef.displayName ?? null,
+        assetType: assetRef.assetType,
+        relatedTradeId: tradeId,
+        actorUid: null,
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+    };
+
+    for (const ref of trade.assetsFromProposer ?? []) {
+      applyTransfer(ref, trade.receivingTeamName, trade.proposingTeamName);
+    }
+    for (const ref of trade.assetsFromReceiver ?? []) {
+      applyTransfer(ref, trade.proposingTeamName, trade.receivingTeamName);
+    }
+
+    tx.update(tradeRef, {
+      status: "completed",
+      completedAt: admin.firestore.Timestamp.now(),
+    });
+  });
+}
+
+/**
  * Fires on every write to the trades collection.
  * Sends FCM push (iOS) + GroupMe DM to the relevant team(s).
  */
@@ -140,14 +201,14 @@ exports.onTradeWrite = onDocumentWritten(
 
     switch (after.status) {
       case "accepted":
-        await sendPush(proposer, "Trade Accepted",
-          `${receiver} accepted your trade offer.`);
-        await sendGroupMeDM(
-          proposer,
-          `✅ ${receiver} ACCEPTED your trade offer!\n` +
-          `You get: ${theyGet}\nThey get: ${youGet}\n` +
-          `Commissioner will execute once the player swap is done in ESPN.`,
-        );
+        // No separate approval step — this IS the execution. Runs the
+        // asset transfer immediately; the resulting write to 'completed'
+        // re-triggers this function and the case below sends the DM.
+        try {
+          await executeTradeAssets(event.params.tradeId);
+        } catch (err) {
+          console.error(`Trade ${event.params.tradeId} auto-execute failed:`, err);
+        }
         break;
 
       case "rejected":

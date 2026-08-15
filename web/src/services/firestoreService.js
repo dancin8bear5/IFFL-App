@@ -679,13 +679,15 @@ export async function applyKeeperImport(diff, meta = {}) {
   return { added: diff.added.length, changed: diff.changed.length }
 }
 
-// ── ESPN trade auto-import review queue ────────────────────────
-// Written by the ingestEspnTrade Cloud Function (Admin SDK) whenever a
-// parsed trade's players don't resolve cleanly against the live roster.
-// Commissioner-only — see firestore.rules.
+// ── Trade auto-import review queue (ESPN + GroupMe) ─────────────
+// Written by ingestEspnTrade / ingestGroupMeMessage (Admin SDK) whenever
+// a parsed trade doesn't resolve cleanly (needs_review) or comes from a
+// source that always requires a human tap before touching rosters
+// (pending_confirmation — GroupMe only). Commissioner-only — see
+// firestore.rules.
 
 export async function fetchPendingIngests() {
-  const q = query(collection(db, 'tradeIngests'), where('status', '==', 'needs_review'))
+  const q = query(collection(db, 'tradeIngests'), where('status', 'in', ['needs_review', 'pending_confirmation']))
   const snap = await getDocs(q)
   return snapToDocs(snap)
     .map((i) => ({ ...i, receivedAt: tsToDate(i.receivedAt) }))

@@ -5,6 +5,7 @@ const admin = require("firebase-admin");
 const {Timestamp, FieldValue} = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const {validatePayload, matchPlayers, pickSides} = require("./tradeIngest");
+const {resolveGroupMeTrade} = require("./groupmeIngest");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -111,6 +112,7 @@ function assetSummary(refs) {
 async function notifyCompleted(proposer, receiver, youGet, theyGet, source) {
   const tag = source === "espn-email" ? " (auto-recorded from an ESPN trade email)"
     : source === "espn" ? " (recorded from ESPN)"
+    : source === "groupme" ? " (confirmed from GroupMe)"
     : "";
   await sendPush(proposer, "Trade Executed", `Your trade with ${receiver} has been completed${tag}.`);
   await sendPush(receiver, "Trade Executed", `Your trade with ${proposer} has been completed${tag}.`);
@@ -277,6 +279,39 @@ exports.onTradeWrite = onDocumentWritten(
   },
 );
 
+// ── Cross-source trade correlation ──────────────────────────────
+// The same real-world trade can show up from two different signals: an
+// ESPN email (players only — ESPN doesn't roster draft picks) and a
+// GroupMe announcement (which is where picks in a deal actually get
+// said out loud). teamPairKey gives every tradeIngests doc, regardless
+// of source, a source-agnostic join key so the two can find each other.
+const MERGE_WINDOW_MS = 72 * 60 * 60 * 1000; // 72h — generous, but a specific two-team pair trading twice in 3 days is rare enough that a false merge is very unlikely
+function teamPairKey(a, b) {
+  return [a, b].sort().join("|");
+}
+
+/** Most recent ALREADY-APPLIED trade for this team pair within the merge window, if any. */
+async function findRecentAppliedTradeForPair(pairKey) {
+  const snap = await db.collection("tradeIngests").where("teamPairKey", "==", pairKey).get();
+  const cutoff = Date.now() - MERGE_WINDOW_MS;
+  const applied = snap.docs
+    .map((d) => ({id: d.id, ...d.data()}))
+    .filter((doc) => doc.status === "applied" && doc.tradeId && (doc.receivedAt?.toMillis?.() ?? 0) >= cutoff)
+    .sort((a, b) => b.receivedAt.toMillis() - a.receivedAt.toMillis());
+  return applied[0] ?? null;
+}
+
+/** Most recent unconfirmed GroupMe pending item for this team pair within the merge window, if any. */
+async function findRecentPendingForPair(pairKey) {
+  const snap = await db.collection("tradeIngests").where("teamPairKey", "==", pairKey).get();
+  const cutoff = Date.now() - MERGE_WINDOW_MS;
+  const pending = snap.docs
+    .map((d) => ({id: d.id, ...d.data()}))
+    .filter((doc) => doc.status === "pending_confirmation" && (doc.receivedAt?.toMillis?.() ?? 0) >= cutoff)
+    .sort((a, b) => b.receivedAt.toMillis() - a.receivedAt.toMillis());
+  return pending[0] ?? null;
+}
+
 /**
  * ESPN trade auto-import. Called by the Make.com scenario that scrapes
  * the Gmail ESPN-trade-notification emails and parses them — this
@@ -371,6 +406,7 @@ exports.ingestEspnTrade = onRequest(
     const configSnap = await db.doc("config/league").get();
     const season = configSnap.data()?.activeSeasonYear ?? null;
     const {proposingTeamName, receivingTeamName} = pickSides(match.resolved);
+    const pairKey = teamPairKey(proposingTeamName, receivingTeamName);
     const tradeRef = db.collection("trades").doc();
 
     const toRef = (m) => ({assetType: "player", assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
@@ -413,6 +449,7 @@ exports.ingestEspnTrade = onRequest(
         sourceId,
         status: "applied",
         tradeId: tradeRef.id,
+        teamPairKey: pairKey,
         moves: match.resolved,
         tradeDateRaw: tradeDate ?? null,
         rawText: rawText ?? null,
@@ -420,7 +457,259 @@ exports.ingestEspnTrade = onRequest(
       });
     });
 
+    // ESPN doesn't roster draft picks — if this pair also has an
+    // unconfirmed GroupMe pending item waiting (usually the pick side of
+    // this exact trade), link it to the trade we just created instead of
+    // leaving it to become a duplicate "create a new trade" confirm later.
+    // Confirming it from Admin will now ATTACH those extra assets to this
+    // trade rather than starting a second one.
+    const pendingGroupMe = await findRecentPendingForPair(pairKey);
+    if (pendingGroupMe && !pendingGroupMe.attachToTradeId) {
+      await db.collection("tradeIngests").doc(pendingGroupMe.id).update({attachToTradeId: tradeRef.id});
+    }
+
     res.status(200).json({ok: true, status: "applied", tradeId: tradeRef.id});
+  },
+);
+
+/**
+ * GroupMe trade-announcement ingest. Called by the Make.com relay
+ * watching the league's GroupMe group (config/groupme.groupId — the
+ * same group already used for outbound trade DMs) for new messages.
+ *
+ * Unlike ingestEspnTrade, this NEVER auto-applies, no matter how
+ * cleanly it parses — GroupMe is free-text human chat (jokes, rumors,
+ * deals that fall through mid-negotiation), not a templated
+ * confirmation email. A clean parse becomes a 'pending_confirmation'
+ * tradeIngests doc; the commissioner taps Confirm in Admin → Trades
+ * (see exports.confirmPendingTrade below) before anything touches
+ * rosters. See functions/groupmeIngest.js for the actual parsing.
+ *
+ * POST body: the GroupMe message object (id, group_id, sender_id, name,
+ * text, system). Header: X-Ingest-Secret: <TRADE_INGEST_SECRET> (same
+ * secret as the ESPN webhook — same trust boundary, one thing to manage).
+ */
+exports.ingestGroupMeMessage = onRequest(
+  {secrets: [TRADE_INGEST_SECRET, GROUPME_TOKEN]},
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.status(405).json({ok: false, error: "POST only"});
+      return;
+    }
+    if (req.get("X-Ingest-Secret") !== TRADE_INGEST_SECRET.value()) {
+      res.status(401).json({ok: false, error: "Unauthorized"});
+      return;
+    }
+
+    const body = req.body ?? {};
+    const messageId = body.id;
+    if (!messageId) {
+      res.status(400).json({ok: false, error: "id is required"});
+      return;
+    }
+    if (body.system) {
+      res.status(200).json({ok: true, status: "ignored", reason: "system message"});
+      return;
+    }
+    const text = String(body.text ?? "");
+    if (!text.trim()) {
+      res.status(200).json({ok: true, status: "ignored", reason: "no text"});
+      return;
+    }
+
+    const groupmeCfg = (await db.doc("config/groupme").get()).data() ?? {};
+    if (!groupmeCfg.groupId || String(body.group_id ?? "") !== String(groupmeCfg.groupId)) {
+      res.status(200).json({ok: true, status: "ignored", reason: "not the trade-announcement group"});
+      return;
+    }
+
+    const ingestId = `groupme-${messageId}`;
+    const ingestRef = db.collection("tradeIngests").doc(ingestId);
+    if ((await ingestRef.get()).exists) {
+      res.status(200).json({ok: true, status: "duplicate"});
+      return;
+    }
+
+    const senderId = body.sender_id ?? body.user_id ?? null;
+    const senderName = body.name ?? null;
+    const userMap = groupmeCfg.userMap ?? {};
+    const senderTeam = Object.keys(userMap).find((team) => String(userMap[team]) === String(senderId)) ?? null;
+
+    const [rosterSnap, picksSnap] = await Promise.all([
+      db.collection("players").where("isActive", "==", true).get(),
+      db.collection("draftPicks").where("status", "==", "available").get(),
+    ]);
+    const rosterSnapshot = rosterSnap.docs.map((d) => ({id: d.id, name: d.data().name, teamName: d.data().teamName}));
+    const picksSnapshot = picksSnap.docs.map((d) => ({
+      id: d.id, season: d.data().season, round: d.data().round, currentTeamName: d.data().currentTeamName,
+    }));
+
+    const result = resolveGroupMeTrade({text, senderTeam, rosterSnapshot, picksSnapshot});
+
+    if (!result.triggered) {
+      res.status(200).json({ok: true, status: "ignored", reason: "not a trade confirmation"});
+      return;
+    }
+
+    if (!result.ok) {
+      const problems = result.problems ?? [{reason: result.reason}];
+      await ingestRef.set({
+        source: "groupme",
+        status: "needs_review",
+        messageId, senderId, senderName, rawText: text,
+        teamA: result.teamA ?? null,
+        teamB: result.teamB ?? null,
+        moves: result.moves ?? [],
+        problems,
+        receivedAt: Timestamp.now(),
+      });
+      await sendGroupMeDM(
+        COMMISSIONER_TEAM_NAME,
+        `⚠️ GroupMe trade announcement needs review:\n"${text}"\n` +
+        problems.map((p) => `• ${p.reason}`).join("\n") +
+        `\nResolve it from Admin → Trades: ${APP_URL}`,
+      ).catch(() => {});
+      res.status(200).json({ok: true, status: "needs_review"});
+      return;
+    }
+
+    // Clean parse — but this NEVER auto-applies (see doc comment above).
+    // Check for a merge target first so a second message about the same
+    // deal (or a deal ESPN already applied) doesn't spawn a duplicate.
+    const pairKey = teamPairKey(result.teamA, result.teamB);
+    const [recentApplied, recentPending] = await Promise.all([
+      findRecentAppliedTradeForPair(pairKey),
+      findRecentPendingForPair(pairKey),
+    ]);
+
+    if (recentPending) {
+      const existingIds = new Set((recentPending.moves ?? []).map((m) => m.assetId));
+      const newMoves = result.moves.filter((m) => !existingIds.has(m.assetId));
+      await db.collection("tradeIngests").doc(recentPending.id).update({
+        moves: [...(recentPending.moves ?? []), ...newMoves],
+        sourceMessages: FieldValue.arrayUnion({messageId, senderName, text}),
+      });
+      res.status(200).json({ok: true, status: "merged", mergedInto: recentPending.id});
+      return;
+    }
+
+    await ingestRef.set({
+      source: "groupme",
+      status: "pending_confirmation",
+      teamA: result.teamA,
+      teamB: result.teamB,
+      teamPairKey: pairKey,
+      moves: result.moves,
+      attachToTradeId: recentApplied?.tradeId ?? null,
+      messageId, senderId, senderName, rawText: text,
+      sourceMessages: [{messageId, senderName, text}],
+      receivedAt: Timestamp.now(),
+    });
+    await sendGroupMeDM(
+      COMMISSIONER_TEAM_NAME,
+      `🔔 GroupMe trade detected — ${result.teamA} ↔ ${result.teamB}:\n"${text}"\n` +
+      `Confirm it from Admin → Trades: ${APP_URL}`,
+    ).catch(() => {});
+
+    res.status(200).json({ok: true, status: "pending_confirmation", tradeIngestId: ingestId});
+  },
+);
+
+/**
+ * Commissioner taps "Confirm & Apply" on a GroupMe-sourced pending trade
+ * (Admin → Trades). Two shapes, both requiring exactly this one tap:
+ *   - attachToTradeId set: an ESPN email already applied this trade's
+ *     player legs — this just adds the extra assets (picks, almost
+ *     always) onto that existing trade doc.
+ *   - otherwise: a brand-new trade, applied exactly like the ESPN clean
+ *     path (transfer assets, create the trade doc, log the ledger).
+ */
+exports.confirmPendingTrade = onCall(
+  {secrets: [GROUPME_TOKEN]},
+  async (request) => {
+    const email = request.auth?.token?.email;
+    if (!email) throw new HttpsError("unauthenticated", "Sign in first.");
+    const leagueConfig = await db.doc("config/league").get();
+    const authorized = leagueConfig.data()?.authorizedUIDs ?? [];
+    const isCommissioner = email === COMMISSIONER_EMAIL || authorized.includes(request.auth.uid);
+    if (!isCommissioner) throw new HttpsError("permission-denied", "Commissioner only.");
+
+    const ingestId = request.data?.ingestId;
+    if (!ingestId) throw new HttpsError("invalid-argument", "ingestId is required.");
+
+    const ingestRef = db.collection("tradeIngests").doc(ingestId);
+    const snap = await ingestRef.get();
+    if (!snap.exists) throw new HttpsError("not-found", "No such pending trade.");
+    const pending = snap.data();
+    if (pending.status !== "pending_confirmation") {
+      throw new HttpsError("failed-precondition", `Already ${pending.status}.`);
+    }
+
+    const season = leagueConfig.data()?.activeSeasonYear ?? null;
+    const toRef = (m) => ({assetType: m.assetType, assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
+    const transferMove = (tx, m, tradeId) => {
+      const col = m.assetType === "player" ? "players" : "draftPicks";
+      const field = m.assetType === "player" ? "teamName" : "currentTeamName";
+      tx.update(db.collection(col).doc(m.assetId), {[field]: m.toTeam});
+      tx.set(db.collection("transactions").doc(), {
+        type: "trade",
+        season,
+        teamName: m.toTeam,
+        fromTeam: m.fromTeam,
+        playerId: m.assetType === "player" ? m.assetId : null,
+        playerName: m.displayName,
+        assetType: m.assetType,
+        relatedTradeId: tradeId,
+        note: "Confirmed from GroupMe",
+        actorUid: request.auth.uid,
+        createdAt: Timestamp.now(),
+      });
+    };
+
+    if (pending.attachToTradeId) {
+      const tradeRef = db.collection("trades").doc(pending.attachToTradeId);
+      await db.runTransaction(async (tx) => {
+        const tradeSnap = await tx.get(tradeRef);
+        if (!tradeSnap.exists) throw new HttpsError("not-found", "Linked trade no longer exists.");
+        const trade = tradeSnap.data();
+        const proposerAdds = pending.moves.filter((m) => m.fromTeam === trade.proposingTeamName).map(toRef);
+        const receiverAdds = pending.moves.filter((m) => m.fromTeam !== trade.proposingTeamName).map(toRef);
+        for (const m of pending.moves) transferMove(tx, m, tradeRef.id);
+        tx.update(tradeRef, {
+          assetsFromProposer: [...(trade.assetsFromProposer ?? []), ...proposerAdds],
+          assetsFromReceiver: [...(trade.assetsFromReceiver ?? []), ...receiverAdds],
+        });
+        tx.update(ingestRef, {status: "applied", tradeId: tradeRef.id, confirmedAt: Timestamp.now(), confirmedBy: request.auth.uid});
+      });
+      const trade = (await tradeRef.get()).data();
+      const summary = pending.moves.map((m) => m.displayName).join(", ");
+      await sendGroupMeDM(trade.proposingTeamName, `➕ ${summary} added to your trade with ${trade.receivingTeamName}.`).catch(() => {});
+      await sendGroupMeDM(trade.receivingTeamName, `➕ ${summary} added to your trade with ${trade.proposingTeamName}.`).catch(() => {});
+      return {ok: true, tradeId: tradeRef.id, attached: true};
+    }
+
+    const tradeRef = db.collection("trades").doc();
+    const assetsFromProposer = pending.moves.filter((m) => m.fromTeam === pending.teamA).map(toRef);
+    const assetsFromReceiver = pending.moves.filter((m) => m.fromTeam !== pending.teamA).map(toRef);
+
+    await db.runTransaction(async (tx) => {
+      for (const m of pending.moves) transferMove(tx, m, tradeRef.id);
+      tx.set(tradeRef, {
+        proposingTeamName: pending.teamA,
+        receivingTeamName: pending.teamB,
+        assetsFromProposer,
+        assetsFromReceiver,
+        notes: null,
+        season,
+        status: "completed",
+        source: "groupme",
+        date: Timestamp.now(),
+        completedAt: Timestamp.now(),
+      });
+      tx.update(ingestRef, {status: "applied", tradeId: tradeRef.id, confirmedAt: Timestamp.now(), confirmedBy: request.auth.uid});
+    });
+
+    return {ok: true, tradeId: tradeRef.id, attached: false};
   },
 );
 

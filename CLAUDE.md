@@ -146,6 +146,13 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - [ ] **OFF-SEASON CHART** — when `isOffSeason == true`: historical season summary data — W-L trend over career, championship timeline, playoff appearances. Source: `leagueHistory` Firestore collection.
 - [ ] **LIVE SCORES** — when `isOffSeason == false`, fetch live ESPN scores via their free public API (no key required) and show current week matchup score on Dashboard My Team card.
 
+### POD / Content
+- [ ] **Supplemental workbook integration** — during the weekly POD (the league's podcast/show), Jared shares Google Sheets workbooks live: "true record" (record adjusted for schedule luck), a standings/scoreboard sheet, and others as they come up episode to episode. Want these to also live on the website instead of staying POD-only, so members can check them anytime. Open questions before scoping:
+  - Which sheets are the *recurring* ones (worth a permanent spot in the app) vs. one-off POD visuals that don't need to persist?
+  - Live pull from Google Sheets (Sheets API — needs a service account + the sheet shared with it, updates automatically whenever Jared edits) vs. a manual import/sync into Firestore (more control, but someone has to trigger it each week)?
+  - Where does it live in the app — a new section, folded into the existing League/History tabs, or something else?
+  - Does "true record" already have an agreed formula, or does that need to be nailed down first (same kind of truth-up S0 did for scoring rules)?
+
 ### Infrastructure
 - [ ] **Fastlane release automation** — one command (`fastlane beta`) to increment build number, archive, and upload to TestFlight. `fastlane/` folder already in `.gitignore`.
 - [ ] **Merge open branches** — `claude/repo-cleanup-and-security` and `claude/claude-md-init` into main once build is confirmed working on device.

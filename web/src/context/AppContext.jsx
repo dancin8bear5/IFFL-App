@@ -9,7 +9,7 @@ import { playerToDisplayAsset, pickToDisplayAsset } from '../services/models'
 import { withOwnedRanks } from '../services/ownedRank'
 import { findMatches } from '../services/marketEngine'
 
-const AppContext = createContext(null)
+export const AppContext = createContext(null)
 
 // Dev-only preview mode (?preview=1 under `npm run dev`): fills the context
 // with sample data so screens can be tested without signing in. Dead code in
@@ -46,6 +46,7 @@ export function AppProvider({ children }) {
   const [draftPicks, setDraftPicks] = useState([])
   const [trades, setTrades] = useState([])
   const [messages, setMessages] = useState([])
+  const [teamAvatars, setTeamAvatars] = useState({})
   const [interestedAssetIds, setInterestedAssetIds] = useState(new Set())
   const [allLeagueInterests, setAllLeagueInterests] = useState([])
   const [fmkSignals, setFmkSignals] = useState([])
@@ -188,6 +189,7 @@ export function AppProvider({ children }) {
         }),
         fs.listenToDraftPicks(setDraftPicks),
         fs.listenToMessages(setMessages),
+        fs.listenToTeamAvatars(setTeamAvatars),
         fs.listenToAllFMKSignals(setAllLeagueFMK),
         fs.listenToRules(setRules),
         fs.listenToTransactions(setTransactions),
@@ -530,9 +532,36 @@ export function AppProvider({ children }) {
     await fs.counterTrade(originalTradeId, newTrade)
   }, [])
 
+  // ── Profile picture ─────────────────────────────────────────
+  // Writes to the caller's OWN team only; the rules enforce the same thing
+  // server-side. Everything renders through TeamAvatar, so a save here
+  // shows up everywhere at once via the teamAvatars listener.
+  const saveMyAvatarImage = useCallback(async (dataUrl) => {
+    if (!userTeam) throw new Error('No team assigned yet.')
+    if (DEV_PREVIEW) { setTeamAvatars((p) => ({ ...p, [userTeam]: { dataUrl } })); return }
+    await fs.saveTeamAvatarImage(userTeam, dataUrl, user?.uid)
+  }, [userTeam, user])
+
+  const saveMyAvatarPreset = useCallback(async (presetId) => {
+    if (!userTeam) throw new Error('No team assigned yet.')
+    if (DEV_PREVIEW) { setTeamAvatars((p) => ({ ...p, [userTeam]: { presetId } })); return }
+    await fs.saveTeamAvatarPreset(userTeam, presetId, user?.uid)
+  }, [userTeam, user])
+
+  const clearMyAvatar = useCallback(async () => {
+    if (!userTeam) return
+    if (DEV_PREVIEW) {
+      setTeamAvatars((p) => { const n = { ...p }; delete n[userTeam]; return n })
+      return
+    }
+    await fs.clearTeamAvatar(userTeam)
+  }, [userTeam])
+
   const value = {
     // auth
     user, authReady, isAdmin, isCommissioner, isPodMember,
+    // profile pictures — keyed by team name, read by everyone
+    teamAvatars, saveMyAvatarImage, saveMyAvatarPreset, clearMyAvatar,
     // league data
     userTeam, setUserTeam,
     selectedTeam, setSelectedTeam,

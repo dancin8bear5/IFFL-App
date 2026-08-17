@@ -61,6 +61,17 @@ service cloud.firestore {
       allow read, write: if isPodMember();
     }
 
+    // Profile pictures — one doc per team, id = team name. Everyone in
+    // the league reads every avatar (they render all over the app), but a
+    // member can only write their OWN team's. Enforced server-side here,
+    // not just in the Settings UI, so nobody can repoint someone else's
+    // picture by hand.
+    match /teamAvatars/{teamName} {
+      allow read: if isMember();
+      allow write: if isCommissioner() ||
+        (signedIn() && leagueConfig().userTeamMap[request.auth.uid] == teamName);
+    }
+
     // Rosters & league data — member reads, commissioner writes
     match /players/{playerId} {
       allow read: if isMember();

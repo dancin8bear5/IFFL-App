@@ -1,10 +1,11 @@
 // SettingsView — the full settings experience.
 // Profile, appearance (90s mode, accent, text size, confetti — all with
 // LIVE preview while editing, restored on cancel), league prefs, sign out.
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName } from '../data/staticData'
-import { DetailOverlay } from '../components/shared'
+import { DetailOverlay, TeamAvatar } from '../components/shared'
+import { presetsForTeam, fileToAvatarDataUrl } from '../services/avatars'
 import { signOut } from '../services/authService'
 import * as fs from '../services/firestoreService'
 import { applyAppearance, resolveAccent, resolveTheme, ACCENT_CHOICES, TEXT_SIZES, UI_THEMES, fireConfetti } from '../services/appearance'
@@ -79,6 +80,8 @@ export default function SettingsView({ onClose }) {
             />
           </div>
         </Section>
+
+        <ProfilePictureSection />
 
         <Section title="Appearance — changes preview live">
           {/* Era themes — each decade reskins the whole app */}
@@ -256,6 +259,122 @@ const rowStyle = {
   padding: '11px 14px',
   fontSize: 15,
   borderBottom: '1px solid var(--iff-divider)',
+}
+
+/**
+ * Profile picture — upload anything, or take one of the built-ins.
+ * Whatever lands here shows up everywhere in the app at once, because all
+ * ~30 avatar call sites render through TeamAvatar (see components/shared).
+ */
+function ProfilePictureSection() {
+  const { userTeam, teamAvatars, saveMyAvatarImage, saveMyAvatarPreset, clearMyAvatar } = useApp()
+  const fileRef = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+
+  const mine = teamAvatars?.[userTeam] ?? null
+  const presets = useMemo(() => presetsForTeam(userTeam), [userTeam])
+  const hasCustom = Boolean(mine?.dataUrl || mine?.presetId)
+
+  async function onPick(e) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // let the same file be re-picked after a failure
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setError('Pick an image file.'); return }
+    setBusy(true)
+    setError(null)
+    try {
+      // Downscaled + compressed in the browser before it ever leaves the
+      // device — see services/avatars.fileToAvatarDataUrl.
+      const dataUrl = await fileToAvatarDataUrl(file)
+      await saveMyAvatarImage(dataUrl)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function choose(presetId) {
+    setBusy(true)
+    setError(null)
+    try {
+      await saveMyAvatarPreset(presetId)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!userTeam) return null
+
+  return (
+    <Section title="Profile picture">
+      <div style={{ padding: '14px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid var(--iff-divider)' }}>
+        <TeamAvatar name={userTeam} size={64} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{userTeam}</div>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.5, marginTop: 2 }}>
+            Shows up everywhere your team appears — rosters, trades, rankings, the ledger.
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 9, flexWrap: 'wrap' }}>
+            <button className="btn-primary" onClick={() => fileRef.current?.click()} disabled={busy} style={{ fontSize: 11.5, padding: '6px 14px' }}>
+              {busy ? 'Working…' : 'Upload a picture'}
+            </button>
+            {hasCustom && (
+              <button onClick={() => clearMyAvatar()} disabled={busy} style={{ fontSize: 11.5, padding: '6px 12px', color: 'var(--iff-subtext)' }}>
+                Reset to team logo
+              </button>
+            )}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
+        </div>
+      </div>
+
+      {error && (
+        <div style={{ padding: '10px 14px', fontSize: 11.5, color: 'var(--iff-accent)', borderBottom: '1px solid var(--iff-divider)' }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ padding: '12px 14px' }}>
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 9 }}>
+          …or grab one of these — the first few are yours
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(52px, 1fr))', gap: 8 }}>
+          {presets.map((p) => {
+            const active = mine?.presetId === p.id && !mine?.dataUrl
+            return (
+              <button
+                key={p.id}
+                onClick={() => choose(p.id)}
+                disabled={busy}
+                title={p.label}
+                aria-label={p.label}
+                aria-pressed={active}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  padding: '7px 2px', borderRadius: 10,
+                  background: active ? 'var(--iff-elevated)' : 'transparent',
+                  outline: active ? '2px solid var(--iff-accent)' : '1px solid var(--iff-divider)',
+                }}
+              >
+                <span
+                  style={{
+                    width: 34, height: 34, borderRadius: '22%', background: p.bg,
+                    fontSize: 20, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {p.emoji}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </Section>
+  )
 }
 
 function Section({ title, children }) {

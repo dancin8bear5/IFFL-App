@@ -37,6 +37,7 @@ const COL = {
   userSettings: 'userSettings',
   leagueHistory: 'leagueHistory',
   transactions: 'transactions',
+  teamAvatars: 'teamAvatars',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -917,4 +918,37 @@ export async function fetchLeagueHistory() {
 
 export function addSeasonHistory(history) {
   return setDoc(doc(db, COL.leagueHistory, String(history.season)), history)
+}
+
+// ── Team profile pictures — teamAvatars/{teamName} ─────────────
+// One doc per team: either {dataUrl} for an uploaded picture or
+// {presetId} for a built-in. Everyone in the league reads every team's
+// avatar (they show up all over the app); only the team's own owner (or
+// the commissioner) can write one — see firestore.rules.
+
+export function listenToTeamAvatars(callback) {
+  return onSnapshot(collection(db, COL.teamAvatars), (snap) => {
+    const map = {}
+    for (const d of snap.docs) map[d.id] = d.data()
+    callback(map)
+  })
+}
+
+/** Writes an uploaded picture, clearing any preset it replaces. */
+export function saveTeamAvatarImage(teamName, dataUrl, uid) {
+  return setDoc(doc(db, COL.teamAvatars, teamName), {
+    dataUrl, presetId: null, updatedAt: Timestamp.now(), updatedBy: uid ?? null,
+  })
+}
+
+/** Writes a built-in pick, clearing any upload it replaces. */
+export function saveTeamAvatarPreset(teamName, presetId, uid) {
+  return setDoc(doc(db, COL.teamAvatars, teamName), {
+    presetId, dataUrl: null, updatedAt: Timestamp.now(), updatedBy: uid ?? null,
+  })
+}
+
+/** Back to the team's shipped logo. */
+export function clearTeamAvatar(teamName) {
+  return deleteDoc(doc(db, COL.teamAvatars, teamName))
 }

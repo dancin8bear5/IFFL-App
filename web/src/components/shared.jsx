@@ -1,6 +1,8 @@
 // Shared UI pieces used across tabs.
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { teamByName } from '../data/staticData'
+import { AppContext } from '../context/AppContext'
+import { resolveAvatar } from '../services/avatars'
 
 /**
  * Horizontally scrollable chip row with an arrow affordance when content
@@ -94,52 +96,83 @@ export function Segmented({ options, value, onChange }) {
   )
 }
 
-export function TeamAvatar({ name, size = 36 }) {
+/**
+ * Every profile picture in the app comes through here — ~30 call sites
+ * across the dashboard, rosters, trades, ledger, charts and sidebar. That
+ * makes this the propagation point: when a member picks a new picture,
+ * the teamAvatars listener updates the context and every one of those
+ * call sites re-renders with it, unchanged.
+ *
+ * `avatarDoc` can be passed directly (Settings previews an unsaved choice
+ * that way); otherwise it comes from context.
+ */
+export function TeamAvatar({ name, size = 36, avatarDoc }) {
+  const ctx = useContext(AppContext)
   const team = teamByName[name]
-  if (team?.logo) {
+  const doc = avatarDoc !== undefined ? avatarDoc : ctx?.teamAvatars?.[name]
+  const resolved = resolveAvatar(name, doc, team)
+
+  const base = { width: size, height: size, flexShrink: 0 }
+
+  if (resolved.kind === 'image') {
     return (
       <img
-        src={team.logo}
-        alt={`${name} logo`}
+        src={resolved.src}
+        alt={`${name} profile picture`}
         width={size}
         height={size}
         loading="lazy"
         style={{
-          width: size,
-          height: size,
+          ...base,
           borderRadius: '22%',
           objectFit: 'cover',
-          flexShrink: 0,
-          background: team.color,
+          background: team?.color,
           boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
         }}
       />
     )
   }
+
+  if (resolved.kind === 'preset') {
+    return (
+      <div
+        role="img"
+        aria-label={`${name} profile picture`}
+        style={{
+          ...base,
+          borderRadius: '22%',
+          background: resolved.bg,
+          // Emoji scaled to the box; lineHeight 1 keeps it optically centered
+          fontSize: size * 0.58,
+          lineHeight: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+          userSelect: 'none',
+        }}
+      >
+        {resolved.emoji}
+      </div>
+    )
+  }
+
   // Former members / unknown names: colored initials fallback
-  const initials = name
-    .replace('.', '')
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .slice(0, 2)
   return (
     <div
       style={{
-        width: size,
-        height: size,
+        ...base,
         borderRadius: '50%',
-        background: team?.color ?? 'var(--iff-elevated)',
+        background: resolved.bg,
         color: '#fff',
         fontWeight: 900,
         fontSize: size * 0.36,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        flexShrink: 0,
       }}
     >
-      {initials}
+      {resolved.text}
     </div>
   )
 }

@@ -45,6 +45,22 @@ service cloud.firestore {
       allow read, write: if isCommissioner();
     }
 
+    // POD content (preseason rankings/awards/bold calls + True Record
+    // weekly scores) — only the three guys who do the show. This is a
+    // real read gate, not just a hidden tab: rankings are unveiled
+    // team-by-team on the POD, so the rest of the league must not be
+    // able to pull them from the database early.
+    function isPodMember() {
+      return isCommissioner() || (
+        signedIn() &&
+        leagueConfig().userTeamMap[request.auth.uid] in ['Jared', 'M. Zurek', 'Bill']
+      );
+    }
+
+    match /config/pod {
+      allow read, write: if isPodMember();
+    }
+
     // Rosters & league data — member reads, commissioner writes
     match /players/{playerId} {
       allow read: if isMember();

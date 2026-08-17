@@ -694,6 +694,34 @@ export async function fetchPendingIngests() {
     .sort((a, b) => (b.receivedAt ?? 0) - (a.receivedAt ?? 0))
 }
 
+// ── POD content — config/pod ───────────────────────────────────
+// The show's preseason rankings/awards/bold calls plus weekly True
+// Record scores. One doc; the three hosts are the only ones who can
+// read or write it (see firestore.rules podMember()). Seeded defaults
+// live in data/podData.js — this doc wins once it exists.
+
+export async function fetchPodContent() {
+  const snap = await getDoc(doc(db, COL.config, 'pod'))
+  return snap.exists() ? snap.data() : null
+}
+
+export function savePodContent(patch) {
+  return setDoc(doc(db, COL.config, 'pod'), patch, { merge: true })
+}
+
+/**
+ * Replaces one week's True Record scores. Weeks live as a keyed map
+ * (`trueRecordWeeks.{season}.{week}`) rather than an array so a re-entered
+ * week overwrites cleanly instead of appending a duplicate.
+ */
+export function savePodWeekScores(season, week, scores) {
+  return setDoc(
+    doc(db, COL.config, 'pod'),
+    { trueRecordWeeks: { [String(season)]: { [String(week)]: scores } } },
+    { merge: true },
+  )
+}
+
 export function dismissTradeIngest(id) {
   return updateDoc(doc(db, 'tradeIngests', id), { status: 'ignored', resolvedAt: Timestamp.now() })
 }

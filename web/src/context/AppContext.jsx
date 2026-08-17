@@ -74,6 +74,13 @@ export function AppProvider({ children }) {
   const ADMIN_EMAILS = ['jaredrogtaylor@gmail.com', 'jarrtayl@gmail.com']
   const isAdmin = DEV_PREVIEW || ADMIN_EMAILS.includes(user?.email) || isCommissioner
 
+  // POD tab gate — the three guys who actually do the show. Keyed on team
+  // name (resolved from the verified-email auto-link) rather than a second
+  // hardcoded email list, so a member changing Google accounts doesn't
+  // silently lose access. Jared is always in via the admin gate.
+  const POD_TEAMS = ['Jared', 'M. Zurek', 'Bill']
+  const isPodMember = isAdmin || POD_TEAMS.includes(userTeam)
+
   // ── Auth listener ───────────────────────────────────────────
   useEffect(() => {
     return listenToAuth((u) => {
@@ -524,7 +531,7 @@ export function AppProvider({ children }) {
 
   const value = {
     // auth
-    user, authReady, isAdmin, isCommissioner,
+    user, authReady, isAdmin, isCommissioner, isPodMember,
     // league data
     userTeam, setUserTeam,
     selectedTeam, setSelectedTeam,

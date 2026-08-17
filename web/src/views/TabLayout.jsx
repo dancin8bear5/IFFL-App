@@ -13,24 +13,28 @@ import RostersView from './RostersView'
 import PlayersView from './PlayersView'
 import MarketView from './MarketView'
 import BuilderView from './BuilderView'
+import PodView from './PodView'
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
+// `podOnly` marks a tab only the three POD hosts can see.
 const TABS = [
   { label: 'Dashboard',        short: 'Dashboard', glyph: '▦' },  // always on
   { label: 'Rosters',          short: 'Rosters',   glyph: '👥', area: 'rosters' },
   { label: 'Players',          short: 'Players',   glyph: '🔎', area: 'players' },
   { label: 'F.M.K. Market',    short: 'F.M.K.',    glyph: '⇄',  area: 'market' },
   { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', area: 'builder' },
+  { label: 'The POD',          short: 'POD',       glyph: '🎙️', podOnly: true },
 ]
 
 export default function TabLayout({ tab, setTab }) {
-  const { incomingTradeCount, areaEnabled } = useApp()
+  const { incomingTradeCount, areaEnabled, isPodMember } = useApp()
   const isDesktop = useIsDesktop()
 
-  // Indices stay stable (setTab(3) is always Market); disabled tabs just
+  // Indices stay stable (setTab(3) is always Market); hidden tabs just
   // vanish from the nav, and landing on one falls back to the Dashboard.
-  const visibleTabs = TABS.filter((t) => !t.area || areaEnabled(t.area))
-  const activeTab = TABS[tab]?.area && !areaEnabled(TABS[tab].area) ? 0 : tab
+  const canSee = (t) => (t.podOnly ? isPodMember : !t.area || areaEnabled(t.area))
+  const visibleTabs = TABS.filter(canSee)
+  const activeTab = TABS[tab] && !canSee(TABS[tab]) ? 0 : tab
 
   const screens = (
     <>
@@ -39,6 +43,7 @@ export default function TabLayout({ tab, setTab }) {
       {activeTab === 2 && <PlayersView setTab={setTab} />}
       {activeTab === 3 && <MarketView setTab={setTab} />}
       {activeTab === 4 && <BuilderView />}
+      {activeTab === 5 && <PodView />}
     </>
   )
 

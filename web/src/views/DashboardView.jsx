@@ -12,6 +12,7 @@ import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
 import PowerRankingsView from '../components/PowerRankingsView'
+import PowerRankingsChart from '../components/PowerRankingsChart'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
@@ -333,6 +334,11 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // Leads the Dashboard on both layouts — the one view that answers
+  // "where does everyone stand" without a tap. Tapping opens the full
+  // ranked list + cap tracker.
+  const powerChart = <PowerRankingsChart onOpenFull={() => setHistoryView('power')} />
+
   const latestSeasonYear = leagueHistory[0]?.season
   const historyTiles = areaEnabled('history') && (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -348,12 +354,9 @@ export default function DashboardView({ setTab }) {
         sub="All-time table — every stat, sortable"
         onClick={() => setHistoryView('table')}
       />
-      <HistoryTile
-        glyph="⚡"
-        title="Power Rankings"
-        sub="All 12 rosters ranked + the $300 cap tracker"
-        onClick={() => setHistoryView('power')}
-      />
+      {/* No Power Rankings tile here — the chart at the top of the page is
+          the entry point now, and a tile duplicating it would be dead weight.
+          The cap tracker still lives one tap in, behind the chart. */}
       <HistoryTile
         glyph="🏆"
         title="Trophy Room"
@@ -700,6 +703,7 @@ export default function DashboardView({ setTab }) {
         ) : (
           <div className="dash-grid">
             <div className="dash-main">
+              {powerChart}
               {calendar}
               {messagesSection}
               {offerBanners}
@@ -748,6 +752,7 @@ export default function DashboardView({ setTab }) {
         <LoadingList count={4} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
+          {powerChart}
           {calendar}
           {messagesSection}
           {rulesSection}

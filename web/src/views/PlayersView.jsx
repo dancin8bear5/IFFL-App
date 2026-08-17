@@ -77,6 +77,9 @@ export default function PlayersView({ setTab }) {
       if (sort.key === 'pos') return a.position
       if (sort.key === 'team') return a.teamName
       if (sort.key === 'yrs') return a.contractYearsRemaining ?? 0
+      // Unranked assets (picks, free agents) sort to the bottom either way
+      // rather than clumping at rank 0 above the #1 player.
+      if (sort.key === 'rank') return a.ownedRank ?? Number.MAX_SAFE_INTEGER
       const yr = seasons[Number(sort.key[1])]
       return a.prices?.[String(yr)] ?? 0
     }
@@ -244,6 +247,9 @@ export default function PlayersView({ setTab }) {
             <table className="alltime-table players-table">
               <thead>
                 <tr>
+                  <th style={{ textAlign: 'right' }} title="Rank among all owned players by current price">
+                    <button onClick={() => clickSort('rank', true)}>#{arrow('rank')}</button>
+                  </th>
                   <th style={{ textAlign: 'left' }}><button onClick={() => clickSort('pos', true)}>Pos{arrow('pos')}</button></th>
                   <th style={{ textAlign: 'left' }}><button onClick={() => clickSort('name', true)}>Player{arrow('name')}</button></th>
                   <th style={{ textAlign: 'left' }}><button onClick={() => clickSort('team', true)}>Team{arrow('team')}</button></th>
@@ -262,8 +268,18 @@ export default function PlayersView({ setTab }) {
                   const starred = interestedAssetIds.has(a.assetId)
                   return (
                     <tr key={a.id} onClick={() => setDetailAsset(a)} style={{ cursor: 'pointer' }}>
+                      <td className="tnum" style={{ textAlign: 'right', fontSize: 11.5, color: 'var(--iff-subtext)' }}>
+                        {a.ownedRank ?? '—'}
+                      </td>
                       <td><PosBadge position={a.position} /></td>
-                      <td style={{ fontWeight: 600, whiteSpace: 'normal', minWidth: 150 }}>{a.name}</td>
+                      <td style={{ fontWeight: 600, whiteSpace: 'normal', minWidth: 150 }}>
+                        {a.name}
+                        {a.posRank != null && (
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)' }}>
+                            {a.position}{a.posRank}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                           <TeamAvatar name={a.teamName} size={20} />

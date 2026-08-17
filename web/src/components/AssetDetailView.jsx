@@ -65,6 +65,18 @@ export function AssetDetailBody({ asset, onProposeTrade }) {
           <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 2 }}>
             Owned by <strong style={{ color: 'var(--iff-text)' }}>{asset.teamName}</strong>
           </div>
+          {asset.ownedRank != null && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <span style={{ background: 'var(--iff-elevated)', borderRadius: 8, padding: '5px 10px', fontSize: 11.5, fontWeight: 700 }}>
+                {asset.position}<span style={{ color: 'var(--iff-gold)' }}>{asset.posRank}</span>
+                <span style={{ color: 'var(--iff-subtext)', fontWeight: 400 }}> of {asset.posRankTotal}</span>
+              </span>
+              <span style={{ background: 'var(--iff-elevated)', borderRadius: 8, padding: '5px 10px', fontSize: 11.5, fontWeight: 700 }}>
+                #<span style={{ color: 'var(--iff-gold)' }}>{asset.ownedRank}</span>
+                <span style={{ color: 'var(--iff-subtext)', fontWeight: 400 }}> of {asset.ownedRankTotal} owned</span>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Prices */}

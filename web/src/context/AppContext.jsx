@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useCal
 import { listenToAuth } from '../services/authService'
 import * as fs from '../services/firestoreService'
 import { playerToDisplayAsset, pickToDisplayAsset } from '../services/models'
+import { withOwnedRanks } from '../services/ownedRank'
 import { findMatches } from '../services/marketEngine'
 
 const AppContext = createContext(null)
@@ -287,12 +288,12 @@ export function AppProvider({ children }) {
   // field = rostered, so no data migration needed). Dropped/cleared players
   // stay visible through `droppedPlayers` below.
   const allDisplayAssets = useMemo(
-    () => [
+    () => withOwnedRanks([
       ...players
         .filter((p) => (p.salaryStatus ?? 'rostered') === 'rostered')
         .map((p) => playerToDisplayAsset(p, activeSeason)),
       ...draftPicks.map((p) => pickToDisplayAsset(p, activeSeason)),
-    ],
+    ]),
     [players, draftPicks, activeSeason],
   )
 

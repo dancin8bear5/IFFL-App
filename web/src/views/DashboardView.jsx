@@ -11,6 +11,7 @@ import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../co
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
+import PowerRankingsView from '../components/PowerRankingsView'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
@@ -39,7 +40,7 @@ export default function DashboardView({ setTab }) {
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
   const [detailTrade, setDetailTrade] = useState(null)
-  const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy'
+  const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy' | 'power'
   const [showRules, setShowRules] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
   const [showParlay, setShowParlay] = useState(false)
@@ -346,6 +347,12 @@ export default function DashboardView({ setTab }) {
         title="League History"
         sub="All-time table — every stat, sortable"
         onClick={() => setHistoryView('table')}
+      />
+      <HistoryTile
+        glyph="⚡"
+        title="Power Rankings"
+        sub="All 12 rosters ranked + the $300 cap tracker"
+        onClick={() => setHistoryView('power')}
       />
       <HistoryTile
         glyph="🏆"
@@ -672,6 +679,7 @@ export default function DashboardView({ setTab }) {
       {historyView === 'last' && <LastSeasonView onClose={() => setHistoryView(null)} />}
       {historyView === 'table' && <LeagueHistoryTable onClose={() => setHistoryView(null)} />}
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
+      {historyView === 'power' && <PowerRankingsView onClose={() => setHistoryView(null)} />}
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
       {showLedger && <TransactionLedger onClose={() => setShowLedger(false)} />}
       {showParlay && <ParlayView onClose={() => setShowParlay(false)} />}

@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { Segmented, TeamAvatar } from '../components/shared'
 import { formatTradeDate } from '../services/models'
+import { fantasyTeams } from '../data/staticData'
 import FMKSwiperCard from '../components/FMKSwiperCard'
 import TradeProposalView from '../components/TradeProposalView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -72,6 +73,8 @@ export default function MarketView({ setTab }) {
   const [showProposal, setShowProposal] = useState(false)
   const [detailTrade, setDetailTrade] = useState(null)
   const [search, setSearch] = useState('')
+  const [seasonFilter, setSeasonFilter] = useState('all')
+  const [teamFilter, setTeamFilter] = useState('all')
 
   useEffect(() => {
     loadAllLeagueInterests()
@@ -94,8 +97,42 @@ export default function MarketView({ setTab }) {
     () => trades.filter((t) => t.status === 'proposed' || t.status === 'accepted'),
     [trades],
   )
+  const doneTrades = useMemo(
+    () => trades.filter((t) => t.status === 'completed' || t.status === 'historical'),
+    [trades],
+  )
+
+  /**
+   * Seasons that actually have trades, newest first. Derived from the data
+   * rather than a fixed range so a freshly-seeded historical year shows up
+   * on its own. Trades predating the `season` field fall into 'Undated'.
+   */
+  const tradeSeasons = useMemo(() => {
+    const years = new Set()
+    let hasUndated = false
+    for (const t of doneTrades) {
+      if (t.season == null) hasUndated = true
+      else years.add(Number(t.season))
+    }
+    return {
+      years: [...years].sort((a, b) => b - a),
+      hasUndated,
+    }
+  }, [doneTrades])
+
   const completed = useMemo(() => {
-    let list = trades.filter((t) => t.status === 'completed' || t.status === 'historical')
+    let list = doneTrades
+
+    if (seasonFilter !== 'all') {
+      list = list.filter((t) =>
+        seasonFilter === 'undated' ? t.season == null : Number(t.season) === Number(seasonFilter))
+    }
+
+    // "By team" means every trade that team was on either side of.
+    if (teamFilter !== 'all') {
+      list = list.filter((t) => t.proposingTeamName === teamFilter || t.receivingTeamName === teamFilter)
+    }
+
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       list = list.filter(
@@ -107,8 +144,53 @@ export default function MarketView({ setTab }) {
           ),
       )
     }
-    return list.sort((a, b) => new Date(b.date) - new Date(a.date))
-  }, [trades, search])
+    return [...list].sort((a, b) => new Date(b.date) - new Date(a.date))
+  }, [doneTrades, search, seasonFilter, teamFilter])
+
+  const ledgerFiltered = seasonFilter !== 'all' || teamFilter !== 'all' || search.trim() !== ''
+
+  // Season / team filter controls — shared by the desktop and mobile ledgers.
+  const ledgerFilters = (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <select
+        value={seasonFilter}
+        onChange={(e) => setSeasonFilter(e.target.value)}
+        aria-label="Filter trades by season"
+        style={{ width: 'auto', minWidth: 104, fontSize: 12, padding: '7px 9px' }}
+      >
+        <option value="all">All seasons</option>
+        {tradeSeasons.years.map((y) => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+        {tradeSeasons.hasUndated && <option value="undated">Undated</option>}
+      </select>
+
+      <select
+        value={teamFilter}
+        onChange={(e) => setTeamFilter(e.target.value)}
+        aria-label="Filter trades by team"
+        style={{ width: 'auto', minWidth: 112, fontSize: 12, padding: '7px 9px' }}
+      >
+        <option value="all">All teams</option>
+        {fantasyTeams.map((t) => (
+          <option key={t.name} value={t.name}>{t.name}</option>
+        ))}
+      </select>
+
+      {ledgerFiltered && (
+        <button
+          onClick={() => { setSeasonFilter('all'); setTeamFilter('all'); setSearch('') }}
+          style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-accent)', whiteSpace: 'nowrap' }}
+        >
+          Clear ✕
+        </button>
+      )}
+    </div>
+  )
+
+  const ledgerEmptyText = ledgerFiltered
+    ? 'No trades match these filters.'
+    : 'No completed trades yet.'
 
   const overlays = (
     <>
@@ -137,8 +219,13 @@ export default function MarketView({ setTab }) {
             </div>
 
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <span style={{ fontSize: 16, fontWeight: 700 }}>Trade Ledger</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  Trade Ledger
+                  <span className="tnum" style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: 'var(--iff-subtext)' }}>
+                    {completed.length}
+                  </span>
+                </span>
                 <input
                   type="search"
                   placeholder="Search by team or player…"
@@ -147,9 +234,10 @@ export default function MarketView({ setTab }) {
                   style={{ width: 260 }}
                 />
               </div>
+              <div style={{ marginBottom: 10 }}>{ledgerFilters}</div>
               {completed.length === 0 ? (
                 <div className="iff-card empty-state" style={{ padding: '32px 24px' }}>
-                  <div>No completed trades this season.</div>
+                  <div>{ledgerEmptyText}</div>
                 </div>
               ) : (
                 <div className="iff-card">
@@ -256,7 +344,7 @@ export default function MarketView({ setTab }) {
 
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, padding: '6px 2px' }}>
-              Completed
+              Completed ({completed.length})
             </div>
             <input
               type="search"
@@ -265,9 +353,10 @@ export default function MarketView({ setTab }) {
               onChange={(e) => setSearch(e.target.value)}
               style={{ marginBottom: 10 }}
             />
+            <div style={{ marginBottom: 10 }}>{ledgerFilters}</div>
             {completed.length === 0 ? (
               <div className="empty-state" style={{ padding: '32px 24px' }}>
-                <div>No completed trades this season.</div>
+                <div>{ledgerEmptyText}</div>
               </div>
             ) : (
               <div className="iff-card">

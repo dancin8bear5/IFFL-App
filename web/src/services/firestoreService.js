@@ -38,6 +38,7 @@ const COL = {
   leagueHistory: 'leagueHistory',
   transactions: 'transactions',
   teamAvatars: 'teamAvatars',
+  groupmeTradeSignals: 'groupmeTradeSignals',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -951,4 +952,42 @@ export function saveTeamAvatarPreset(teamName, presetId, uid) {
 /** Back to the team's shipped logo. */
 export function clearTeamAvatar(teamName) {
   return deleteDoc(doc(db, COL.teamAvatars, teamName))
+}
+
+// ── GroupMe trade signals — groupmeTradeSignals/{messageId} ────
+// Written by the pollGroupMeTrades scheduled function (functions/index.js):
+// GroupMe chatter that looks like a trade announcement, captured as an
+// UNREVIEWED signal. Nothing is auto-applied — league shorthand ("27 1st"),
+// jokes and backouts ("I BACKED OUT") make that unsafe — so these are a
+// review inbox in Admin → Trade Signals, where the commissioner pairs them
+// with the ESPN-imported player legs and records the picks by hand.
+// Commissioner-only; see firestore.rules.
+
+export function listenToGroupMeTradeSignals(callback, max = 50) {
+  const q = query(
+    collection(db, COL.groupmeTradeSignals),
+    orderBy('capturedAt', 'desc'),
+    limit(max),
+  )
+  return onSnapshot(q, (snap) =>
+    callback(
+      snapToDocs(snap).map((s) => ({
+        ...s,
+        postedAt: tsToDate(s.postedAt),
+        capturedAt: tsToDate(s.capturedAt),
+      })),
+    ),
+  )
+}
+
+/** Move a signal through the review workflow ('unreviewed' | 'reviewed' | 'ignored'). */
+export function setTradeSignalStatus(signalId, status) {
+  return updateDoc(doc(db, COL.groupmeTradeSignals, signalId), {
+    status,
+    reviewedAt: Timestamp.now(),
+  })
+}
+
+export function deleteTradeSignal(signalId) {
+  return deleteDoc(doc(db, COL.groupmeTradeSignals, signalId))
 }

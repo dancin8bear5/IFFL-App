@@ -1,11 +1,14 @@
 const {onDocumentWritten} = require("firebase-functions/v2/firestore");
 const {onCall, onRequest, HttpsError} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {defineSecret} = require("firebase-functions/params");
 const admin = require("firebase-admin");
-const {Timestamp, FieldValue} = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const {validatePayload, matchPlayers, pickSides} = require("./tradeIngest");
-const {resolveGroupMeTrade} = require("./groupmeIngest");
+const {buildSignalGroups} = require("./groupmeParser");
+const {reconcile} = require("./tradeReconcile");
+const {parseEspnTradeEmail} = require("./espnEmailParser");
+const gmailWatch = require("./gmailWatch");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -22,6 +25,13 @@ const GROUPME_TOKEN = defineSecret("GROUPME_TOKEN");
 // app bundle, or Firestore. The Make.com scenario sends it back on every
 // call as the X-Ingest-Secret header.
 const TRADE_INGEST_SECRET = defineSecret("TRADE_INGEST_SECRET");
+// Native Gmail watcher (replaces Make.com scenario 4432877). Reuses the
+// existing web OAuth client; GMAIL_REFRESH_TOKEN is minted via a one-time
+// consent (see functions/scripts/mint-gmail-token.js).
+const GMAIL_OAUTH_CLIENT_ID = defineSecret("GMAIL_OAUTH_CLIENT_ID");
+const GMAIL_OAUTH_CLIENT_SECRET = defineSecret("GMAIL_OAUTH_CLIENT_SECRET");
+const GMAIL_REFRESH_TOKEN = defineSecret("GMAIL_REFRESH_TOKEN");
+const ESPN_TRADE_LABEL = "espn-trade";
 
 const APP_URL = "https://iffl-auth.web.app";
 const COMMISSIONER_EMAIL = "jaredrogtaylor@gmail.com";
@@ -112,14 +122,13 @@ function assetSummary(refs) {
 async function notifyCompleted(proposer, receiver, youGet, theyGet, source) {
   const tag = source === "espn-email" ? " (auto-recorded from an ESPN trade email)"
     : source === "espn" ? " (recorded from ESPN)"
-    : source === "groupme" ? " (confirmed from GroupMe)"
     : "";
+  // Completed-trade GroupMe DMs removed per commissioner request — the
+  // execution is already visible in the app and (for ESPN deals) in the
+  // group chat itself; the "it's official" DM to both teams was noise.
+  // iOS push kept: it's an app notification, not a chat DM.
   await sendPush(proposer, "Trade Executed", `Your trade with ${receiver} has been completed${tag}.`);
   await sendPush(receiver, "Trade Executed", `Your trade with ${proposer} has been completed${tag}.`);
-  await sendGroupMeDM(proposer,
-    `🤝 Trade with ${receiver} is executed and official${tag}. Rosters are updated in the app.`);
-  await sendGroupMeDM(receiver,
-    `🤝 Trade with ${proposer} is executed and official${tag}. Rosters are updated in the app.`);
 }
 
 /**
@@ -279,39 +288,6 @@ exports.onTradeWrite = onDocumentWritten(
   },
 );
 
-// ── Cross-source trade correlation ──────────────────────────────
-// The same real-world trade can show up from two different signals: an
-// ESPN email (players only — ESPN doesn't roster draft picks) and a
-// GroupMe announcement (which is where picks in a deal actually get
-// said out loud). teamPairKey gives every tradeIngests doc, regardless
-// of source, a source-agnostic join key so the two can find each other.
-const MERGE_WINDOW_MS = 72 * 60 * 60 * 1000; // 72h — generous, but a specific two-team pair trading twice in 3 days is rare enough that a false merge is very unlikely
-function teamPairKey(a, b) {
-  return [a, b].sort().join("|");
-}
-
-/** Most recent ALREADY-APPLIED trade for this team pair within the merge window, if any. */
-async function findRecentAppliedTradeForPair(pairKey) {
-  const snap = await db.collection("tradeIngests").where("teamPairKey", "==", pairKey).get();
-  const cutoff = Date.now() - MERGE_WINDOW_MS;
-  const applied = snap.docs
-    .map((d) => ({id: d.id, ...d.data()}))
-    .filter((doc) => doc.status === "applied" && doc.tradeId && (doc.receivedAt?.toMillis?.() ?? 0) >= cutoff)
-    .sort((a, b) => b.receivedAt.toMillis() - a.receivedAt.toMillis());
-  return applied[0] ?? null;
-}
-
-/** Most recent unconfirmed GroupMe pending item for this team pair within the merge window, if any. */
-async function findRecentPendingForPair(pairKey) {
-  const snap = await db.collection("tradeIngests").where("teamPairKey", "==", pairKey).get();
-  const cutoff = Date.now() - MERGE_WINDOW_MS;
-  const pending = snap.docs
-    .map((d) => ({id: d.id, ...d.data()}))
-    .filter((doc) => doc.status === "pending_confirmation" && (doc.receivedAt?.toMillis?.() ?? 0) >= cutoff)
-    .sort((a, b) => b.receivedAt.toMillis() - a.receivedAt.toMillis());
-  return pending[0] ?? null;
-}
-
 /**
  * ESPN trade auto-import. Called by the Make.com scenario that scrapes
  * the Gmail ESPN-trade-notification emails and parses them — this
@@ -339,6 +315,163 @@ async function findRecentPendingForPair(pairKey) {
  *      guessed at, and the commissioner gets a GroupMe DM — resolve it
  *      from Admin → Trades.
  */
+/**
+ * SHARED CORE — process one ESPN trade, regardless of source (HTTP webhook
+ * or the native Gmail poller). Takes already-validated moves and applies the
+ * full pipeline: dedupe → roster match → Plan B reconcile → apply or hold.
+ * Returns { status, ...detail } — never throws for business outcomes, only
+ * for genuine infra errors. Callers translate the result into HTTP / logs.
+ *
+ * `sourceLabel` tags the ledger + heartbeat ("espn-email" webhook vs
+ * "espn-gmail" native poll) so we can tell which pipe recorded a trade.
+ */
+async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabel = "espn-email"}) {
+  // Step 1: verify — have we already seen this exact source event?
+  const ingestRef = db.collection("tradeIngests").doc(sourceId);
+  const existing = await ingestRef.get();
+  if (existing.exists) {
+    return {status: "duplicate", previousStatus: existing.data().status};
+  }
+
+  // Live roster snapshot for the teams this trade touches.
+  const teams = [...new Set(moves.map((m) => m.fromTeam))];
+  const rosterSnap = await db.collection("players")
+    .where("teamName", "in", teams)
+    .where("isActive", "==", true)
+    .get();
+  const roster = rosterSnap.docs.map((d) => ({id: d.id, name: d.data().name, teamName: d.data().teamName}));
+
+  const match = matchPlayers(moves, roster);
+
+  // Step 2a: ingest failed to resolve cleanly — flag for review, don't guess.
+  if (!match.ok) {
+    await ingestRef.set({
+      sourceId,
+      status: "needs_review",
+      source: sourceLabel,
+      moves,
+      problems: match.problems,
+      tradeDateRaw: tradeDate ?? null,
+      rawText: rawText ?? null,
+      receivedAt: admin.firestore.Timestamp.now(),
+    });
+    await sendGroupMeDM(
+      COMMISSIONER_TEAM_NAME,
+      `⚠️ ESPN trade auto-import needs review:\n` +
+      match.problems.map((p) => `• ${p.reason}`).join("\n") +
+      `\nResolve it from Admin → Trades: ${APP_URL}`,
+    ).catch(() => {});
+    return {status: "needs_review", problems: match.problems};
+  }
+
+  // Step 2a.5: PLAN B reconciliation. Even when every ESPN player leg
+  // resolves, cross-check against recent GroupMe signals. If the chat shows
+  // a draft pick (which ESPN emails NEVER contain) or the teams disagree,
+  // HOLD THE WHOLE TRADE for review instead of auto-applying and silently
+  // dropping the pick — the exact 2026-08-16 trap (Dak/Turpin + lost 2027 2nd).
+  const espnTeamsInvolved = [...new Set(moves.flatMap((m) => [m.fromTeam, m.toTeam]))];
+  let gmExtract = null;
+  try {
+    const since = admin.firestore.Timestamp.fromMillis(Date.now() - 48 * 3600 * 1000);
+    const sigSnap = await db.collection("groupmeTradeSignals")
+      .where("capturedAt", ">=", since)
+      .get();
+    for (const d of sigSnap.docs) {
+      const s = d.data();
+      const sTeams = s.teams || [];
+      const namesTrade = sTeams.some((t) => espnTeamsInvolved.includes(t));
+      const hasPick = !!s.hasPick;
+      if (namesTrade || hasPick) {
+        const picks = (s.picks || []).map((p) => ({year: p.year ?? null, round: p.round, raw: p.raw}));
+        gmExtract = {picks, teams: sTeams, directionPhrases: s.directionPhrases || [], signalId: d.id};
+        if (picks.length > 0) break; // a pick signal is the strongest match
+      }
+    }
+  } catch (e) {
+    console.error("processEspnTrade: GroupMe cross-check failed (non-fatal):", e.message);
+  }
+
+  const recon = reconcile({ok: true, moves, meta: {}}, gmExtract);
+  if (recon.decision !== "auto-eligible") {
+    await ingestRef.set({
+      sourceId,
+      status: "needs_review",
+      source: sourceLabel,
+      moves,
+      reconcileDecision: recon.decision,
+      reconcileReasons: recon.reasons,
+      groupmePicks: recon.picks,
+      groupmeSignalId: gmExtract?.signalId ?? null,
+      tradeDateRaw: tradeDate ?? null,
+      rawText: rawText ?? null,
+      receivedAt: admin.firestore.Timestamp.now(),
+    });
+    await sendGroupMeDM(
+      COMMISSIONER_TEAM_NAME,
+      `⚠️ ESPN trade held for review (players resolved, but cross-check flagged it):\n` +
+      recon.reasons.map((r) => `• ${r}`).join("\n") +
+      `\nResolve it from Admin → Trades: ${APP_URL}`,
+    ).catch(() => {});
+    return {status: "needs_review", decision: recon.decision, reasons: recon.reasons};
+  }
+
+  // Step 2b: every leg resolved AND reconciliation clean — apply it.
+  const configSnap = await db.doc("config/league").get();
+  const season = configSnap.data()?.activeSeasonYear ?? null;
+  const {proposingTeamName, receivingTeamName} = pickSides(match.resolved);
+  const tradeRef = db.collection("trades").doc();
+
+  const toRef = (m) => ({assetType: "player", assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
+  const assetsFromProposer = match.resolved.filter((m) => m.fromTeam === proposingTeamName).map(toRef);
+  const assetsFromReceiver = match.resolved.filter((m) => m.fromTeam !== proposingTeamName).map(toRef);
+
+  await db.runTransaction(async (tx) => {
+    for (const m of match.resolved) {
+      tx.update(db.collection("players").doc(m.assetId), {
+        teamName: m.toTeam,
+        tradeHistory: admin.firestore.FieldValue.arrayUnion(`via ${m.fromTeam} (ESPN)`),
+      });
+      tx.set(db.collection("transactions").doc(), {
+        type: "trade",
+        season,
+        teamName: m.toTeam,
+        fromTeam: m.fromTeam,
+        playerId: m.assetId,
+        playerName: m.displayName,
+        assetType: "player",
+        relatedTradeId: tradeRef.id,
+        note: "Auto-recorded from ESPN trade email",
+        actorUid: null,
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+    }
+    tx.set(tradeRef, {
+      proposingTeamName,
+      receivingTeamName,
+      assetsFromProposer,
+      assetsFromReceiver,
+      notes: null,
+      season,
+      status: "completed",
+      source: sourceLabel,
+      date: admin.firestore.Timestamp.now(),
+      completedAt: admin.firestore.Timestamp.now(),
+    });
+    tx.set(ingestRef, {
+      sourceId,
+      status: "applied",
+      source: sourceLabel,
+      tradeId: tradeRef.id,
+      moves: match.resolved,
+      tradeDateRaw: tradeDate ?? null,
+      rawText: rawText ?? null,
+      receivedAt: admin.firestore.Timestamp.now(),
+    });
+  });
+
+  return {status: "applied", tradeId: tradeRef.id};
+}
+
 exports.ingestEspnTrade = onRequest(
   {secrets: [TRADE_INGEST_SECRET, GROUPME_TOKEN]},
   async (req, res) => {
@@ -351,365 +484,27 @@ exports.ingestEspnTrade = onRequest(
       return;
     }
 
+    // HEARTBEAT: record that the webhook path reached us.
+    db.doc("config/espnIngest").set({
+      lastIngestAt: admin.firestore.Timestamp.now(),
+      lastIngestSource: "webhook",
+    }, {merge: true}).catch(() => {});
+
     const validation = validatePayload(req.body);
     if (!validation.ok) {
       res.status(400).json({ok: false, error: validation.error});
       return;
     }
     const {sourceId, tradeDate, rawText} = req.body;
-    const moves = validation.moves;
-
-    // Step 1: verify — have we already seen this exact source event?
-    const ingestRef = db.collection("tradeIngests").doc(sourceId);
-    const existing = await ingestRef.get();
-    if (existing.exists) {
-      res.status(200).json({ok: true, status: "duplicate", previousStatus: existing.data().status});
-      return;
-    }
-
-    // Live roster snapshot for the teams this trade touches (targeted —
-    // Firestore 'in' caps at 30, a trade never touches more than a
-    // handful of the league's 12 teams).
-    const teams = [...new Set(moves.map((m) => m.fromTeam))];
-    const rosterSnap = await db.collection("players")
-      .where("teamName", "in", teams)
-      .where("isActive", "==", true)
-      .get();
-    const roster = rosterSnap.docs.map((d) => ({id: d.id, name: d.data().name, teamName: d.data().teamName}));
-
-    const match = matchPlayers(moves, roster);
-
-    // Step 2a: ingest failed to resolve cleanly — flag for review, don't guess.
-    if (!match.ok) {
-      await ingestRef.set({
-        sourceId,
-        status: "needs_review",
-        moves,
-        problems: match.problems,
-        tradeDateRaw: tradeDate ?? null,
-        rawText: rawText ?? null,
-        receivedAt: Timestamp.now(),
+    try {
+      const result = await processEspnTrade({
+        sourceId, tradeDate, rawText, moves: validation.moves, sourceLabel: "espn-email",
       });
-      await sendGroupMeDM(
-        COMMISSIONER_TEAM_NAME,
-        `⚠️ ESPN trade auto-import needs review:\n` +
-        match.problems.map((p) => `• ${p.reason}`).join("\n") +
-        `\nResolve it from Admin → Trades: ${APP_URL}`,
-      ).catch(() => {});
-      res.status(200).json({ok: true, status: "needs_review", problems: match.problems});
-      return;
+      res.status(200).json({ok: true, ...result});
+    } catch (e) {
+      console.error("ingestEspnTrade: processing error:", e);
+      res.status(500).json({ok: false, error: e.message});
     }
-
-    // Step 2b: every leg resolved — ingest it. Same shape as any other
-    // completed trade (Rosters/cap/Keeper Outlook don't need to know
-    // where it came from), tagged source:'espn-email' for the ledger.
-    const configSnap = await db.doc("config/league").get();
-    const season = configSnap.data()?.activeSeasonYear ?? null;
-    const {proposingTeamName, receivingTeamName} = pickSides(match.resolved);
-    const pairKey = teamPairKey(proposingTeamName, receivingTeamName);
-    const tradeRef = db.collection("trades").doc();
-
-    const toRef = (m) => ({assetType: "player", assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
-    const assetsFromProposer = match.resolved.filter((m) => m.fromTeam === proposingTeamName).map(toRef);
-    const assetsFromReceiver = match.resolved.filter((m) => m.fromTeam !== proposingTeamName).map(toRef);
-
-    await db.runTransaction(async (tx) => {
-      for (const m of match.resolved) {
-        tx.update(db.collection("players").doc(m.assetId), {
-          teamName: m.toTeam,
-          tradeHistory: FieldValue.arrayUnion(`via ${m.fromTeam} (ESPN)`),
-        });
-        tx.set(db.collection("transactions").doc(), {
-          type: "trade",
-          season,
-          teamName: m.toTeam,
-          fromTeam: m.fromTeam,
-          playerId: m.assetId,
-          playerName: m.displayName,
-          assetType: "player",
-          relatedTradeId: tradeRef.id,
-          note: "Auto-recorded from ESPN trade email",
-          actorUid: null,
-          createdAt: Timestamp.now(),
-        });
-      }
-      tx.set(tradeRef, {
-        proposingTeamName,
-        receivingTeamName,
-        assetsFromProposer,
-        assetsFromReceiver,
-        notes: null,
-        season,
-        status: "completed",
-        source: "espn-email",
-        date: Timestamp.now(),
-        completedAt: Timestamp.now(),
-      });
-      tx.set(ingestRef, {
-        sourceId,
-        status: "applied",
-        tradeId: tradeRef.id,
-        teamPairKey: pairKey,
-        moves: match.resolved,
-        tradeDateRaw: tradeDate ?? null,
-        rawText: rawText ?? null,
-        receivedAt: Timestamp.now(),
-      });
-    });
-
-    // ESPN doesn't roster draft picks — if this pair also has an
-    // unconfirmed GroupMe pending item waiting (usually the pick side of
-    // this exact trade), link it to the trade we just created instead of
-    // leaving it to become a duplicate "create a new trade" confirm later.
-    // Confirming it from Admin will now ATTACH those extra assets to this
-    // trade rather than starting a second one.
-    const pendingGroupMe = await findRecentPendingForPair(pairKey);
-    if (pendingGroupMe && !pendingGroupMe.attachToTradeId) {
-      await db.collection("tradeIngests").doc(pendingGroupMe.id).update({attachToTradeId: tradeRef.id});
-    }
-
-    res.status(200).json({ok: true, status: "applied", tradeId: tradeRef.id});
-  },
-);
-
-/**
- * GroupMe trade-announcement ingest. Called by the Make.com relay
- * watching the league's GroupMe group (config/groupme.groupId — the
- * same group already used for outbound trade DMs) for new messages.
- *
- * Unlike ingestEspnTrade, this NEVER auto-applies, no matter how
- * cleanly it parses — GroupMe is free-text human chat (jokes, rumors,
- * deals that fall through mid-negotiation), not a templated
- * confirmation email. A clean parse becomes a 'pending_confirmation'
- * tradeIngests doc; the commissioner taps Confirm in Admin → Trades
- * (see exports.confirmPendingTrade below) before anything touches
- * rosters. See functions/groupmeIngest.js for the actual parsing.
- *
- * POST body: the GroupMe message object (id, group_id, sender_id, name,
- * text, system). Header: X-Ingest-Secret: <TRADE_INGEST_SECRET> (same
- * secret as the ESPN webhook — same trust boundary, one thing to manage).
- */
-exports.ingestGroupMeMessage = onRequest(
-  {secrets: [TRADE_INGEST_SECRET, GROUPME_TOKEN]},
-  async (req, res) => {
-    if (req.method !== "POST") {
-      res.status(405).json({ok: false, error: "POST only"});
-      return;
-    }
-    if (req.get("X-Ingest-Secret") !== TRADE_INGEST_SECRET.value()) {
-      res.status(401).json({ok: false, error: "Unauthorized"});
-      return;
-    }
-
-    const body = req.body ?? {};
-    const messageId = body.id;
-    if (!messageId) {
-      res.status(400).json({ok: false, error: "id is required"});
-      return;
-    }
-    if (body.system) {
-      res.status(200).json({ok: true, status: "ignored", reason: "system message"});
-      return;
-    }
-    const text = String(body.text ?? "");
-    if (!text.trim()) {
-      res.status(200).json({ok: true, status: "ignored", reason: "no text"});
-      return;
-    }
-
-    const groupmeCfg = (await db.doc("config/groupme").get()).data() ?? {};
-    if (!groupmeCfg.groupId || String(body.group_id ?? "") !== String(groupmeCfg.groupId)) {
-      res.status(200).json({ok: true, status: "ignored", reason: "not the trade-announcement group"});
-      return;
-    }
-
-    const ingestId = `groupme-${messageId}`;
-    const ingestRef = db.collection("tradeIngests").doc(ingestId);
-    if ((await ingestRef.get()).exists) {
-      res.status(200).json({ok: true, status: "duplicate"});
-      return;
-    }
-
-    const senderId = body.sender_id ?? body.user_id ?? null;
-    const senderName = body.name ?? null;
-    const userMap = groupmeCfg.userMap ?? {};
-    const senderTeam = Object.keys(userMap).find((team) => String(userMap[team]) === String(senderId)) ?? null;
-
-    const [rosterSnap, picksSnap] = await Promise.all([
-      db.collection("players").where("isActive", "==", true).get(),
-      db.collection("draftPicks").where("status", "==", "available").get(),
-    ]);
-    const rosterSnapshot = rosterSnap.docs.map((d) => ({id: d.id, name: d.data().name, teamName: d.data().teamName}));
-    const picksSnapshot = picksSnap.docs.map((d) => ({
-      id: d.id, season: d.data().season, round: d.data().round, currentTeamName: d.data().currentTeamName,
-    }));
-
-    const result = resolveGroupMeTrade({text, senderTeam, rosterSnapshot, picksSnapshot});
-
-    if (!result.triggered) {
-      res.status(200).json({ok: true, status: "ignored", reason: "not a trade confirmation"});
-      return;
-    }
-
-    if (!result.ok) {
-      const problems = result.problems ?? [{reason: result.reason}];
-      await ingestRef.set({
-        source: "groupme",
-        status: "needs_review",
-        messageId, senderId, senderName, rawText: text,
-        teamA: result.teamA ?? null,
-        teamB: result.teamB ?? null,
-        moves: result.moves ?? [],
-        problems,
-        receivedAt: Timestamp.now(),
-      });
-      await sendGroupMeDM(
-        COMMISSIONER_TEAM_NAME,
-        `⚠️ GroupMe trade announcement needs review:\n"${text}"\n` +
-        problems.map((p) => `• ${p.reason}`).join("\n") +
-        `\nResolve it from Admin → Trades: ${APP_URL}`,
-      ).catch(() => {});
-      res.status(200).json({ok: true, status: "needs_review"});
-      return;
-    }
-
-    // Clean parse — but this NEVER auto-applies (see doc comment above).
-    // Check for a merge target first so a second message about the same
-    // deal (or a deal ESPN already applied) doesn't spawn a duplicate.
-    const pairKey = teamPairKey(result.teamA, result.teamB);
-    const [recentApplied, recentPending] = await Promise.all([
-      findRecentAppliedTradeForPair(pairKey),
-      findRecentPendingForPair(pairKey),
-    ]);
-
-    if (recentPending) {
-      const existingIds = new Set((recentPending.moves ?? []).map((m) => m.assetId));
-      const newMoves = result.moves.filter((m) => !existingIds.has(m.assetId));
-      await db.collection("tradeIngests").doc(recentPending.id).update({
-        moves: [...(recentPending.moves ?? []), ...newMoves],
-        sourceMessages: FieldValue.arrayUnion({messageId, senderName, text}),
-      });
-      res.status(200).json({ok: true, status: "merged", mergedInto: recentPending.id});
-      return;
-    }
-
-    await ingestRef.set({
-      source: "groupme",
-      status: "pending_confirmation",
-      teamA: result.teamA,
-      teamB: result.teamB,
-      teamPairKey: pairKey,
-      moves: result.moves,
-      attachToTradeId: recentApplied?.tradeId ?? null,
-      messageId, senderId, senderName, rawText: text,
-      sourceMessages: [{messageId, senderName, text}],
-      receivedAt: Timestamp.now(),
-    });
-    await sendGroupMeDM(
-      COMMISSIONER_TEAM_NAME,
-      `🔔 GroupMe trade detected — ${result.teamA} ↔ ${result.teamB}:\n"${text}"\n` +
-      `Confirm it from Admin → Trades: ${APP_URL}`,
-    ).catch(() => {});
-
-    res.status(200).json({ok: true, status: "pending_confirmation", tradeIngestId: ingestId});
-  },
-);
-
-/**
- * Commissioner taps "Confirm & Apply" on a GroupMe-sourced pending trade
- * (Admin → Trades). Two shapes, both requiring exactly this one tap:
- *   - attachToTradeId set: an ESPN email already applied this trade's
- *     player legs — this just adds the extra assets (picks, almost
- *     always) onto that existing trade doc.
- *   - otherwise: a brand-new trade, applied exactly like the ESPN clean
- *     path (transfer assets, create the trade doc, log the ledger).
- */
-exports.confirmPendingTrade = onCall(
-  {secrets: [GROUPME_TOKEN]},
-  async (request) => {
-    const email = request.auth?.token?.email;
-    if (!email) throw new HttpsError("unauthenticated", "Sign in first.");
-    const leagueConfig = await db.doc("config/league").get();
-    const authorized = leagueConfig.data()?.authorizedUIDs ?? [];
-    const isCommissioner = email === COMMISSIONER_EMAIL || authorized.includes(request.auth.uid);
-    if (!isCommissioner) throw new HttpsError("permission-denied", "Commissioner only.");
-
-    const ingestId = request.data?.ingestId;
-    if (!ingestId) throw new HttpsError("invalid-argument", "ingestId is required.");
-
-    const ingestRef = db.collection("tradeIngests").doc(ingestId);
-    const snap = await ingestRef.get();
-    if (!snap.exists) throw new HttpsError("not-found", "No such pending trade.");
-    const pending = snap.data();
-    if (pending.status !== "pending_confirmation") {
-      throw new HttpsError("failed-precondition", `Already ${pending.status}.`);
-    }
-
-    const season = leagueConfig.data()?.activeSeasonYear ?? null;
-    const toRef = (m) => ({assetType: m.assetType, assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
-    const transferMove = (tx, m, tradeId) => {
-      const col = m.assetType === "player" ? "players" : "draftPicks";
-      const field = m.assetType === "player" ? "teamName" : "currentTeamName";
-      tx.update(db.collection(col).doc(m.assetId), {[field]: m.toTeam});
-      tx.set(db.collection("transactions").doc(), {
-        type: "trade",
-        season,
-        teamName: m.toTeam,
-        fromTeam: m.fromTeam,
-        playerId: m.assetType === "player" ? m.assetId : null,
-        playerName: m.displayName,
-        assetType: m.assetType,
-        relatedTradeId: tradeId,
-        note: "Confirmed from GroupMe",
-        actorUid: request.auth.uid,
-        createdAt: Timestamp.now(),
-      });
-    };
-
-    if (pending.attachToTradeId) {
-      const tradeRef = db.collection("trades").doc(pending.attachToTradeId);
-      await db.runTransaction(async (tx) => {
-        const tradeSnap = await tx.get(tradeRef);
-        if (!tradeSnap.exists) throw new HttpsError("not-found", "Linked trade no longer exists.");
-        const trade = tradeSnap.data();
-        const proposerAdds = pending.moves.filter((m) => m.fromTeam === trade.proposingTeamName).map(toRef);
-        const receiverAdds = pending.moves.filter((m) => m.fromTeam !== trade.proposingTeamName).map(toRef);
-        for (const m of pending.moves) transferMove(tx, m, tradeRef.id);
-        tx.update(tradeRef, {
-          assetsFromProposer: [...(trade.assetsFromProposer ?? []), ...proposerAdds],
-          assetsFromReceiver: [...(trade.assetsFromReceiver ?? []), ...receiverAdds],
-        });
-        tx.update(ingestRef, {status: "applied", tradeId: tradeRef.id, confirmedAt: Timestamp.now(), confirmedBy: request.auth.uid});
-      });
-      const trade = (await tradeRef.get()).data();
-      const summary = pending.moves.map((m) => m.displayName).join(", ");
-      await sendGroupMeDM(trade.proposingTeamName, `➕ ${summary} added to your trade with ${trade.receivingTeamName}.`).catch(() => {});
-      await sendGroupMeDM(trade.receivingTeamName, `➕ ${summary} added to your trade with ${trade.proposingTeamName}.`).catch(() => {});
-      return {ok: true, tradeId: tradeRef.id, attached: true};
-    }
-
-    const tradeRef = db.collection("trades").doc();
-    const assetsFromProposer = pending.moves.filter((m) => m.fromTeam === pending.teamA).map(toRef);
-    const assetsFromReceiver = pending.moves.filter((m) => m.fromTeam !== pending.teamA).map(toRef);
-
-    await db.runTransaction(async (tx) => {
-      for (const m of pending.moves) transferMove(tx, m, tradeRef.id);
-      tx.set(tradeRef, {
-        proposingTeamName: pending.teamA,
-        receivingTeamName: pending.teamB,
-        assetsFromProposer,
-        assetsFromReceiver,
-        notes: null,
-        season,
-        status: "completed",
-        source: "groupme",
-        date: Timestamp.now(),
-        completedAt: Timestamp.now(),
-      });
-      tx.update(ingestRef, {status: "applied", tradeId: tradeRef.id, confirmedAt: Timestamp.now(), confirmedBy: request.auth.uid});
-    });
-
-    return {ok: true, tradeId: tradeRef.id, attached: false};
   },
 );
 
@@ -776,5 +571,298 @@ exports.groupmeDirectory = onCall(
         })),
       })),
     };
+  },
+);
+
+// ── GroupMe trade-signal poller ────────────────────────────────
+// GroupMe is the ONLY record of the pick legs + full agreed terms of a
+// trade — ESPN's tool can't express draft-pick trades, so they're
+// announced in the group chat (usually flagged with 🚨). This poller
+// captures every message that looks like trade chatter into the
+// groupmeTradeSignals collection as an UNREVIEWED signal. It never
+// auto-parses picks or transfers assets — league shorthand ("27 1st"),
+// jokes, and backouts ("I BACKED OUT") make that unsafe. The signals are
+// a review inbox in Admin → Trade Signals, where the commissioner pairs
+// them with the ESPN-imported player legs and records the picks by hand.
+//
+// Runs hourly via Cloud Scheduler. State (last processed message id)
+// lives in config/groupmePoller so each run only fetches what's new.
+
+const GROUPME_GROUP_ID = "15079499";
+
+// The 🚨 siren is the league's near-universal trade flag (~99% of deals).
+// Keywords are the backup net for the rare unflagged announcement.
+const TRADE_SIGNAL_EMOJI = ["\uD83D\uDEA8"]; // 🚨
+const TRADE_SIGNAL_KEYWORDS = [
+  "trade", "trading", "traded",
+  "offer", "offering",
+  "propose", "proposal", "proposing",
+  "deal", "swap", "veto",
+  "accepted", "in exchange", "for your",
+];
+
+/**
+ * Decide whether a GroupMe message looks like trade chatter and, if so,
+ * why. Returns {hit, reasons[]} — reasons are stored on the signal so
+ * the review UI can show what tripped the filter. System messages
+ * (member added/removed, name changes, etc.) are always ignored.
+ */
+function classifyTradeSignal(msg) {
+  if (!msg || msg.system) return {hit: false, reasons: []};
+  const text = String(msg.text ?? "");
+  if (!text.trim()) return {hit: false, reasons: []};
+  const reasons = [];
+  for (const emoji of TRADE_SIGNAL_EMOJI) {
+    if (text.includes(emoji)) reasons.push("emoji:\uD83D\uDEA8");
+  }
+  const lower = text.toLowerCase();
+  for (const kw of TRADE_SIGNAL_KEYWORDS) {
+    if (lower.includes(kw)) reasons.push(`keyword:${kw}`);
+  }
+  return {hit: reasons.length > 0, reasons};
+}
+
+/**
+ * Fetch GroupMe messages newer than afterId, oldest-first, paginating
+ * past the 100-per-call cap. GroupMe's /messages endpoint returns
+ * newest-first and takes `after_id` (strictly newer than the given id,
+ * ascending) — we page with after_id and stop when a page is empty.
+ * Guards against runaway loops with a hard page cap.
+ */
+async function fetchGroupMeMessagesSince(token, afterId) {
+  const collected = [];
+  let cursor = afterId;
+  const MAX_PAGES = 50; // 50 * 100 = 5000 msgs/run ceiling — safety valve
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const url = new URL(`https://api.groupme.com/v3/groups/${GROUPME_GROUP_ID}/messages`);
+    url.searchParams.set("token", token);
+    url.searchParams.set("limit", "100");
+    if (cursor) url.searchParams.set("after_id", cursor);
+    const res = await fetch(url.toString());
+    // 304 = no newer messages; treat as done.
+    if (res.status === 304) break;
+    if (!res.ok) {
+      throw new Error(`GroupMe messages fetch failed: HTTP ${res.status} ${await res.text()}`);
+    }
+    const json = await res.json();
+    const batch = json.response?.messages ?? [];
+    if (batch.length === 0) break;
+    // after_id returns ascending (oldest-first) — keep order, advance cursor.
+    collected.push(...batch);
+    cursor = batch[batch.length - 1].id;
+    if (batch.length < 100) break; // last page
+  }
+  return collected;
+}
+
+exports.pollGroupMeTrades = onSchedule(
+  {
+    schedule: "every 60 minutes",
+    timeZone: "America/Chicago",
+    secrets: [GROUPME_TOKEN],
+    retryCount: 0,
+  },
+  async () => {
+    const token = GROUPME_TOKEN.value();
+    if (!token) {
+      console.error("pollGroupMeTrades: GROUPME_TOKEN secret not set — skipping");
+      return;
+    }
+
+    const stateRef = db.doc("config/groupmePoller");
+    const stateSnap = await stateRef.get();
+    const lastSeenId = stateSnap.data()?.lastSeenId ?? null;
+
+    let messages;
+    try {
+      messages = await fetchGroupMeMessagesSince(token, lastSeenId);
+    } catch (err) {
+      console.error("pollGroupMeTrades: fetch error:", err.message);
+      await stateRef.set({lastError: err.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true});
+      return;
+    }
+
+    if (messages.length === 0) {
+      await stateRef.set({lastRunAt: admin.firestore.Timestamp.now(), lastError: null}, {merge: true});
+      console.log("pollGroupMeTrades: no new messages");
+      return;
+    }
+
+    // On the very first run (no lastSeenId), don't back-fill the entire
+    // chat history as signals — just anchor state to the newest message
+    // so we start capturing from here forward.
+    const newestId = messages[messages.length - 1].id;
+    if (!lastSeenId) {
+      await stateRef.set(
+        {lastSeenId: newestId, lastRunAt: admin.firestore.Timestamp.now(), lastError: null, initializedAt: admin.firestore.Timestamp.now()},
+        {merge: true},
+      );
+      console.log(`pollGroupMeTrades: initialized state at message ${newestId} (no back-fill)`);
+      return;
+    }
+
+    // Build stitched signal groups: a bare 🚨 and the deal text that follows
+    // it from the same sender collapse into ONE review item, and each item
+    // carries STRUCTURED extraction (picks, teams, direction phrases) — not
+    // just "a keyword tripped". See groupmeParser.js.
+    const groups = buildSignalGroups(messages);
+    let hitCount = 0;
+    const batch = db.batch();
+    for (const g of groups) {
+      hitCount++;
+      // Doc id = primary (first) GroupMe message id of the group → naturally
+      // idempotent; a redelivered/overlapping poll can't duplicate a signal.
+      const sigRef = db.collection("groupmeTradeSignals").doc(g.primaryId);
+      batch.set(sigRef, {
+        messageId: g.primaryId,
+        messageIds: g.messageIds, // all stitched msgs in this review item
+        groupId: GROUPME_GROUP_ID,
+        senderId: g.senderId,
+        senderName: g.senderName,
+        text: g.text,
+        reasons: g.reasons,
+        // Structured content for reconciliation + the review UI.
+        picks: (g.extracted.picks || []).map((p) => ({
+          year: p.year ?? null, round: p.round, raw: p.raw,
+        })),
+        teams: g.extracted.teams || [],
+        directionPhrases: (g.extracted.directionPhrases || []).map((d) => ({
+          team: d.team, verb: d.verb, raw: d.raw,
+        })),
+        hasPick: (g.extracted.picks || []).length > 0,
+        status: "unreviewed",
+        postedAt: g.postedAtSec ? admin.firestore.Timestamp.fromMillis(g.postedAtSec * 1000) : null,
+        capturedAt: admin.firestore.Timestamp.now(),
+      }, {merge: true});
+    }
+
+    batch.set(stateRef, {
+      lastSeenId: newestId,
+      lastRunAt: admin.firestore.Timestamp.now(),
+      lastError: null,
+      lastHitCount: hitCount,
+    }, {merge: true});
+
+    await batch.commit();
+    console.log(`pollGroupMeTrades: scanned ${messages.length} msgs, captured ${hitCount} signal group(s), advanced to ${newestId}`);
+  },
+);
+
+/**
+ * pollEspnGmail — native replacement for the Make.com ESPN scraper.
+ * Every 15 min: read the `espn-trade` Gmail label, parse each new
+ * trade-accepted email, and run the SAME processEspnTrade() core the webhook
+ * uses (roster match + Plan B reconcile + apply/hold). A per-message Firestore
+ * doc (keyed by Gmail message id) guarantees no double-import. Stamps the same
+ * heartbeat so we can see if the pipe goes silent.
+ *
+ * Auth: reuses the existing web OAuth client + a gmail.readonly refresh token
+ * (secret GMAIL_REFRESH_TOKEN), minted once via scripts/mint-gmail-token.js.
+ * The function no-ops quietly until that secret exists, so it's safe to deploy
+ * BEFORE the one-time consent — it just logs "not configured" and returns.
+ */
+exports.pollEspnGmail = onSchedule(
+  {
+    schedule: "every 15 minutes",
+    timeZone: "America/Chicago",
+    secrets: [GMAIL_OAUTH_CLIENT_ID, GMAIL_OAUTH_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GROUPME_TOKEN],
+    retryCount: 0,
+  },
+  async () => {
+    let clientId; let clientSecret; let refreshToken;
+    try {
+      clientId = GMAIL_OAUTH_CLIENT_ID.value();
+      clientSecret = GMAIL_OAUTH_CLIENT_SECRET.value();
+      refreshToken = GMAIL_REFRESH_TOKEN.value();
+    } catch (e) {
+      refreshToken = null;
+    }
+    if (!clientId || !clientSecret || !refreshToken) {
+      console.log("pollEspnGmail: not configured yet (missing OAuth secret / refresh token) — skipping.");
+      return;
+    }
+
+    const stateRef = db.doc("config/espnGmailPoller");
+    let gmail;
+    try {
+      gmail = gmailWatch.createGmailClient({clientId, clientSecret, refreshToken});
+    } catch (e) {
+      console.error("pollEspnGmail: failed to build Gmail client:", e.message);
+      await stateRef.set({lastError: e.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true}).catch(() => {});
+      return;
+    }
+
+    try {
+      const labelId = await gmailWatch.resolveLabelId(gmail, ESPN_TRADE_LABEL);
+      if (!labelId) {
+        console.warn(`pollEspnGmail: label "${ESPN_TRADE_LABEL}" not found on the account.`);
+        await stateRef.set({lastError: `label ${ESPN_TRADE_LABEL} not found`, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true}).catch(() => {});
+        return;
+      }
+
+      const ids = await gmailWatch.listLabeledMessageIds(gmail, labelId, 25);
+      let processed = 0; let applied = 0; let held = 0; let skipped = 0;
+
+      for (const id of ids) {
+        // Dedupe: one doc per Gmail message id. Skip anything already seen.
+        const seenRef = db.collection("espnGmailSeen").doc(id);
+        const seen = await seenRef.get();
+        if (seen.exists) { skipped++; continue; }
+
+        const message = await gmailWatch.getMessage(gmail, id);
+        const body = gmailWatch.decodeMessageBody(message.payload);
+        const subject = gmailWatch.getSubject(message);
+        const parsed = parseEspnTradeEmail(body);
+
+        if (!parsed.ok) {
+          // Not a parseable trade email (e.g. a digest under the same label).
+          // Mark seen so we don't re-examine it forever, but record why.
+          await seenRef.set({
+            messageId: id, subject, parsedOk: false, parseError: parsed.error,
+            seenAt: admin.firestore.Timestamp.now(),
+          });
+          skipped++;
+          continue;
+        }
+
+        // Heartbeat: the native pipe successfully read a real trade email.
+        db.doc("config/espnIngest").set({
+          lastIngestAt: admin.firestore.Timestamp.now(),
+          lastIngestSource: "gmail-native",
+        }, {merge: true}).catch(() => {});
+
+        // sourceId = Gmail message id → stable + idempotent across both pipes.
+        const result = await processEspnTrade({
+          sourceId: id,
+          tradeDate: null,
+          rawText: body.slice(0, 4000),
+          moves: parsed.moves,
+          sourceLabel: "espn-gmail",
+        });
+
+        await seenRef.set({
+          messageId: id, subject, parsedOk: true,
+          result: result.status, tradeId: result.tradeId ?? null,
+          seenAt: admin.firestore.Timestamp.now(),
+        });
+        processed++;
+        if (result.status === "applied") applied++;
+        else if (result.status === "needs_review") held++;
+      }
+
+      await stateRef.set({
+        lastRunAt: admin.firestore.Timestamp.now(),
+        lastError: null,
+        lastScanned: ids.length,
+        lastProcessed: processed,
+        lastApplied: applied,
+        lastHeld: held,
+        lastSkipped: skipped,
+      }, {merge: true});
+      console.log(`pollEspnGmail: scanned ${ids.length}, processed ${processed} (applied ${applied}, held ${held}), skipped ${skipped}.`);
+    } catch (e) {
+      console.error("pollEspnGmail: run error:", e.message);
+      await stateRef.set({lastError: e.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true}).catch(() => {});
+    }
   },
 );

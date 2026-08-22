@@ -168,6 +168,23 @@ service cloud.firestore {
       allow read, write: if isCommissioner();
     }
 
+    // GroupMe trade-signal review inbox (functions/index.js
+    // pollGroupMeTrades) — captured chatter that looks like a trade
+    // announcement (🚨 + keywords). GroupMe is the only record of the
+    // pick legs of a deal, so these are reviewed by hand in
+    // Admin → Trade Signals and paired with the ESPN-imported player
+    // legs. Written by the Cloud Function via the Admin SDK (bypasses
+    // rules); commissioner reads the queue and marks/dismisses entries.
+    match /groupmeTradeSignals/{signalId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // Poller state (last processed GroupMe message id) — internal ops
+    // data written by the Cloud Function; commissioner may inspect it.
+    match /config/groupmePoller {
+      allow read, write: if isCommissioner();
+    }
+
     // Transaction ledger — the league's paper trail. Readable by everyone,
     // written only by the commissioner (entries ride along with executeTrade
     // and repair batches). Never updated or deleted — it's an audit log.

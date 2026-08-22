@@ -1,9 +1,12 @@
-// AdminView — port of Views/AdminView.swift. Commissioner-only panel.
-// Sections: Database, Players, Picks, Trades, Messages, Teams, Access.
+// AdminView — commissioner-only panel, fifteen sections.
+// Navigation is grouped by job (Data / Trades / League / Setup) rather
+// than one flat row, remembers the last section across visits, badges
+// the sections with work waiting, and is searchable. See SECTION_GROUPS.
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
 import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
+import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
 import { computeRolloverPlan } from '../services/seasonRollover'
@@ -12,50 +15,254 @@ import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Keeper Import', 'Rollover', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Trade Signals', 'Messages', 'Teams', 'Access', 'GroupMe']
+// Fifteen sections is too many for one flat row — the old chip rail put 11
+// of them off-screen on desktop and 11 of 15 off-screen on a phone, so
+// reaching GroupMe or Trade Signals meant swiping blind past everything
+// else. Grouping by what the job actually IS makes the whole set
+// scannable at once.
+const SECTION_GROUPS = [
+  {
+    label: 'Data',
+    items: [
+      { id: 'Database',      glyph: '🗄️', blurb: 'Season, seeding, integrity' },
+      { id: 'Keeper Import', glyph: '📥', blurb: 'Keeper-deadline CSV' },
+      { id: 'Rollover',      glyph: '🔄', blurb: 'Advance the season' },
+    ],
+  },
+  {
+    label: 'Trades',
+    items: [
+      { id: 'Trades',        glyph: '🤝', blurb: 'Ledger, external, review' },
+      { id: 'Trade Signals', glyph: '📡', blurb: 'GroupMe review inbox' },
+      { id: 'Picks',         glyph: '🎯', blurb: 'Draft pick assets' },
+    ],
+  },
+  {
+    label: 'League',
+    items: [
+      { id: 'Players',  glyph: '🏈', blurb: 'Roster edits' },
+      { id: 'Drops',    glyph: '🕐', blurb: 'Salary clock' },
+      { id: 'Rules',    glyph: '📜', blurb: 'Proposals & voting' },
+      { id: 'Records',  glyph: '🏆', blurb: 'Trophy Room extremes' },
+      { id: 'Messages', glyph: '💬', blurb: 'League broadcast' },
+    ],
+  },
+  {
+    label: 'Setup',
+    items: [
+      { id: 'Teams',   glyph: '👥', blurb: 'Assignment & auto-link' },
+      { id: 'Access',  glyph: '🔑', blurb: 'Who gets in' },
+      { id: 'Areas',   glyph: '🎛️', blurb: 'Tab kill-switches' },
+      { id: 'GroupMe', glyph: '🔔', blurb: 'DM mapping & pause' },
+    ],
+  },
+]
+
+const SECTIONS = SECTION_GROUPS.flatMap((g) => g.items.map((i) => i.id))
+const SECTION_META = Object.fromEntries(SECTION_GROUPS.flatMap((g) => g.items.map((i) => [i.id, i])))
+
+// Admin lives inside the Settings modal, so closing Settings unmounts it
+// entirely. Without this, every single visit reset to Database — brutal
+// when you're in here constantly and always working in the same two or
+// three sections. Persisting to localStorage means reopening lands you
+// exactly where you left off.
+const LAST_SECTION_KEY = 'iffl.admin.lastSection'
+
+function loadLastSection() {
+  try {
+    const saved = localStorage.getItem(LAST_SECTION_KEY)
+    return SECTIONS.includes(saved) ? saved : 'Database'
+  } catch {
+    return 'Database' // private mode / storage blocked
+  }
+}
 
 export default function AdminView() {
-  const [section, setSection] = useState('Database')
+  const [section, setSection] = useState(loadLastSection)
+  const [query, setQuery] = useState('')
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const isDesktop = useIsDesktop()
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--iff-divider)', position: 'sticky', top: 'calc(44px + var(--safe-top, 0px))', zIndex: 15, background: 'var(--iff-bg)' }}>
-        <ChipScroller>
-          <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
-            {SECTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSection(s)}
-                style={{
-                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
-                  background: s === section ? 'var(--iff-accent)' : 'var(--iff-elevated)',
-                  color: s === section ? '#fff' : 'var(--iff-subtext)',
-                }}
-              >
-                {s}
-              </button>
-            ))}
+  useEffect(() => {
+    try { localStorage.setItem(LAST_SECTION_KEY, section) } catch { /* non-fatal */ }
+  }, [section])
+
+  // Badges: where work is actually waiting. Without these you have to open
+  // each section to discover there's nothing to do in it.
+  const [badges, setBadges] = useState({})
+  useEffect(() => {
+    let alive = true
+    fs.fetchPendingIngests()
+      .then((items) => {
+        if (!alive) return
+        setBadges((b) => ({ ...b, Trades: items.filter((i) => i.status === 'needs_review').length }))
+      })
+      .catch(() => {})
+    const unsub = (() => {
+      try {
+        return fs.listenToGroupMeTradeSignals((sigs) => {
+          if (!alive) return
+          setBadges((b) => ({ ...b, 'Trade Signals': sigs.filter((s) => s.status === 'unreviewed').length }))
+        })
+      } catch { return null }
+    })()
+    return () => { alive = false; if (typeof unsub === 'function') unsub() }
+  }, [])
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return SECTION_GROUPS
+    return SECTION_GROUPS
+      .map((g) => ({ ...g, items: g.items.filter((i) =>
+        i.id.toLowerCase().includes(q) || i.blurb.toLowerCase().includes(q)) }))
+      .filter((g) => g.items.length > 0)
+  }, [query])
+
+  const go = (id) => { setSection(id); setPickerOpen(false); setQuery('') }
+
+  const navList = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Find a section…"
+        aria-label="Find an admin section"
+        style={{ fontSize: 12, padding: '7px 10px' }}
+      />
+      {groups.length === 0 && (
+        <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', padding: '4px 2px' }}>
+          Nothing matches “{query}”.
+        </div>
+      )}
+      {groups.map((g) => (
+        <div key={g.label}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.7, padding: '0 4px 6px' }}>
+            {g.label}
           </div>
-        </ChipScroller>
-      </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {g.items.map((item) => {
+              const active = item.id === section
+              const badge = badges[item.id] ?? 0
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => go(item.id)}
+                  aria-current={active ? 'page' : undefined}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+                    padding: '8px 10px', borderRadius: 9,
+                    background: active ? 'var(--iff-accent)' : 'transparent',
+                    color: active ? '#fff' : 'var(--iff-text)',
+                  }}
+                >
+                  <span style={{ fontSize: 14, flexShrink: 0, lineHeight: 1 }}>{item.glyph}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.id}
+                    </span>
+                    <span style={{ display: 'block', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: active ? 'rgba(255,255,255,0.75)' : 'var(--iff-subtext)' }}>
+                      {item.blurb}
+                    </span>
+                  </span>
+                  {badge > 0 && (
+                    <span
+                      className="tnum"
+                      title={`${badge} waiting`}
+                      style={{
+                        flexShrink: 0, minWidth: 18, textAlign: 'center', padding: '1px 5px', borderRadius: 9,
+                        fontSize: 10, fontWeight: 800,
+                        background: active ? 'rgba(255,255,255,0.25)' : 'var(--iff-accent)', color: '#fff',
+                      }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 
-      <div style={{ padding: 14 }}>
-        {section === 'Database' && <DatabaseSection />}
-        {section === 'Keeper Import' && <KeeperImportSection />}
-        {section === 'Rollover' && <RolloverSection />}
-        {section === 'Areas' && <AreasSection />}
-        {section === 'Rules' && <RulesAdminSection />}
-        {section === 'Records' && <RecordsSection />}
-        {section === 'Players' && <PlayersSection />}
-        {section === 'Drops' && <DropsSection />}
-        {section === 'Picks' && <PicksSection />}
-        {section === 'Trades' && <TradesSection />}
-        {section === 'Trade Signals' && <TradeSignalsSection />}
-        {section === 'Messages' && <MessagesSection />}
-        {section === 'Teams' && <TeamsSection />}
-        {section === 'Access' && <AccessSection />}
-        {section === 'GroupMe' && <GroupMeSection />}
+  const body = (
+    <>
+      {section === 'Database' && <DatabaseSection />}
+      {section === 'Keeper Import' && <KeeperImportSection />}
+      {section === 'Rollover' && <RolloverSection />}
+      {section === 'Areas' && <AreasSection />}
+      {section === 'Rules' && <RulesAdminSection />}
+      {section === 'Records' && <RecordsSection />}
+      {section === 'Players' && <PlayersSection />}
+      {section === 'Drops' && <DropsSection />}
+      {section === 'Picks' && <PicksSection />}
+      {section === 'Trades' && <TradesSection />}
+      {section === 'Trade Signals' && <TradeSignalsSection />}
+      {section === 'Messages' && <MessagesSection />}
+      {section === 'Teams' && <TeamsSection />}
+      {section === 'Access' && <AccessSection />}
+      {section === 'GroupMe' && <GroupMeSection />}
+    </>
+  )
+
+  // ── Desktop: persistent rail, every section visible at once ──
+  if (isDesktop) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: 14 }}>
+        <nav
+          aria-label="Admin sections"
+          style={{
+            width: 208, flexShrink: 0, position: 'sticky', top: 8,
+            maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', paddingRight: 2,
+          }}
+        >
+          {navList}
+        </nav>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 900, letterSpacing: -0.3, marginBottom: 12 }}>
+            {SECTION_META[section]?.glyph} {section}
+          </div>
+          {body}
+        </div>
       </div>
+    )
+  }
+
+  // ── Mobile: current section in the bar, full grouped picker one tap away.
+  // Any section is reachable in exactly two taps, with no sideways swiping.
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', position: 'relative' }}>
+      <button
+        onClick={() => setPickerOpen((v) => !v)}
+        aria-expanded={pickerOpen}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 9, width: '100%', textAlign: 'left',
+          padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)',
+          position: 'sticky', top: 'calc(44px + var(--safe-top, 0px))', zIndex: 16, background: 'var(--iff-bg)',
+        }}
+      >
+        <span style={{ fontSize: 16, lineHeight: 1 }}>{SECTION_META[section]?.glyph}</span>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 800 }}>{section}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-accent)' }}>
+          {pickerOpen ? 'Close ✕' : 'Sections ▾'}
+        </span>
+      </button>
+
+      {pickerOpen && (
+        <div
+          style={{
+            position: 'sticky', top: 'calc(88px + var(--safe-top, 0px))', zIndex: 15,
+            background: 'var(--iff-bg)', borderBottom: '1px solid var(--iff-divider)',
+            padding: 14, maxHeight: '70vh', overflowY: 'auto',
+          }}
+        >
+          {navList}
+        </div>
+      )}
+
+      <div style={{ padding: 14 }}>{body}</div>
     </div>
   )
 }

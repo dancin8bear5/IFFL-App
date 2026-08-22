@@ -5,15 +5,22 @@
 // from the Dashboard tiles, and Rules is its own tab.
 // The commissioner can switch any tab off league-wide (Admin > Areas);
 // Dashboard is always on, and the admin account always sees everything.
+import { lazy, Suspense } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import Sidebar from '../components/Sidebar'
+import ErrorBoundary from '../components/ErrorBoundary'
+import { LoadingList } from '../components/shared'
 import DashboardView from './DashboardView'
-import RostersView from './RostersView'
-import PlayersView from './PlayersView'
-import MarketView from './MarketView'
-import BuilderView from './BuilderView'
-import PodView from './PodView'
+
+// Only the Dashboard ships in the initial bundle — it's the landing tab
+// and the only one guaranteed to be needed. The rest load the first time
+// they're opened, which is what keeps the first paint on a phone quick.
+const RostersView = lazy(() => import('./RostersView'))
+const PlayersView = lazy(() => import('./PlayersView'))
+const MarketView = lazy(() => import('./MarketView'))
+const BuilderView = lazy(() => import('./BuilderView'))
+const PodView = lazy(() => import('./PodView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see.
@@ -36,15 +43,19 @@ export default function TabLayout({ tab, setTab }) {
   const visibleTabs = TABS.filter(canSee)
   const activeTab = TABS[tab] && !canSee(TABS[tab]) ? 0 : tab
 
+  // Each tab gets its own boundary: a crash in one leaves the others
+  // usable and the nav intact, and "Try again" re-mounts only that tab.
   const screens = (
-    <>
-      {activeTab === 0 && <DashboardView setTab={setTab} />}
-      {activeTab === 1 && <RostersView setTab={setTab} />}
-      {activeTab === 2 && <PlayersView setTab={setTab} />}
-      {activeTab === 3 && <MarketView setTab={setTab} />}
-      {activeTab === 4 && <BuilderView />}
-      {activeTab === 5 && <PodView />}
-    </>
+    <ErrorBoundary label={TABS[activeTab]?.label ?? 'This tab'} key={activeTab}>
+      <Suspense fallback={<LoadingList count={5} />}>
+        {activeTab === 0 && <DashboardView setTab={setTab} />}
+        {activeTab === 1 && <RostersView setTab={setTab} />}
+        {activeTab === 2 && <PlayersView setTab={setTab} />}
+        {activeTab === 3 && <MarketView setTab={setTab} />}
+        {activeTab === 4 && <BuilderView />}
+        {activeTab === 5 && <PodView />}
+      </Suspense>
+    </ErrorBoundary>
   )
 
   if (isDesktop) {

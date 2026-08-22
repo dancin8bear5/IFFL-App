@@ -12,14 +12,14 @@ import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
 
-const SECTIONS = ['Database', 'Keeper Import', 'Rollover', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Messages', 'Teams', 'Access', 'GroupMe']
+const SECTIONS = ['Database', 'Keeper Import', 'Rollover', 'Areas', 'Rules', 'Records', 'Players', 'Drops', 'Picks', 'Trades', 'Trade Signals', 'Messages', 'Teams', 'Access', 'GroupMe']
 
 export default function AdminView() {
   const [section, setSection] = useState('Database')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--iff-divider)', position: 'sticky', top: 'calc(44px + var(--safe-top, 0px))', zIndex: 15, background: 'var(--iff-bg)' }}>
         <ChipScroller>
           <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
             {SECTIONS.map((s) => (
@@ -50,6 +50,7 @@ export default function AdminView() {
         {section === 'Drops' && <DropsSection />}
         {section === 'Picks' && <PicksSection />}
         {section === 'Trades' && <TradesSection />}
+        {section === 'Trade Signals' && <TradeSignalsSection />}
         {section === 'Messages' && <MessagesSection />}
         {section === 'Teams' && <TeamsSection />}
         {section === 'Access' && <AccessSection />}
@@ -65,7 +66,16 @@ function DatabaseSection() {
   const { players, draftPicks, trades, activeSeason, setActiveSeason, isOffSeason, setIsOffSeason } = useApp()
   const [seasonInput, setSeasonInput] = useState(String(activeSeason))
   const [busy, setBusy] = useState(false)
-  const pendingCount = trades.filter((t) => t.status === 'proposed' || t.status === 'accepted').length
+  // Ingests held for review (e.g. ESPN players resolved but a GroupMe pick
+  // needs manual apply) live in tradeIngests, NOT trades — so surface them
+  // in the stat too, otherwise a held trade reads as "0" and hides. See
+  // Admin → Trades → "ESPN Auto-Import — Needs Review" to resolve them.
+  const [needsReviewCount, setNeedsReviewCount] = useState(0)
+  useEffect(() => {
+    fs.fetchPendingIngests().then((items) => setNeedsReviewCount(items.length)).catch(() => {})
+  }, [])
+  const openTrades = trades.filter((t) => t.status === 'proposed' || t.status === 'accepted').length
+  const pendingCount = openTrades + needsReviewCount
 
   async function toggleOffSeason() {
     const next = !isOffSeason
@@ -1583,10 +1593,13 @@ function TradesSection() {
  */
 function EspnIngestQueue({ onFixManually }) {
   const [items, setItems] = useState(null) // null = loading
+  const [err, setErr] = useState(null)
   const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
-    fs.fetchPendingIngests().then(setItems).catch(() => setItems([]))
+    fs.fetchPendingIngests()
+      .then((r) => { setItems(r); setErr(null) })
+      .catch((e) => { setItems([]); setErr(e?.message || String(e)) })
   }, [])
 
   async function dismiss(id) {
@@ -1624,94 +1637,61 @@ function EspnIngestQueue({ onFixManually }) {
     onFixManually({ teamA: teamA ?? '', teamB: teams.size === 2 ? teamB : '' })
   }
 
-  if (items === null || items.length === 0) return null
+  // Loud states — never silently render nothing. A held trade must be
+  // visible, and a read failure must say so instead of vanishing.
+  if (items === null) {
+    return <div className="iff-card" style={{ padding: 12, fontSize: 12, color: 'var(--iff-subtext)' }}>Checking for trades needing review…</div>
+  }
+  if (err) {
+    return (
+      <div className="iff-card" style={{ padding: 12, fontSize: 12, color: 'var(--iff-red, #e63946)', border: '1px solid rgba(230,57,70,0.5)' }}>
+        ⚠ Couldn't load the review queue: {err}
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4 }}>Make sure you're signed in as the commissioner account.</div>
+      </div>
+    )
+  }
+  if (items.length === 0) {
+    return <div className="iff-card" style={{ padding: 12, fontSize: 12, color: 'var(--iff-subtext)' }}>No trades waiting for review. 🎉</div>
+  }
 
   const needsReview = items.filter((i) => i.status === 'needs_review')
   const pendingConfirm = items.filter((i) => i.status === 'pending_confirmation')
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {pendingConfirm.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-gold)' }}>
-            🔔 GroupMe Trade Detected — Confirm to Apply ({pendingConfirm.length})
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-accent)' }}>
+        ⚠ ESPN Auto-Import — Needs Review ({items.length})
+      </div>
+      {items.map((item) => {
+        // Support BOTH shapes: legacy matchPlayers `problems[{reason}]` AND
+        // the newer reconcile `reconcileReasons[string]` (e.g. a held pick).
+        const reasons = [
+          ...((item.problems ?? []).map((p) => p.reason)),
+          ...((item.reconcileReasons ?? [])),
+        ]
+        // Show the players + any flagged picks so the commissioner sees the
+        // actual deal, not just a date.
+        const moveLines = (item.moves ?? []).map((m) =>
+          `${m.player}: ${m.fromTeam} → ${m.toTeam}`)
+        const pickLines = (item.groupmePicks ?? []).map((p) =>
+          `Pick: ${p.year ?? '?'} R${p.round} (apply manually)`)
+        return (
+        <div key={item.id} className="iff-card" style={{ padding: 12, border: '1px solid rgba(230,57,70,0.4)' }}>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 6 }}>
+            {item.tradeDateRaw ?? item.receivedAt?.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? 'unknown date'}
           </div>
-          {pendingConfirm.map((item) => (
-            <div key={item.id} className="iff-card" style={{ padding: 12, border: '1px solid rgba(244,162,97,0.5)' }}>
-              <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 4 }}>
-                {item.senderName ?? 'GroupMe'} · {item.receivedAt?.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? ''}
-              </div>
-              <div style={{ fontSize: 12.5, fontStyle: 'italic', color: 'var(--iff-subtext)', marginBottom: 8, whiteSpace: 'pre-wrap' }}>
-                "{item.rawText}"
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>{item.teamA} ↔ {item.teamB}</div>
-              {(item.moves ?? []).map((m, i) => (
-                <div key={i} style={{ fontSize: 12.5, marginBottom: 2 }}>
-                  {m.displayName} — {m.fromTeam} → {m.toTeam}
-                </div>
-              ))}
-              {item.attachToTradeId && (
-                <div style={{ fontSize: 11, color: 'var(--iff-gold)', marginTop: 6 }}>
-                  Will attach to the trade already recorded from ESPN — players don't move again, just these extra assets.
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button
-                  className="btn-primary"
-                  onClick={() => confirmAndApply(item.id)}
-                  disabled={busyId === item.id}
-                  style={{ fontSize: 11, padding: '5px 12px' }}
-                >
-                  {busyId === item.id ? 'Applying…' : item.attachToTradeId ? 'Confirm & Attach' : 'Confirm & Apply'}
-                </button>
-                <button
-                  onClick={() => dismiss(item.id)}
-                  disabled={busyId === item.id}
-                  style={{ fontSize: 11, color: 'var(--iff-subtext)', padding: '5px 12px' }}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
+          {moveLines.map((l, i) => (
+            <div key={`m${i}`} style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 2 }}>{l}</div>
+          ))}
+          {pickLines.map((l, i) => (
+            <div key={`p${i}`} style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--iff-accent)', marginBottom: 2 }}>{l}</div>
+          ))}
+          {reasons.map((r, i) => (
+            <div key={`r${i}`} style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 3, marginTop: i === 0 ? 6 : 0 }}>• {r}</div>
           ))}
         </div>
-      )}
-
-      {needsReview.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-accent)' }}>
-            ⚠ Trade Auto-Import — Needs Review ({needsReview.length})
-          </div>
-          {needsReview.map((item) => (
-            <div key={item.id} className="iff-card" style={{ padding: 12, border: '1px solid rgba(230,57,70,0.4)' }}>
-              <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 6 }}>
-                {item.source === 'groupme' ? (item.senderName ?? 'GroupMe') : 'ESPN'} ·{' '}
-                {item.tradeDateRaw ?? item.receivedAt?.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) ?? 'unknown date'}
-              </div>
-              {item.rawText && (
-                <div style={{ fontSize: 12.5, fontStyle: 'italic', color: 'var(--iff-subtext)', marginBottom: 6, whiteSpace: 'pre-wrap' }}>
-                  "{item.rawText}"
-                </div>
-              )}
-              {(item.problems ?? []).map((p, i) => (
-                <div key={i} style={{ fontSize: 12.5, marginBottom: 3 }}>• {p.reason}</div>
-              ))}
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="btn-outline" onClick={() => fixManually(item)} style={{ fontSize: 11, padding: '5px 12px' }}>
-                  Fix Manually ↓
-                </button>
-                <button
-                  onClick={() => dismiss(item.id)}
-                  disabled={busyId === item.id}
-                  style={{ fontSize: 11, color: 'var(--iff-subtext)', padding: '5px 12px' }}
-                >
-                  {busyId === item.id ? 'Dismissing…' : 'Dismiss'}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        )
+      })}
     </div>
   )
 }
@@ -1842,10 +1822,10 @@ function ExternalAssetPickList({ title, assets, selected, onToggle }) {
       </div>
       <div style={{ maxHeight: 200, overflowY: 'auto' }}>
         {assets.map((a) => (
-          <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={selected.has(a.id)} onChange={() => onToggle(a.id)} />
+          <label key={a.id} style={{ display: 'grid', gridTemplateColumns: 'auto auto minmax(0, 1fr) auto', alignItems: 'center', columnGap: 8, width: '100%', padding: '9px 12px', borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={selected.has(a.id)} onChange={() => onToggle(a.id)} style={{ width: 18, height: 18, flexShrink: 0, margin: 0 }} />
             <PosBadge position={a.position} />
-            <span style={{ flex: 1, fontSize: 12.5 }}>{a.name}</span>
+            <span style={{ minWidth: 0, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
             <span className="tnum" style={{ fontSize: 11.5, color: 'var(--iff-green)' }}>${a.currentPrice}</span>
           </label>
         ))}
@@ -2268,6 +2248,162 @@ function GroupMeSection() {
           {saving ? 'Saving…' : savedAt ? 'Saved ✓ — Save Again' : 'Save Mapping'}
         </button>
       )}
+    </div>
+  )
+}
+
+// ── Trade Signals ─────────────────────────────────────────────
+// Review inbox for GroupMe trade chatter captured hourly by the
+// pollGroupMeTrades Cloud Function. GroupMe is the only record of the
+// pick legs of a trade (ESPN's tool can't express pick trades), so every
+// 🚨/keyword message lands here as 'unreviewed'. The commissioner pairs
+// each real deal with its ESPN-imported player legs, records the picks by
+// hand under Trades, then marks the signal 'recorded'. Jokes/backouts get
+// 'dismissed'. Nothing here auto-transfers assets.
+function TradeSignalsSection() {
+  const [signals, setSignals] = useState([])
+  const [loaded, setLoaded] = useState(false)
+  const [filter, setFilter] = useState('unreviewed') // unreviewed | all
+  const [busyId, setBusyId] = useState(null)
+
+  useEffect(() => {
+    const unsub = fs.listenToGroupMeTradeSignals((rows) => {
+      setSignals(rows)
+      setLoaded(true)
+    })
+    return unsub
+  }, [])
+
+  async function mark(sig, status) {
+    setBusyId(sig.id)
+    try {
+      await fs.setTradeSignalStatus(sig.id, status)
+    } catch (err) {
+      alert(`Couldn't update signal: ${err.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function remove(sig) {
+    if (!confirm('Delete this signal permanently? (Use Dismiss instead to keep an audit trail.)')) return
+    setBusyId(sig.id)
+    try {
+      await fs.deleteTradeSignal(sig.id)
+    } catch (err) {
+      alert(`Couldn't delete: ${err.message}`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const shown = filter === 'unreviewed'
+    ? signals.filter((s) => (s.status ?? 'unreviewed') === 'unreviewed')
+    : signals
+  const unreviewedCount = signals.filter((s) => (s.status ?? 'unreviewed') === 'unreviewed').length
+
+  const statusStyle = (status) => {
+    if (status === 'recorded') return { label: 'Recorded', bg: 'rgba(34,197,94,0.15)', fg: '#22C55E' }
+    if (status === 'dismissed') return { label: 'Dismissed', bg: 'var(--iff-elevated)', fg: 'var(--iff-subtext)' }
+    return { label: 'Unreviewed', bg: 'rgba(244,162,97,0.18)', fg: 'var(--iff-accent)' }
+  }
+
+  const fmtWhen = (d) => {
+    if (!d) return ''
+    try { return new Date(d).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) }
+    catch { return '' }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        Trade chatter captured from the league GroupMe (🚨 + keywords), checked hourly. GroupMe is
+        the only record of <strong>draft-pick legs</strong> — ESPN's tool can't express them. Pair each real
+        deal with its ESPN-imported players, record the picks under <strong>Trades</strong>, then mark it
+        <strong> Recorded</strong>. Jokes and backouts → <strong>Dismiss</strong>. Nothing here transfers assets automatically.
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '0 4px' }}>
+        <button
+          onClick={() => setFilter('unreviewed')}
+          style={{ padding: '5px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600,
+            background: filter === 'unreviewed' ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+            color: filter === 'unreviewed' ? '#fff' : 'var(--iff-subtext)' }}>
+          Unreviewed ({unreviewedCount})
+        </button>
+        <button
+          onClick={() => setFilter('all')}
+          style={{ padding: '5px 12px', borderRadius: 16, fontSize: 12, fontWeight: 600,
+            background: filter === 'all' ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+            color: filter === 'all' ? '#fff' : 'var(--iff-subtext)' }}>
+          All ({signals.length})
+        </button>
+      </div>
+
+      {!loaded && (
+        <div className="iff-card" style={{ padding: 14, fontSize: 13, color: 'var(--iff-subtext)' }}>Loading signals…</div>
+      )}
+
+      {loaded && shown.length === 0 && (
+        <div className="iff-card" style={{ padding: 18, fontSize: 13, color: 'var(--iff-subtext)', textAlign: 'center' }}>
+          {filter === 'unreviewed' ? 'No trade signals waiting for review. 🎉' : 'No trade signals captured yet.'}
+        </div>
+      )}
+
+      {shown.map((sig) => {
+        const st = statusStyle(sig.status ?? 'unreviewed')
+        const busy = busyId === sig.id
+        return (
+          <div key={sig.id} className="iff-card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10, opacity: busy ? 0.55 : 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{sig.senderName}</span>
+              <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>{fmtWhen(sig.postedAt)}</span>
+              <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: st.bg, color: st.fg, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                {st.label}
+              </span>
+            </div>
+
+            <div style={{ fontSize: 14, lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {sig.text || <span style={{ color: 'var(--iff-subtext)', fontStyle: 'italic' }}>(no text — media or system)</span>}
+            </div>
+
+            {Array.isArray(sig.reasons) && sig.reasons.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                {sig.reasons.map((r) => (
+                  <span key={r} style={{ fontSize: 10, padding: '2px 7px', borderRadius: 8, background: 'var(--iff-elevated)', color: 'var(--iff-subtext)' }}>
+                    {r.startsWith('emoji:') ? '🚨 siren' : r.replace('keyword:', 'kw: ')}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {(sig.status ?? 'unreviewed') !== 'recorded' && (
+                <button onClick={() => mark(sig, 'recorded')} disabled={busy}
+                  style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: '#22C55E', color: '#fff' }}>
+                  ✓ Recorded
+                </button>
+              )}
+              {(sig.status ?? 'unreviewed') !== 'dismissed' && (
+                <button onClick={() => mark(sig, 'dismissed')} disabled={busy}
+                  style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: 'var(--iff-elevated)', color: 'var(--iff-subtext)' }}>
+                  Dismiss
+                </button>
+              )}
+              {(sig.status ?? 'unreviewed') !== 'unreviewed' && (
+                <button onClick={() => mark(sig, 'unreviewed')} disabled={busy}
+                  style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: 'var(--iff-elevated)', color: 'var(--iff-subtext)' }}>
+                  Reopen
+                </button>
+              )}
+              <button onClick={() => remove(sig)} disabled={busy}
+                style={{ marginLeft: 'auto', padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: 'transparent', color: 'var(--iff-subtext)' }}>
+                Delete
+              </button>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

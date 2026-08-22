@@ -31,3 +31,13 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Secrets — never commit
+.env
+**/.env
+.env.*
+**/.env.*
+!**/.env.example
+.secrets/
+functions/.secret.local
+.firebase/

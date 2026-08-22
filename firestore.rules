@@ -46,6 +46,22 @@ service cloud.firestore {
     }
 
     // Rosters & league data — member reads, commissioner writes
+    // POD content (preseason rankings/awards/bold calls + True Record
+    // weekly scores) — only the three guys who do the show. This is a
+    // real read gate, not just a hidden tab: rankings are unveiled
+    // team-by-team on the POD, so the rest of the league must not be
+    // able to pull them from the database early.
+    function isPodMember() {
+      return isCommissioner() || (
+        signedIn() &&
+        leagueConfig().userTeamMap[request.auth.uid] in ['Jared', 'M. Zurek', 'Bill']
+      );
+    }
+
+    match /config/pod {
+      allow read, write: if isPodMember();
+    }
+
     match /players/{playerId} {
       allow read: if isMember();
       allow write: if isCommissioner();
@@ -138,6 +154,23 @@ service cloud.firestore {
     // Function via the Admin SDK (bypasses rules entirely); commissioner
     // can read the review queue and dismiss/update entries from Admin.
     match /tradeIngests/{ingestId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // GroupMe trade-signal review inbox (functions/index.js
+    // pollGroupMeTrades) — captured chatter that looks like a trade
+    // announcement (🚨 + keywords). GroupMe is the only record of the
+    // pick legs of a deal, so these are reviewed by hand in
+    // Admin → Trade Signals and paired with the ESPN-imported player
+    // legs. Written by the Cloud Function via the Admin SDK (bypasses
+    // rules); commissioner reads the queue and marks/dismisses entries.
+    match /groupmeTradeSignals/{signalId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // Poller state (last processed GroupMe message id) — internal ops
+    // data written by the Cloud Function; commissioner may inspect it.
+    match /config/groupmePoller {
       allow read, write: if isCommissioner();
     }
 

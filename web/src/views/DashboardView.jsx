@@ -35,7 +35,7 @@ export default function DashboardView({ setTab }) {
     isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
-    parlayConfig, parlayEntries, areaEnabled, isOffSeason,
+    parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -439,26 +439,33 @@ export default function DashboardView({ setTab }) {
 
   // Low Points Parlay — loud while a week is open, showing whether you're in
   const myParlayEntry = parlayEntries.find((e) => e.teamName === userTeam)
-  const parlayCard = areaEnabled('parlay') && parlayConfig?.open && (
+  // The commissioner still sees the card when the week is closed — it's his
+  // way back into Admin → Parlay to reopen one. Previously a closed week
+  // hid the entry point from everybody, himself included, leaving no route
+  // back short of editing Firestore by hand.
+  const parlayOpen = Boolean(parlayConfig?.open)
+  const parlayCard = areaEnabled('parlay') && (parlayOpen || isAdmin) && (
     <button
       className="iff-card"
       onClick={() => setShowParlay(true)}
       style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', textAlign: 'left',
-        border: myParlayEntry ? '1px solid transparent' : '1.5px solid rgba(244,162,97,0.55)',
+        border: !parlayOpen || myParlayEntry ? '1px solid transparent' : '1.5px solid rgba(244,162,97,0.55)',
       }}
     >
       <span style={{ fontSize: 16 }}>🎯</span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
-          Low Points Parlay — Week {parlayConfig.week}
+          Low Points Parlay{parlayOpen ? ` — Week ${parlayConfig.week}` : ''}
         </span>
         <span style={{ display: 'block', fontSize: 10.5, color: myParlayEntry ? 'var(--iff-green)' : 'var(--iff-gold)', marginTop: 1 }}>
-          {myParlayEntry ? `✓ In with ${myParlayEntry.playerName}` : 'Pick your TD scorer before lock'}
+          {!parlayOpen
+            ? 'No week open — commissioner only. Open one in Admin → Parlay.'
+            : myParlayEntry ? `✓ In with ${myParlayEntry.playerName}` : 'Pick your TD scorer before lock'}
         </span>
       </span>
       <span className="tnum" style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
-        {parlayEntries.length}/12 ›
+        {parlayOpen ? `${parlayEntries.length}/12 ›` : '›'}
       </span>
     </button>
   )

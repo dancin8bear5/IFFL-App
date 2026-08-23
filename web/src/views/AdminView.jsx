@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
-import { PosBadge, DetailOverlay, ChipScroller } from '../components/shared'
+import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
@@ -45,6 +45,7 @@ const SECTION_GROUPS = [
       { id: 'Rules',    glyph: '📜', blurb: 'Proposals & voting' },
       { id: 'Records',  glyph: '🏆', blurb: 'Trophy Room extremes' },
       { id: 'Messages', glyph: '💬', blurb: 'League broadcast' },
+      { id: 'Parlay',   glyph: '🎯', blurb: 'Open the week, record results' },
     ],
   },
   {
@@ -201,6 +202,7 @@ export default function AdminView() {
       {section === 'Trades' && <TradesSection />}
       {section === 'Trade Signals' && <TradeSignalsSection />}
       {section === 'Messages' && <MessagesSection />}
+      {section === 'Parlay' && <ParlaySection />}
       {section === 'Teams' && <TeamsSection />}
       {section === 'Access' && <AccessSection />}
       {section === 'GroupMe' && <GroupMeSection />}
@@ -2613,4 +2615,212 @@ function TradeSignalsSection() {
       })}
     </div>
   )
+}
+// ── Parlay ────────────────────────────────────────────────────
+// The week control that was missing. The Dashboard card renders only when
+// config/parlay.open is true, and nothing in the app could set that — so
+// once a week closed, the whole feature became unreachable for everyone
+// including the commissioner, recoverable only by hand-editing Firestore.
+//
+// Also surfaces parlayWeeks, which saveParlayWeek has always written to
+// but nothing ever read back.
+
+function ParlaySection() {
+  const { parlayConfig, parlayEntries, activeSeason } = useApp()
+  const [week, setWeek] = useState('')
+  const [lockLocal, setLockLocal] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState(null)
+  const [history, setHistory] = useState([])
+  const [result, setResult] = useState({ hit: null, pot: '', comment: '' })
+
+  const open = Boolean(parlayConfig?.open)
+
+  useEffect(() => {
+    setWeek(parlayConfig?.week != null ? String(parlayConfig.week) : '')
+    setLockLocal(toLocalInput(parlayConfig?.lockAt))
+  }, [parlayConfig?.week, parlayConfig?.lockAt])
+
+  const loadHistory = () =>
+    fs.fetchParlayWeeks(activeSeason).then(setHistory).catch(() => setHistory([]))
+  useEffect(() => { loadHistory() }, [activeSeason])
+
+  const entered = new Set(parlayEntries.map((e) => e.teamName))
+  const missing = fantasyTeams.map((t) => t.name).filter((n) => !entered.has(n))
+
+  async function saveWeek(nextOpen) {
+    const w = Number(week)
+    if (!Number.isFinite(w) || w < 1 || w > 18) { setNote('Week must be 1–18.'); return }
+    const lockAt = lockLocal ? new Date(lockLocal) : null
+    if (nextOpen && !lockAt) { setNote('Set a lock time before opening — entries are gated on it.'); return }
+    if (nextOpen && lockAt < new Date()) { setNote('That lock time is in the past; entries would be closed immediately.'); return }
+    setBusy(true); setNote(null)
+    try {
+      await fs.setParlayConfig({ season: activeSeason, week: w, lockAt, open: nextOpen })
+      setNote(nextOpen ? `Week ${w} is open — the card is live on everyone's dashboard.` : `Week ${w} closed.`)
+    } catch (e) {
+      setNote(`Failed: ${e.message}`)
+    } finally { setBusy(false) }
+  }
+
+  async function recordResult() {
+    if (result.hit == null) { setNote('Mark the parlay hit or missed first.'); return }
+    const w = Number(week)
+    if (!Number.isFinite(w)) { setNote('Need a week number to record against.'); return }
+    setBusy(true); setNote(null)
+    try {
+      const pot = Number(result.pot) || 0
+      await fs.saveParlayWeek({
+        season: activeSeason,
+        week: w,
+        hit: result.hit,
+        potTotal: pot,
+        entrantCount: parlayEntries.length,
+        payoutPer: result.hit && parlayEntries.length ? Math.round((pot / parlayEntries.length) * 100) / 100 : 0,
+        entries: parlayEntries.map((e) => ({ teamName: e.teamName, playerName: e.playerName })),
+        note: result.comment || null,
+        recordedAt: new Date().toISOString(),
+      })
+      setNote(`Week ${w} recorded.`)
+      setResult({ hit: null, pot: '', comment: '' })
+      loadHistory()
+    } catch (e) {
+      setNote(`Failed: ${e.message}`)
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="iff-card" style={{ padding: 14, borderLeft: `3px solid ${open ? '#22C55E' : 'var(--iff-subtext)'}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>
+            {open ? `Week ${parlayConfig.week} is OPEN` : 'No week open'}
+          </span>
+          {open && (
+            <span className="tnum" style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+              {parlayEntries.length}/12 in
+            </span>
+          )}
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6 }}>
+          {open
+            ? 'The card is showing on every dashboard. Entries stop at the lock time.'
+            : 'While closed, the parlay card is hidden from the league — open a week to bring it back.'}
+        </div>
+      </div>
+
+      <div className="iff-card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 11 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800 }}>Week control</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <label style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+            Week
+            <input type="number" min="1" max="18" value={week} onChange={(e) => setWeek(e.target.value)}
+              className="tnum" style={{ display: 'block', width: 70, marginTop: 4, textAlign: 'center' }} />
+          </label>
+          <label style={{ fontSize: 11, color: 'var(--iff-subtext)', flex: 1, minWidth: 200 }}>
+            Locks at (your local time)
+            <input type="datetime-local" value={lockLocal} onChange={(e) => setLockLocal(e.target.value)}
+              style={{ display: 'block', width: '100%', marginTop: 4 }} />
+          </label>
+        </div>
+        <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+          Convention: 30 minutes before Sunday's first kickoff.
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn-primary" disabled={busy} onClick={() => saveWeek(true)} style={{ fontSize: 12, padding: '7px 16px' }}>
+            {open ? 'Update & keep open' : 'Open this week'}
+          </button>
+          {open && (
+            <button disabled={busy} onClick={() => saveWeek(false)}
+              style={{ fontSize: 12, padding: '7px 14px', color: 'var(--iff-subtext)' }}>
+              Close week
+            </button>
+          )}
+        </div>
+        {note && <div style={{ fontSize: 11.5, color: 'var(--iff-accent)' }}>{note}</div>}
+      </div>
+
+      {open && (
+        <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+            Entries — {parlayEntries.length} in, {missing.length} out
+          </div>
+          {parlayEntries.map((e, i) => (
+            <div key={e.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <TeamAvatar name={e.teamName} size={20} />
+              <span style={{ flex: 1, fontSize: 12.5, fontWeight: 700 }}>{e.teamName}</span>
+              <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>{e.playerName}</span>
+            </div>
+          ))}
+          {missing.length > 0 && (
+            <div style={{ padding: '9px 14px', borderTop: '1px solid var(--iff-divider)', fontSize: 11.5, color: 'var(--iff-gold)' }}>
+              Still out: {missing.join(', ')}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="iff-card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 11 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800 }}>Record the result</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[['Hit', true], ['Missed', false]].map(([label, val]) => (
+            <button key={label} onClick={() => setResult((r) => ({ ...r, hit: val }))}
+              style={{
+                padding: '6px 16px', borderRadius: 18, fontSize: 12, fontWeight: 700,
+                background: result.hit === val ? (val ? '#22C55E' : 'var(--iff-accent)') : 'var(--iff-elevated)',
+                color: result.hit === val ? '#fff' : 'var(--iff-subtext)',
+              }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <label style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+            Pot ($)
+            <input type="number" min="0" value={result.pot} onChange={(e) => setResult((r) => ({ ...r, pot: e.target.value }))}
+              className="tnum" style={{ display: 'block', width: 90, marginTop: 4, textAlign: 'center' }} />
+          </label>
+          <label style={{ fontSize: 11, color: 'var(--iff-subtext)', flex: 1, minWidth: 180 }}>
+            Note (optional)
+            <input type="text" value={result.comment} onChange={(e) => setResult((r) => ({ ...r, comment: e.target.value }))}
+              placeholder="e.g. Foley low, 6 of 8 hit" style={{ display: 'block', width: '100%', marginTop: 4 }} />
+          </label>
+        </div>
+        <button className="btn-primary" disabled={busy} onClick={recordResult} style={{ alignSelf: 'flex-start', fontSize: 12, padding: '7px 16px' }}>
+          Save week result
+        </button>
+      </div>
+
+      {history.length > 0 && (
+        <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+            {activeSeason} results
+          </div>
+          {history.map((w, i) => (
+            <div key={w.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+              <span className="tnum" style={{ width: 54, fontSize: 12, fontWeight: 700 }}>Wk {w.week}</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, color: w.hit ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
+                {w.hit ? 'HIT' : 'missed'}
+              </span>
+              <span style={{ flex: 1, fontSize: 11, color: 'var(--iff-subtext)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {w.note ?? ''}
+              </span>
+              <span className="tnum" style={{ fontSize: 11.5, color: 'var(--iff-gold)' }}>
+                {w.potTotal ? `$${w.potTotal}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Date -> value for <input type="datetime-local"> in the viewer's zone. */
+function toLocalInput(d) {
+  if (!d) return ''
+  const dt = d instanceof Date ? d : new Date(d)
+  if (Number.isNaN(dt.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
 }

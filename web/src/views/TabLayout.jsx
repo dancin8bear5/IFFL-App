@@ -21,9 +21,12 @@ const PlayersView = lazy(() => import('./PlayersView'))
 const MarketView = lazy(() => import('./MarketView'))
 const BuilderView = lazy(() => import('./BuilderView'))
 const PodView = lazy(() => import('./PodView'))
+const BigBoardView = lazy(() => import('./BigBoardView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
-// `podOnly` marks a tab only the three POD hosts can see.
+// `podOnly` marks a tab only the three POD hosts can see; `adminOnly`
+// marks one only the commissioner sees (the Big Board is his private
+// keeper planning, including calls on other people's players).
 const TABS = [
   { label: 'Dashboard',        short: 'Dashboard', glyph: '▦' },  // always on
   { label: 'Rosters',          short: 'Rosters',   glyph: '👥', area: 'rosters' },
@@ -31,15 +34,19 @@ const TABS = [
   { label: 'F.M.K. Market',    short: 'F.M.K.',    glyph: '⇄',  area: 'market' },
   { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', area: 'builder' },
   { label: 'The POD',          short: 'POD',       glyph: '🎙️', podOnly: true },
+  { label: 'Big Board',        short: 'Board',     glyph: '📋', adminOnly: true },
 ]
 
 export default function TabLayout({ tab, setTab }) {
-  const { incomingTradeCount, areaEnabled, isPodMember } = useApp()
+  const { incomingTradeCount, areaEnabled, isPodMember, isAdmin } = useApp()
   const isDesktop = useIsDesktop()
 
   // Indices stay stable (setTab(3) is always Market); hidden tabs just
   // vanish from the nav, and landing on one falls back to the Dashboard.
-  const canSee = (t) => (t.podOnly ? isPodMember : !t.area || areaEnabled(t.area))
+  const canSee = (t) =>
+    t.podOnly ? isPodMember
+      : t.adminOnly ? isAdmin
+      : !t.area || areaEnabled(t.area)
   const visibleTabs = TABS.filter(canSee)
   const activeTab = TABS[tab] && !canSee(TABS[tab]) ? 0 : tab
 
@@ -54,6 +61,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 3 && <MarketView setTab={setTab} />}
         {activeTab === 4 && <BuilderView />}
         {activeTab === 5 && <PodView />}
+        {activeTab === 6 && <BigBoardView />}
       </Suspense>
     </ErrorBoundary>
   )

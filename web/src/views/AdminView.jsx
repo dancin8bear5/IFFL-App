@@ -423,6 +423,7 @@ function DatabaseSection() {
         </button>
       </div>
 
+      <ImportBigBoardCard />
       <ValidateContractsCard players={players} />
 
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
@@ -2823,4 +2824,52 @@ function toLocalInput(d) {
   if (Number.isNaN(dt.getTime())) return ''
   const pad = (n) => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+}
+
+/**
+ * One-time migration of the Big Board off Supabase.
+ *
+ * The old /board.html page read and wrote a Supabase table with an anon key
+ * embedded in public HTML, and that table's RLS policies allowed read,
+ * update AND insert to anyone — so the board was world-writable to anybody
+ * who found the URL. This pulls the live rows into Firestore, where the
+ * commissioner-only rule applies. Keyed by the original row id, so
+ * re-running overwrites instead of duplicating.
+ */
+function ImportBigBoardCard() {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+
+  async function run() {
+    setBusy(true); setResult(null)
+    try {
+      const { imported } = await fs.importBigBoardFromSupabase()
+      setResult({ ok: true, msg: `${imported} players imported. Open the Big Board tab.` })
+    } catch (e) {
+      setResult({ ok: false, msg: e.message })
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>Import Big Board</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+            Pulls the keeper board off the old Supabase page into Firestore, behind
+            commissioner-only rules. Safe to re-run — it overwrites by row id rather
+            than duplicating.
+          </span>
+        </span>
+        <button className="btn-outline" onClick={run} disabled={busy} style={{ fontSize: 12, padding: '6px 14px', whiteSpace: 'nowrap' }}>
+          {busy ? 'Importing…' : 'Import'}
+        </button>
+      </div>
+      {result && (
+        <div style={{ fontSize: 12, color: result.ok ? 'var(--iff-green)' : 'var(--iff-accent)' }}>
+          {result.msg}
+        </div>
+      )}
+    </div>
+  )
 }

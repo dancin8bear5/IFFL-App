@@ -72,6 +72,14 @@ service cloud.firestore {
         (signedIn() && leagueConfig().userTeamMap[request.auth.uid] == teamName);
     }
 
+    // Big Board — the commissioner's private keeper-planning tiers and
+    // keep/drop calls on every draftable player, including other people's.
+    // Commissioner-only for READ as well as write: these are opinions about
+    // rivals' rosters and must not be visible to the league.
+    match /bigBoard/{playerId} {
+      allow read, write: if isCommissioner();
+    }
+
     // Rosters & league data — member reads, commissioner writes
     match /players/{playerId} {
       allow read: if isMember();

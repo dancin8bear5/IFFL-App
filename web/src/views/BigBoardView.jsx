@@ -39,6 +39,7 @@ export default function BigBoardView() {
   const [search, setSearch] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [savingId, setSavingId] = useState(null)
+  const [status, setStatus] = useState(null) // 'saving' | 'saved' | null
   const [error, setError] = useState(null)
 
   useEffect(() => {
@@ -92,13 +93,29 @@ export default function BigBoardView() {
       .sort((a, b) => b.salary - a.salary)
   }, [rows, abbrevToName])
 
+  // Every edit writes straight to Firestore — there is no save button and
+  // nothing to remember to press. The status chip makes that visible rather
+  // than asking you to take it on faith.
+  const capTotals = useMemo(
+    () => capRows.reduce(
+      (a, c) => ({ kept: a.kept + c.kept, salary: a.salary + c.salary, room: a.room + c.room }),
+      { kept: 0, salary: 0, room: 0 },
+    ),
+    [capRows],
+  )
+
   async function patch(row, fields) {
     setSavingId(row.id)
+    setStatus('saving')
     setError(null)
     try {
       await fs.updateBigBoardPlayer(row.id, fields)
+      setStatus('saved')
+      // Clear after a beat — a permanent "Saved" label stops meaning anything.
+      setTimeout(() => setStatus((cur) => (cur === 'saved' ? null : cur)), 1600)
     } catch (e) {
       setError(`Save failed: ${e.message}`)
+      setStatus(null)
     } finally {
       setSavingId(null)
     }
@@ -157,6 +174,18 @@ export default function BigBoardView() {
     </div>
   )
 
+  const statusChip = (
+    <span
+      role="status"
+      style={{
+        fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap',
+        color: status === 'saved' ? 'var(--iff-green)' : 'var(--iff-subtext)',
+      }}
+    >
+      {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved ✓' : 'Saves automatically'}
+    </span>
+  )
+
   const capTable = (
     <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
       <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
@@ -177,6 +206,26 @@ export default function BigBoardView() {
           </span>
         </div>
       ))}
+      {capRows.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px',
+          borderTop: '1px solid var(--iff-divider)', background: 'rgba(255,255,255,0.035)',
+        }}>
+          <span style={{ flex: 1, fontSize: 11.5, fontWeight: 900, letterSpacing: 0.4 }}>TOTAL</span>
+          <span className="tnum" style={{ width: 22, textAlign: 'right', fontSize: 11, fontWeight: 800 }}>
+            {capTotals.kept}
+          </span>
+          <span className="tnum" style={{ width: 44, textAlign: 'right', fontSize: 11.5, fontWeight: 900 }}>
+            ${capTotals.salary}
+          </span>
+          <span className="tnum" style={{
+            width: 48, textAlign: 'right', fontSize: 11.5, fontWeight: 900,
+            color: capTotals.room < 0 ? 'var(--iff-accent)' : 'var(--iff-green)',
+          }}>
+            {capTotals.room < 0 ? `−$${-capTotals.room}` : `$${capTotals.room}`}
+          </span>
+        </div>
+      )}
       <div style={{ padding: '8px 14px', borderTop: '1px solid var(--iff-divider)', fontSize: 10, color: 'var(--iff-subtext)' }}>
         Kept · committed · room left. Only players marked Keep count.
       </div>
@@ -264,7 +313,10 @@ export default function BigBoardView() {
       <div>
         <div className="dash-hero-desktop">
           <h1>Big Board</h1>
-          <span className="season-chip tnum">{filtered.length} of {rows.length}</span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {statusChip}
+            <span className="season-chip tnum">{filtered.length} of {rows.length}</span>
+          </span>
         </div>
         {error && <div className="iff-card" style={{ padding: 12, marginBottom: 12, color: 'var(--iff-accent)', fontSize: 12 }}>{error}</div>}
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
@@ -284,7 +336,8 @@ export default function BigBoardView() {
       <div className="nav-bar">
         <div className="nav-side" />
         <div className="nav-title">Big Board {heading}</div>
-        <div className="nav-side right">
+        <div className="nav-side right" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {statusChip}
           <button className="icon-btn" onClick={() => setShowSettings(true)} aria-label="Settings">⚙</button>
         </div>
       </div>

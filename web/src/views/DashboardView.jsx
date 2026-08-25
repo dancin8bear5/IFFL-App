@@ -14,6 +14,7 @@ import TrophyRoomView from '../components/TrophyRoomView'
 import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
 import SeasonScoringChart from '../components/SeasonScoringChart'
+import PlayoffBracket from '../components/PlayoffBracket'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
@@ -37,6 +38,7 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
+    weeklyRecords,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -349,6 +351,19 @@ export default function DashboardView({ setTab }) {
       <SectionHeader title="In-Season Scoring" />
       <div style={{ marginTop: 10 }}>
         <SeasonScoringChart />
+      </div>
+    </div>
+  )
+
+  // Appears once the commissioner has entered records — which in practice
+  // means late in the regular season, exactly when people start caring
+  // about seeding. Before that it would be an empty frame all year.
+  const playoffSection = !isOffSeason && areaEnabled('playoffs')
+    && Object.keys(weeklyRecords ?? {}).length > 0 && (
+    <div>
+      <SectionHeader title="Playoffs" />
+      <div style={{ marginTop: 10 }}>
+        <PlayoffBracket />
       </div>
     </div>
   )
@@ -726,6 +741,7 @@ export default function DashboardView({ setTab }) {
             <div className="dash-main">
               {powerChart}
               {scoringSection}
+              {playoffSection}
               {calendar}
               {messagesSection}
               {offerBanners}
@@ -776,6 +792,7 @@ export default function DashboardView({ setTab }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
           {powerChart}
           {scoringSection}
+          {playoffSection}
           {calendar}
           {messagesSection}
           {rulesSection}

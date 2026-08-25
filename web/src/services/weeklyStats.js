@@ -146,3 +146,39 @@ export function latestWeek(weeks) {
       .map((s) => ({ ...s, rank: ranks.get(s.teamName) })),
   }
 }
+
+/**
+ * Parses pasted W-L records, one team per line:
+ *   Jared 10-4
+ *   Bill, 9-4-1
+ *   M. Zurek   8-6
+ *
+ * Same shape as the weekly-score paste box, because it's the same job and
+ * the same copy-paste source. Returns { records, errors } — errors name
+ * the offending line so a typo gets fixed rather than silently dropped.
+ */
+export function parseRecordLines(text) {
+  const records = {}
+  const errors = []
+
+  String(text ?? '').split('\n').forEach((raw, idx) => {
+    const line = raw.trim()
+    if (!line) return
+    const m = line.match(/^(.*?)[\t,]\s*(\d+)-(\d+)(?:-(\d+))?$/)
+      || line.match(/^(.*?)\s+(\d+)-(\d+)(?:-(\d+))?$/)
+    if (!m) {
+      errors.push(`Line ${idx + 1}: couldn't read "${line}" — expected a team name then a record like 10-4.`)
+      return
+    }
+    const teamName = m[1].trim()
+    if (!teamName) { errors.push(`Line ${idx + 1}: missing team name.`); return }
+    if (records[teamName]) { errors.push(`Line ${idx + 1}: "${teamName}" appears twice.`); return }
+    records[teamName] = {
+      wins: Number(m[2]),
+      losses: Number(m[3]),
+      ties: m[4] === undefined ? 0 : Number(m[4]),
+    }
+  })
+
+  return { records, errors }
+}

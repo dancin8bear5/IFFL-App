@@ -41,6 +41,7 @@ const COL = {
   groupmeTradeSignals: 'groupmeTradeSignals',
   bigBoard: 'bigBoard',
   weeklyScores: 'weeklyScores',
+  playoffs: 'playoffs',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -744,8 +745,28 @@ export function savePodWeekScores(season, week, scores) {
 export function listenToWeeklyScores(season, callback) {
   return onSnapshot(
     doc(db, COL.weeklyScores, String(season)),
-    (snap) => callback(snap.exists() ? (snap.data().weeks ?? {}) : {}),
-    () => callback({}),   // a member without read access shouldn't break the Dashboard
+    (snap) => {
+      const d = snap.exists() ? snap.data() : {}
+      callback({ weeks: d.weeks ?? {}, records: d.records ?? {} })
+    },
+    // A member without read access shouldn't break the Dashboard — the
+    // charts degrade to their empty state instead of throwing.
+    () => callback({ weeks: {}, records: {} }),
+  )
+}
+
+/**
+ * Season W-L records, stored beside the weekly scores because they're the
+ * same thing at a different resolution and come from the same place.
+ * Feeds playoff seeding and the True Record luck column, which has been
+ * showing "—" because nothing ever wrote this.
+ * @param records - { [teamName]: {wins, losses, ties} }
+ */
+export function saveTeamRecords(season, records) {
+  return setDoc(
+    doc(db, COL.weeklyScores, String(season)),
+    { season: Number(season), records, updatedAt: Timestamp.now() },
+    { merge: true },
   )
 }
 
@@ -789,6 +810,45 @@ export async function migrateWeeklyScoresFromPod() {
     results.push({ season, weeks: weekKeys.length })
   }
   return results
+}
+
+// ── Playoffs — playoffs/{season} ───────────────────────────────
+// { season, selections: { "1": teamName, ... }, winners: { "1": [...] },
+//   startedAt }
+//
+// Commissioner-write. The opponent picks are the managers' decisions, but
+// the commissioner records them — the same on-behalf pattern the Rules
+// Committee actions already use, and it keeps the security rules simple
+// (a member-write rule would have to resolve seeds inside firestore.rules).
+
+export function listenToPlayoffs(season, callback) {
+  return onSnapshot(
+    doc(db, COL.playoffs, String(season)),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    () => callback(null),
+  )
+}
+
+export function savePlayoffs(season, patch) {
+  return setDoc(
+    doc(db, COL.playoffs, String(season)),
+    { season: Number(season), ...patch, updatedAt: Timestamp.now() },
+    { merge: true },
+  )
+}
+
+/**
+ * Clears the bracket back to nothing.
+ *
+ * Uses setDoc WITHOUT merge on purpose: a merge can't remove the existing
+ * selections/winners maps, so a "reset" that merged would leave every
+ * pick exactly where it was.
+ */
+export function resetPlayoffs(season) {
+  return setDoc(
+    doc(db, COL.playoffs, String(season)),
+    { season: Number(season), selections: {}, winners: {}, updatedAt: Timestamp.now() },
+  )
 }
 
 export function dismissTradeIngest(id) {

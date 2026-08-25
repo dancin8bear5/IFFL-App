@@ -280,3 +280,26 @@ export const previewWeeklyScores = {
     { teamName: 'Wayne', points: 119.8 },
   ],
 }
+
+// Final regular-season records for the playoff bracket preview.
+export const previewTeamRecords = {
+  'Jared': { wins: 11, losses: 3, ties: 0 },
+  'Bill': { wins: 10, losses: 4, ties: 0 },
+  'Ryan': { wins: 9, losses: 5, ties: 0 },
+  'Dugan': { wins: 9, losses: 5, ties: 0 },
+  'Abad': { wins: 8, losses: 6, ties: 0 },
+  'Faybik': { wins: 8, losses: 6, ties: 0 },
+  'Cantone': { wins: 7, losses: 7, ties: 0 },
+  'Foley': { wins: 6, losses: 8, ties: 0 },
+  'Wayne': { wins: 5, losses: 9, ties: 0 },
+  'Jason': { wins: 4, losses: 10, ties: 0 },
+  'A. Zurek': { wins: 3, losses: 11, ties: 0 },
+  'M. Zurek': { wins: 2, losses: 12, ties: 0 },
+}
+
+// Seeds 1 and 2 have picked; seed 3 is on the clock.
+export const previewPlayoffs = {
+  season: 2026,
+  selections: { 1: 'Foley', 2: 'Cantone' },
+  winners: {},
+}

@@ -64,6 +64,8 @@ export function AppProvider({ children }) {
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
   const [transactions, setTransactions] = useState([])
   const [weeklyScores, setWeeklyScores] = useState({})   // { "1": [{teamName, points}], ... }
+  const [weeklyRecords, setWeeklyRecords] = useState({}) // { [teamName]: {wins, losses, ties} }
+  const [playoffs, setPlayoffs] = useState(null)
   const [parlayConfig, setParlayConfig] = useState(null)
   const [parlayEntries, setParlayEntries] = useState([])
   // Commissioner kill-switches: area keys hidden from the whole league
@@ -123,6 +125,8 @@ export function AppProvider({ children }) {
       setParlayEntries(d.previewParlayEntries ?? [])
       setLeagueRecords(d.previewRecords ?? [])
       setWeeklyScores(d.previewWeeklyScores ?? {})
+      setWeeklyRecords(d.previewTeamRecords ?? {})
+      setPlayoffs(d.previewPlayoffs ?? null)
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })
@@ -239,7 +243,16 @@ export function AppProvider({ children }) {
   // just the three POD hosts.
   useEffect(() => {
     if (DEV_PREVIEW || !user) return
-    return fs.listenToWeeklyScores(activeSeason, setWeeklyScores)
+    return fs.listenToWeeklyScores(activeSeason, ({ weeks, records }) => {
+      setWeeklyScores(weeks)
+      setWeeklyRecords(records)
+    })
+  }, [user, activeSeason])
+
+  // Playoff bracket for the active season
+  useEffect(() => {
+    if (DEV_PREVIEW || !user) return
+    return fs.listenToPlayoffs(activeSeason, setPlayoffs)
   }, [user, activeSeason])
 
   // Parlay entries follow the commissioner's active week
@@ -598,7 +611,7 @@ export function AppProvider({ children }) {
     // transaction ledger
     transactions,
     // weekly scores (league-readable; POD analysis stays in the POD tab)
-    weeklyScores,
+    weeklyScores, weeklyRecords, playoffs,
     // low points parlay
     parlayConfig, parlayEntries, submitParlayPick,
     // area kill-switches

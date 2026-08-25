@@ -10,6 +10,12 @@ import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
 import { computeRolloverPlan } from '../services/seasonRollover'
+import { parseRecordLines, weeksFromMap, teamAverages } from '../services/weeklyStats'
+import {
+  computeSeeds, buildRoundOne, nextChooser, availableOpponents, roundLabel, buildNextRound,
+  choosingSeeds,
+} from '../services/playoffs'
+import { PLAYOFF_TEAMS } from '../data/staticData'
 import { tradeCapImpact } from '../services/contracts'
 import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
@@ -46,6 +52,7 @@ const SECTION_GROUPS = [
       { id: 'Records',  glyph: '🏆', blurb: 'Trophy Room extremes' },
       { id: 'Messages', glyph: '💬', blurb: 'League broadcast' },
       { id: 'Parlay',   glyph: '🎯', blurb: 'Open the week, record results' },
+      { id: 'Standings', glyph: '📊', blurb: 'Records & playoff bracket' },
     ],
   },
   {
@@ -203,6 +210,7 @@ export default function AdminView() {
       {section === 'Trade Signals' && <TradeSignalsSection />}
       {section === 'Messages' && <MessagesSection />}
       {section === 'Parlay' && <ParlaySection />}
+      {section === 'Standings' && <StandingsSection />}
       {section === 'Teams' && <TeamsSection />}
       {section === 'Access' && <AccessSection />}
       {section === 'GroupMe' && <GroupMeSection />}
@@ -895,6 +903,218 @@ function RolloverSection() {
 
 // ── Areas — league-wide kill-switches for tabs and app sections ──
 
+
+// ── Standings & playoffs ───────────────────────────────────────
+// Two jobs on one screen because the second depends entirely on the
+// first: records seed the bracket, so entering them and running the
+// opponent draft belong together.
+
+function StandingsSection() {
+  const { weeklyScores, weeklyRecords, playoffs, activeSeason } = useApp()
+  const [paste, setPaste] = useState('')
+  const [errors, setErrors] = useState([])
+  const [busy, setBusy] = useState(false)
+
+  const pointsFor = useMemo(() => {
+    const totals = {}
+    for (const t of teamAverages(weeksFromMap(weeklyScores))) totals[t.teamName] = t.total
+    return totals
+  }, [weeklyScores])
+
+  const seeds = useMemo(() => computeSeeds(weeklyRecords, pointsFor), [weeklyRecords, pointsFor])
+  const selections = playoffs?.selections ?? {}
+  const winners = playoffs?.winners ?? {}
+  const entered = Object.keys(weeklyRecords ?? {}).length
+
+  async function saveRecords() {
+    const { records, errors: errs } = parseRecordLines(paste)
+    setErrors(errs)
+    if (errs.length > 0 || Object.keys(records).length === 0) {
+      if (errs.length === 0) setErrors(['Nothing to save — paste at least one record.'])
+      return
+    }
+    setBusy(true)
+    try {
+      await fs.saveTeamRecords(activeSeason, records)
+      setPaste('')
+    } catch (e) {
+      setErrors([`Save failed: ${e.message}`])
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function pick(seed, teamName) {
+    // Merge against the CURRENT selections rather than writing the single
+    // key — a nested merge on an empty parent would drop the siblings.
+    await fs.savePlayoffs(activeSeason, { selections: { ...selections, [String(seed)]: teamName } })
+      .catch((e) => alert(`Failed: ${e.message}`))
+  }
+
+  async function setWinner(roundKey, gameIndex, teamName, games) {
+    const current = winners[roundKey] ?? []
+    // Winners are stored POSITIONALLY — index i is game i's winner, and an
+    // undecided game holds null rather than being squeezed out. Compacting
+    // the array would slide game 2's winner into game 1's slot whenever the
+    // games are decided out of order, and the pick would look like it never
+    // registered. buildNextRound drops the nulls itself.
+    // Clicking the team already marked as winner clears it, which is how a
+    // misrecorded result gets undone.
+    const next = games.map((g, i) => {
+      if (i !== gameIndex) return current[i] ?? null
+      return current[i] === teamName ? null : teamName
+    })
+    await fs.savePlayoffs(activeSeason, { winners: { ...winners, [roundKey]: next } })
+      .catch((e) => alert(`Failed: ${e.message}`))
+  }
+
+  const roundOne = seeds.length >= PLAYOFF_TEAMS ? buildRoundOne(seeds, selections) : []
+  // Each round only unlocks once the one before it is fully decided —
+  // passing the previous round's game count is what stops two finished
+  // quarterfinals from looking like a completed semifinal.
+  const roundTwo = buildNextRound(seeds, winners['1'] ?? [], roundOne.length)
+  const roundThree = buildNextRound(seeds, winners['2'] ?? [], roundTwo.length)
+  const onTheClock = seeds.length >= PLAYOFF_TEAMS ? nextChooser(seeds, selections) : null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="iff-card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Season Records</div>
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 8, lineHeight: 1.6 }}>
+          Paste one team and record per line — <code>Jared 10-4</code>. Ties work too
+          (<code>Bill 9-4-1</code>). Records seed the playoff bracket and finally light up the
+          <strong> +/-</strong> luck column in the POD&apos;s True Record, which has had nothing
+          to compare against until now. Re-pasting replaces what&apos;s there.
+        </div>
+        <textarea
+          value={paste}
+          onChange={(e) => setPaste(e.target.value)}
+          placeholder={'Jared 11-3\nBill 10-4\nRyan 9-4-1'}
+          rows={7}
+          style={{ width: '100%', fontFamily: 'monospace', fontSize: 12 }}
+        />
+        {errors.length > 0 && (
+          <div style={{ fontSize: 11.5, color: 'var(--iff-accent)', marginTop: 6 }}>
+            {errors.map((e, i) => <div key={i}>• {e}</div>)}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 10 }}>
+          <button className="btn-primary" onClick={saveRecords} disabled={busy} style={{ fontSize: 12, padding: '7px 16px' }}>
+            {busy ? 'Saving…' : 'Save Records'}
+          </button>
+          <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+            {entered} team{entered === 1 ? '' : 's'} on file for {activeSeason}
+          </span>
+        </div>
+      </div>
+
+      {seeds.length < PLAYOFF_TEAMS ? (
+        <div className="iff-card empty-state" style={{ padding: 20, fontSize: 11.5 }}>
+          The opponent draft opens once {PLAYOFF_TEAMS} teams have records
+          ({seeds.length} so far).
+        </div>
+      ) : (
+        <>
+          <div className="iff-card" style={{ padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Opponent Draft</div>
+            <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 10, lineHeight: 1.6 }}>
+              Seeds 1–3 choose their first-round opponent in order; seed 4 takes whoever is left.
+              You record each pick on the manager&apos;s behalf.
+            </div>
+
+            {onTheClock ? (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Seed {onTheClock.seed} — {onTheClock.teamName} is on the clock
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {availableOpponents(seeds, selections).map((o) => (
+                    <button key={o.teamName} className="btn-outline" onClick={() => pick(onTheClock.seed, o.teamName)}
+                      style={{ fontSize: 11.5, padding: '6px 12px' }}>
+                      {o.seed}. {o.teamName}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11.5, color: '#22C55E', marginBottom: 12 }}>
+                ✓ Every pick is in — the bracket is set.
+              </div>
+            )}
+
+            <hr className="divider" />
+            <RoundEditor label={roundLabel(8)} roundKey="1" games={roundOne}
+              winners={winners['1'] ?? []} onWin={setWinner} />
+          </div>
+
+          {roundTwo.length > 0 && (
+            <div className="iff-card" style={{ padding: 16 }}>
+              <RoundEditor label={roundLabel(4)} roundKey="2" games={roundTwo}
+                winners={winners['2'] ?? []} onWin={setWinner} />
+            </div>
+          )}
+
+          {roundThree.length > 0 && (
+            <div className="iff-card" style={{ padding: 16 }}>
+              <RoundEditor label={roundLabel(2)} roundKey="3" games={roundThree}
+                winners={winners['3'] ?? []} onWin={setWinner} />
+            </div>
+          )}
+
+          <button
+            className="btn-outline"
+            onClick={() => {
+              if (!confirm('Clear every pick and result for this season\u2019s bracket?')) return
+              fs.resetPlayoffs(activeSeason).catch((e) => alert(`Failed: ${e.message}`))
+            }}
+            style={{ fontSize: 12, padding: '7px 14px', color: 'var(--iff-accent)', alignSelf: 'flex-start' }}
+          >
+            Reset Bracket
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
+function RoundEditor({ label, roundKey, games, winners, onWin }) {
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 700, margin: '8px 0 6px' }}>{label}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {games.map((g, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11.5 }}>
+            <span style={{ color: 'var(--iff-subtext)', width: 16 }}>{i + 1}</span>
+            {g.complete ? (
+              <>
+                {[g.high, g.low].map((t) => (
+                  <button key={t.teamName} onClick={() => onWin(roundKey, i, t.teamName, games)}
+                    className={winners[i] === t.teamName ? 'btn-primary' : 'btn-outline'}
+                    style={{ fontSize: 11.5, padding: '5px 11px' }}>
+                    {t.seed}. {t.teamName}
+                    {g.bonus?.teamName === t.teamName && (
+                      <span style={{ color: 'var(--iff-gold)', marginLeft: 5 }}>
+                        +{g.bonus.points % 1 === 0 ? g.bonus.points : g.bonus.points.toFixed(1)}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </>
+            ) : (
+              <span style={{ color: 'var(--iff-subtext)', fontStyle: 'italic' }}>
+                seed {g.high.seed} ({g.high.teamName}) —{' '}
+                {roundKey === '1' && !choosingSeeds().includes(g.high.seed)
+                  ? 'takes the leftover once the picks are in'
+                  : 'opponent not chosen yet'}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const APP_AREAS = [
   { group: 'Tabs', items: [
     { key: 'rosters', label: 'Rosters tab', glyph: '👥' },
@@ -909,6 +1129,7 @@ const APP_AREAS = [
     { key: 'history',  label: 'Trophy Room & history tiles', glyph: '🏆' },
     { key: 'messages', label: 'League messages', glyph: '💬' },
     { key: 'scoring',  label: 'In-season scoring charts', glyph: '📈' },
+    { key: 'playoffs', label: 'Playoff bracket', glyph: '🏆' },
   ]},
 ]
 

@@ -75,6 +75,16 @@ service cloud.firestore {
       allow write: if isPodMember();
     }
 
+    // Playoff bracket — seeds, the opponent draft, and round winners.
+    // Read by everyone (it's the whole league's bracket); written by the
+    // commissioner, who records each seed's pick on their behalf. A
+    // member-write rule would have to resolve playoff seeding inside the
+    // rules themselves, which isn't worth the fragility.
+    match /playoffs/{season} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
     // Profile pictures — one doc per team, id = team name. Everyone in
     // the league reads every avatar (they render all over the app), but a
     // member can only write their OWN team's. Enforced server-side here,

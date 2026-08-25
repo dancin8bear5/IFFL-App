@@ -16,6 +16,11 @@ export const AppContext = createContext(null)
 // production builds — import.meta.env.DEV is compile-time false there.
 const DEV_PREVIEW =
   import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')
+// Preview defaults to off-season (that's the league's normal state most of
+// the year). `&inseason=1` flips it so the in-season-only surfaces — the
+// scoring charts, the milestone strip — can actually be looked at.
+const DEV_INSEASON =
+  DEV_PREVIEW && new URLSearchParams(window.location.search).has('inseason')
 
 const DEFAULT_SETTINGS = {
   teamLogoName: null,
@@ -105,7 +110,7 @@ export function AppProvider({ children }) {
     import('../data/previewData').then((d) => {
       setUserTeam('Jared')
       setSelectedTeam('Jared')
-      setIsOffSeason(true)
+      setIsOffSeason(!DEV_INSEASON)
       setPlayers(d.previewPlayers)
       setDraftPicks(d.previewPicks)
       setTrades(d.previewTrades)
@@ -117,6 +122,7 @@ export function AppProvider({ children }) {
       setParlayConfig(d.previewParlayConfig ?? null)
       setParlayEntries(d.previewParlayEntries ?? [])
       setLeagueRecords(d.previewRecords ?? [])
+      setWeeklyScores(d.previewWeeklyScores ?? {})
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })

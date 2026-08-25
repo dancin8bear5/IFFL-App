@@ -13,6 +13,7 @@ import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
 import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
+import SeasonScoringChart from '../components/SeasonScoringChart'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
@@ -338,6 +339,19 @@ export default function DashboardView({ setTab }) {
   // "where does everyone stand" without a tap. Tapping opens the full
   // ranked list + cap tracker.
   const powerChart = <PowerRankingsChart onOpenFull={() => setHistoryView('power')} />
+
+  // In-season only. Off-season this is a chart of nothing — the last
+  // completed season already has its own home in Last Season / League
+  // History, so showing stale weekly scores here would just compete
+  // with them.
+  const scoringSection = !isOffSeason && areaEnabled('scoring') && (
+    <div>
+      <SectionHeader title="In-Season Scoring" />
+      <div style={{ marginTop: 10 }}>
+        <SeasonScoringChart />
+      </div>
+    </div>
+  )
 
   const latestSeasonYear = leagueHistory[0]?.season
   const historyTiles = areaEnabled('history') && (
@@ -711,6 +725,7 @@ export default function DashboardView({ setTab }) {
           <div className="dash-grid">
             <div className="dash-main">
               {powerChart}
+              {scoringSection}
               {calendar}
               {messagesSection}
               {offerBanners}
@@ -760,6 +775,7 @@ export default function DashboardView({ setTab }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
           {powerChart}
+          {scoringSection}
           {calendar}
           {messagesSection}
           {rulesSection}

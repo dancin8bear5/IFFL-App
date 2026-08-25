@@ -61,6 +61,20 @@ service cloud.firestore {
       allow read, write: if isPodMember();
     }
 
+    // Weekly scores — one doc per season, weeks as a keyed map.
+    // Read is league-wide on purpose: raw weekly points are not a POD
+    // secret (every manager sees them in ESPN), and the in-season
+    // Dashboard charts are built from them. The POD's ANALYSIS of those
+    // scores — True Record, rankings, awards, bold calls — stays gated
+    // in config/pod above.
+    // Write stays with the three hosts, who are the ones entering
+    // scores each week; nobody loses an ability they had when this
+    // data lived inside config/pod.
+    match /weeklyScores/{season} {
+      allow read: if isMember();
+      allow write: if isPodMember();
+    }
+
     // Profile pictures — one doc per team, id = team name. Everyone in
     // the league reads every avatar (they render all over the app), but a
     // member can only write their OWN team's. Enforced server-side here,

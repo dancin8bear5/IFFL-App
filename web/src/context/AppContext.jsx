@@ -58,6 +58,7 @@ export function AppProvider({ children }) {
   const [rules, setRules] = useState([])
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
   const [transactions, setTransactions] = useState([])
+  const [weeklyScores, setWeeklyScores] = useState({})   // { "1": [{teamName, points}], ... }
   const [parlayConfig, setParlayConfig] = useState(null)
   const [parlayEntries, setParlayEntries] = useState([])
   // Commissioner kill-switches: area keys hidden from the whole league
@@ -225,6 +226,14 @@ export function AppProvider({ children }) {
     if (DEV_PREVIEW || !user) return
     const unsub = fs.listenToTrades(activeSeason, setTrades)
     return unsub
+  }, [user, activeSeason])
+
+  // Weekly scores follow activeSeason. League-readable (weeklyScores/),
+  // so this powers the in-season Dashboard charts for everyone — not
+  // just the three POD hosts.
+  useEffect(() => {
+    if (DEV_PREVIEW || !user) return
+    return fs.listenToWeeklyScores(activeSeason, setWeeklyScores)
   }, [user, activeSeason])
 
   // Parlay entries follow the commissioner's active week
@@ -582,6 +591,8 @@ export function AppProvider({ children }) {
     rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,
     // transaction ledger
     transactions,
+    // weekly scores (league-readable; POD analysis stays in the POD tab)
+    weeklyScores,
     // low points parlay
     parlayConfig, parlayEntries, submitParlayPick,
     // area kill-switches

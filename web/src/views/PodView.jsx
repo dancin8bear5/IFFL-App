@@ -34,7 +34,7 @@ const fmtPct = (n) => (Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—')
 const fmtLuck = (n) => (n === null || !Number.isFinite(n) ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}`)
 
 export default function PodView() {
-  const { activeSeason } = useApp()
+  const { activeSeason, weeklyScores } = useApp()
   const [module, setModule] = useState('trueRecord')
   const [pod, setPod] = useState(null) // null = loading
   const [saving, setSaving] = useState(false)
@@ -84,7 +84,7 @@ export default function PodView() {
         ))}
       </div>
 
-      {module === 'trueRecord' && <TrueRecordModule pod={pod} setPod={setPod} season={activeSeason} />}
+      {module === 'trueRecord' && <TrueRecordModule pod={pod} setPod={setPod} season={activeSeason} weeklyScores={weeklyScores} />}
       {module === 'rankings' && <RankingsModule pod={pod} persist={persist} />}
       {module === 'awards' && <AwardsModule pod={pod} persist={persist} />}
       {module === 'bold' && <BoldCallsModule pod={pod} persist={persist} />}
@@ -94,13 +94,19 @@ export default function PodView() {
 
 // ── True Record ────────────────────────────────────────────────
 
-function TrueRecordModule({ pod, setPod, season }) {
+function TrueRecordModule({ pod, setPod, season, weeklyScores }) {
   const [week, setWeek] = useState('')
   const [paste, setPaste] = useState('')
   const [parseErrors, setParseErrors] = useState([])
   const [busy, setBusy] = useState(false)
 
-  const weeksMap = pod.trueRecordWeeks?.[String(season)] ?? {}
+  // Scores now live in the league-readable weeklyScores/{season} doc so
+  // the Dashboard can chart them. config/pod.trueRecordWeeks is the old
+  // home and is still read as a fallback, so this module keeps working
+  // for any season not yet migrated (Admin → Data → Migrate Weekly
+  // Scores copies them across). True Record itself stays POD-only.
+  const legacyMap = pod.trueRecordWeeks?.[String(season)] ?? {}
+  const weeksMap = Object.keys(weeklyScores ?? {}).length > 0 ? weeklyScores : legacyMap
   const weeks = useMemo(
     () => Object.entries(weeksMap)
       .map(([w, scores]) => ({ week: Number(w), scores }))
@@ -120,7 +126,10 @@ function TrueRecordModule({ pod, setPod, season }) {
     }
     setBusy(true)
     try {
-      if (!DEV_PREVIEW) await fs.savePodWeekScores(season, wk, scores)
+      // Writes go to weeklyScores/ only — config/pod's copy is left
+      // frozen as the pre-migration backup rather than kept in sync,
+      // so there's exactly one source of truth going forward.
+      if (!DEV_PREVIEW) await fs.saveWeekScores(season, wk, scores)
       setPod((prev) => ({
         ...prev,
         trueRecordWeeks: {

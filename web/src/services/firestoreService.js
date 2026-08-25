@@ -40,6 +40,7 @@ const COL = {
   teamAvatars: 'teamAvatars',
   groupmeTradeSignals: 'groupmeTradeSignals',
   bigBoard: 'bigBoard',
+  weeklyScores: 'weeklyScores',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -723,6 +724,71 @@ export function savePodWeekScores(season, week, scores) {
     { trueRecordWeeks: { [String(season)]: { [String(week)]: scores } } },
     { merge: true },
   )
+}
+
+// ── Weekly scores — weeklyScores/{season} ──────────────────────
+// The league's week-by-week points, one doc per season:
+//   { season, weeks: { "1": [{teamName, points}], "2": [...] } }
+//
+// These deliberately live OUTSIDE config/pod. Raw weekly scores are not
+// a POD secret — every manager sees them in ESPN on Monday morning — and
+// keeping them in the POD-gated doc meant the other nine teams couldn't
+// be shown a chart built from their own results. What stays private is
+// the ANALYSIS (True Record, rankings, awards, bold calls), which is
+// still computed and displayed only inside the POD tab.
+//
+// Writes stay with the three hosts (isPodMember in firestore.rules) —
+// they're the ones who enter scores each week, so nobody loses an
+// ability they had when this lived in config/pod.
+
+export function listenToWeeklyScores(season, callback) {
+  return onSnapshot(
+    doc(db, COL.weeklyScores, String(season)),
+    (snap) => callback(snap.exists() ? (snap.data().weeks ?? {}) : {}),
+    () => callback({}),   // a member without read access shouldn't break the Dashboard
+  )
+}
+
+export async function fetchWeeklyScores(season) {
+  const snap = await getDoc(doc(db, COL.weeklyScores, String(season)))
+  return snap.exists() ? (snap.data().weeks ?? {}) : {}
+}
+
+/**
+ * Replaces one week's scores. Weeks are a keyed map rather than an array
+ * so re-entering a week overwrites it cleanly instead of appending a
+ * duplicate.
+ */
+export function saveWeekScores(season, week, scores) {
+  return setDoc(
+    doc(db, COL.weeklyScores, String(season)),
+    { season: Number(season), weeks: { [String(week)]: scores }, updatedAt: Timestamp.now() },
+    { merge: true },
+  )
+}
+
+/**
+ * One-time move of weekly scores out of config/pod into weeklyScores/.
+ * Copies rather than cuts: config/pod keeps its trueRecordWeeks until
+ * the new path is proven, so a bad migration costs nothing. Returns a
+ * per-season summary for the Admin UI to display.
+ */
+export async function migrateWeeklyScoresFromPod() {
+  const pod = await fetchPodContent()
+  const bySeason = pod?.trueRecordWeeks ?? {}
+  const results = []
+
+  for (const [season, weeks] of Object.entries(bySeason)) {
+    const weekKeys = Object.keys(weeks ?? {})
+    if (weekKeys.length === 0) continue
+    await setDoc(
+      doc(db, COL.weeklyScores, String(season)),
+      { season: Number(season), weeks, updatedAt: Timestamp.now() },
+      { merge: true },
+    )
+    results.push({ season, weeks: weekKeys.length })
+  }
+  return results
 }
 
 export function dismissTradeIngest(id) {

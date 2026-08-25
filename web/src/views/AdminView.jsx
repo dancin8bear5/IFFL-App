@@ -275,6 +275,7 @@ function DatabaseSection() {
   const { players, draftPicks, trades, activeSeason, setActiveSeason, isOffSeason, setIsOffSeason } = useApp()
   const [seasonInput, setSeasonInput] = useState(String(activeSeason))
   const [busy, setBusy] = useState(false)
+  const [migrating, setMigrating] = useState(false)
   // Ingests held for review (e.g. ESPN players resolved but a GroupMe pick
   // needs manual apply) live in tradeIngests, NOT trades — so surface them
   // in the stat too, otherwise a held trade reads as "0" and hides. See
@@ -342,6 +343,39 @@ function DatabaseSection() {
             Save
           </button>
         </div>
+      </div>
+
+      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>Migrate Weekly Scores</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+            Copies weekly scores out of the POD-only doc into the league-readable
+            store that feeds the in-season Dashboard charts. Copies rather than moves —
+            the POD original is left untouched. Safe to run more than once.
+          </span>
+        </span>
+        <button
+          className="btn-outline"
+          disabled={migrating}
+          onClick={async () => {
+            setMigrating(true)
+            try {
+              const results = await fs.migrateWeeklyScoresFromPod()
+              alert(
+                results.length === 0
+                  ? 'Nothing to migrate — no weekly scores found in the POD doc.'
+                  : `Migrated:\n${results.map((r) => `  ${r.season}: ${r.weeks} week${r.weeks === 1 ? '' : 's'}`).join('\n')}`,
+              )
+            } catch (e) {
+              alert(`Migration failed: ${e.message}`)
+            } finally {
+              setMigrating(false)
+            }
+          }}
+          style={{ fontSize: 12, padding: '7px 14px' }}
+        >
+          {migrating ? 'Migrating…' : 'Migrate'}
+        </button>
       </div>
 
       <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>

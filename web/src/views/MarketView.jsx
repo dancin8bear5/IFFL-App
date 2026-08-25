@@ -66,9 +66,13 @@ export default function MarketView({ setTab }) {
   const isDesktop = useIsDesktop()
   const {
     matches, userTeam, trades, triggerTradeProposal, setTriggerTradeProposal,
-    loadAllLeagueInterests,
+    loadAllLeagueInterests, areaEnabled,
   } = useApp()
-  const [section, setSection] = useState('Interest')
+  // F.M.K. can be switched off in Admin → Areas while it's still being
+  // tested, leaving the trade portal — the part the league already uses —
+  // running. Admins always see it, so testing continues uninterrupted.
+  const fmkOn = areaEnabled('fmk')
+  const [section, setSection] = useState(fmkOn ? 'Interest' : 'Trades')
   const [showSettings, setShowSettings] = useState(false)
   const [showProposal, setShowProposal] = useState(false)
   const [detailTrade, setDetailTrade] = useState(null)
@@ -205,7 +209,7 @@ export default function MarketView({ setTab }) {
     return (
       <div>
         <div className="dash-hero-desktop">
-          <h1>F.M.K. Market</h1>
+          <h1>{fmkOn ? 'F.M.K. Market' : 'Trades'}</h1>
           <button className="btn-outline" onClick={() => setShowProposal(true)} style={{ fontSize: 12, padding: '7px 16px' }}>
             ＋ Propose Trade
           </button>
@@ -213,10 +217,14 @@ export default function MarketView({ setTab }) {
 
         <div className="market-grid">
           <div className="market-main">
-            <FMKGuide />
-            <div className="iff-card" style={{ padding: '4px 0 16px' }}>
-              <FMKSwiperCard />
-            </div>
+            {fmkOn && (
+              <>
+                <FMKGuide />
+                <div className="iff-card" style={{ padding: '4px 0 16px' }}>
+                  <FMKSwiperCard />
+                </div>
+              </>
+            )}
 
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, gap: 12 }}>
@@ -250,6 +258,7 @@ export default function MarketView({ setTab }) {
           </div>
 
           <div className="market-rail">
+            {fmkOn && (
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
                 Your Matches ({myMatches.length})
@@ -266,6 +275,7 @@ export default function MarketView({ setTab }) {
                 </div>
               )}
             </div>
+            )}
 
             {pending.length > 0 && (
               <div>
@@ -298,9 +308,13 @@ export default function MarketView({ setTab }) {
         </div>
       </div>
 
-      <Segmented options={['Interest', 'Matches', 'Trades']} value={section} onChange={setSection} />
+      {/* A single-option segmented control is just a label, so with F.M.K.
+          off the switcher goes away entirely and Trades fills the tab. */}
+      {fmkOn && (
+        <Segmented options={['Interest', 'Matches', 'Trades']} value={section} onChange={setSection} />
+      )}
 
-      {section === 'Interest' && (
+      {fmkOn && section === 'Interest' && (
         <>
           <div style={{ padding: '12px 14px 0' }}>
             <FMKGuide />
@@ -309,7 +323,7 @@ export default function MarketView({ setTab }) {
         </>
       )}
 
-      {section === 'Matches' && (
+      {fmkOn && section === 'Matches' && (
         <div>
           {myMatches.length === 0 ? (
             <div className="empty-state">
@@ -327,7 +341,7 @@ export default function MarketView({ setTab }) {
         </div>
       )}
 
-      {section === 'Trades' && (
+      {(!fmkOn || section === 'Trades') && (
         <div style={{ padding: '0 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {pending.length > 0 && (
             <div>

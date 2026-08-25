@@ -71,6 +71,9 @@ export function AppProvider({ children }) {
   // Commissioner kill-switches: area keys hidden from the whole league
   const [disabledAreas, setDisabledAreas] = useState(new Set())
   const [rolloverArmed, setRolloverArmed] = useState(false)
+  // Off unless the config says otherwise — the Big Board stays out of
+  // the nav by default and is reached by its #board URL.
+  const [bigBoardInNav, setBigBoardInNav] = useState(false)
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -163,6 +166,7 @@ export function AppProvider({ children }) {
           setRulesVotingOpen(config.rulesVotingOpen ?? false)
           setDisabledAreas(new Set(config.disabledAreas ?? []))
           setRolloverArmed(config.rolloverArmed ?? false)
+          setBigBoardInNav(config.bigBoardInNav ?? false)
           setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
           const team = config.userTeamMap?.[uid]
           if (team) {
@@ -285,6 +289,12 @@ export function AppProvider({ children }) {
   )
 
   /** Is an app area visible to the league? Admin always sees everything. */
+  const toggleBigBoardInNav = useCallback(async () => {
+    const next = !bigBoardInNav
+    setBigBoardInNav(next)
+    await fs.setBigBoardInNav(next).catch(() => setBigBoardInNav(!next))
+  }, [bigBoardInNav])
+
   const areaEnabled = useCallback(
     (key) => isAdmin || !disabledAreas.has(key),
     [disabledAreas, isAdmin],
@@ -616,6 +626,7 @@ export function AppProvider({ children }) {
     parlayConfig, parlayEntries, submitParlayPick,
     // area kill-switches
     disabledAreas, areaEnabled, toggleArea,
+    bigBoardInNav, toggleBigBoardInNav,
     rolloverArmed, armRollover,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,

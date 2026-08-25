@@ -150,6 +150,19 @@ export function setDisabledAreas(areaKeys) {
   return updateDoc(doc(db, COL.config, 'league'), { disabledAreas: areaKeys })
 }
 
+/**
+ * Whether the Big Board appears in the navigation.
+ *
+ * Deliberately NOT part of disabledAreas. That list is admin-exempt --
+ * areaEnabled() returns true for the commissioner no matter what -- which
+ * is right for hiding things from the league but useless here, because the
+ * commissioner is the Big Board's only viewer. This is a plain flag that
+ * applies to him too, and it defaults to false (hidden) wherever it's read.
+ */
+export function setBigBoardInNav(on) {
+  return updateDoc(doc(db, COL.config, 'league'), { bigBoardInNav: !!on })
+}
+
 export function listenToPlayers(callback) {
   const q = query(collection(db, COL.players), where('isActive', '==', true))
   return onSnapshot(q, (snap) => callback(snapToDocs(snap)))

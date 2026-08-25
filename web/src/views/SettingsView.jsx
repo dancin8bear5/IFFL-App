@@ -14,7 +14,7 @@ const APP_VERSION = 'Insanity League Web 1.0'
 const TAB_NAMES = ['Dashboard', 'Rosters', 'Market', 'League']
 
 export default function SettingsView({ onClose }) {
-  const { user, userTeam, setUserTeam, setSelectedTeam, userSettings, saveUserSettings, isAdmin } = useApp()
+  const { user, userTeam, setUserTeam, setSelectedTeam, userSettings, saveUserSettings, isAdmin, areaEnabled } = useApp()
   const [settings, setSettings] = useState(userSettings)
   const [team, setTeam] = useState(userTeam)
   const [saving, setSaving] = useState(false)
@@ -193,7 +193,9 @@ export default function SettingsView({ onClose }) {
             </select>
           </div>
           <Toggle label="Show Trade Values" on={settings.showTradeValues} onChange={(v) => set({ showTradeValues: v })} />
-          <Toggle label="Share My FMK Ratings" on={settings.fmkPublic} onChange={(v) => set({ fmkPublic: v })} />
+          {areaEnabled('fmk') && (
+            <Toggle label="Share My FMK Ratings" on={settings.fmkPublic} onChange={(v) => set({ fmkPublic: v })} />
+          )}
         </Section>
 
         <Section title="Notifications">

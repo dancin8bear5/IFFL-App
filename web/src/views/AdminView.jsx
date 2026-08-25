@@ -1120,6 +1120,7 @@ const APP_AREAS = [
     { key: 'rosters', label: 'Rosters tab', glyph: '👥' },
     { key: 'players', label: 'Players tab', glyph: '🔎' },
     { key: 'market',  label: 'Market tab (FMK, matches, trades)', glyph: '⇄' },
+    { key: 'fmk',     label: 'F.M.K. ratings & matches (leaves Trades up)', glyph: '🔥' },
     { key: 'builder', label: 'Team Builder tab', glyph: '🧪' },
   ]},
   { group: 'Dashboard sections', items: [
@@ -1134,7 +1135,7 @@ const APP_AREAS = [
 ]
 
 function AreasSection() {
-  const { disabledAreas, toggleArea } = useApp()
+  const { disabledAreas, toggleArea, bigBoardInNav, toggleBigBoardInNav } = useApp()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1143,6 +1144,30 @@ function AreasSection() {
         everyone's navigation instantly. You (admin) always see everything, so you can flip an
         area back on. Dashboard itself can't be disabled.
       </div>
+      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>📋 Big Board in navigation</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+            Off by default. The Big Board is always reachable at{' '}
+            <code>iffl-auth.web.app/#board</code> whether or not it shows here — this only
+            controls the nav button. Unlike the switches below, this one applies to you too,
+            since you&apos;re the only one who can see it at all.
+          </span>
+        </span>
+        <button
+          role="switch"
+          aria-checked={bigBoardInNav}
+          aria-label="Show Big Board in navigation"
+          onClick={toggleBigBoardInNav}
+          style={{
+            width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
+            background: bigBoardInNav ? '#22C55E' : 'var(--iff-elevated)', transition: 'background 0.15s',
+          }}
+        >
+          <span style={{ position: 'absolute', top: 2, left: bigBoardInNav ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
+        </button>
+      </div>
+
       {APP_AREAS.map((g) => (
         <div key={g.group} className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>

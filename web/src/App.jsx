@@ -15,8 +15,14 @@ export default function App() {
   const [tab, setTab] = useState(0)
   const appliedDefaultTab = useRef(false)
 
-  // Apply the saved default tab once after settings load (mirrors iOS onChange)
+  // Apply the saved default tab once after settings load (mirrors iOS onChange).
+  //
+  // A deep link has to outrank it. This effect fires when settings finish
+  // loading, which is AFTER TabLayout has already acted on the URL hash — so
+  // without the guard, opening /#board flashes the Big Board and then snaps
+  // back to whatever default tab is saved.
   useEffect(() => {
+    if (window.location.hash) { appliedDefaultTab.current = true; return }
     if (didLoadSettings && !appliedDefaultTab.current) {
       appliedDefaultTab.current = true
       const t = userSettings.defaultTab ?? 0

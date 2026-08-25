@@ -261,7 +261,7 @@ export default function DashboardView({ setTab }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
         <button className="btn-outline" onClick={() => setTab(4)}>🧪 Worksheet</button>
-        <button className="btn-outline" onClick={() => setTab(3)}>⇄ F.M.K. Market</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ {areaEnabled('fmk') ? 'F.M.K. Market' : 'Trades'}</button>
       </div>
     </div>
   ) : (
@@ -273,9 +273,16 @@ export default function DashboardView({ setTab }) {
           <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>${myCapTotal}</div>
           <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{activeSeason} Cap</div>
         </div>
+        {/* Matches are computed from F.M.K. signals, so with F.M.K. hidden
+            this tile would always read 0 — show open offers instead, which
+            is the number that still means something. */}
         <div style={{ textAlign: 'center', padding: '10px 8px', borderLeft: '1px solid var(--iff-divider)' }}>
-          <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>{myMatchCount}</div>
-          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>Trade Matches</div>
+          <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>
+            {areaEnabled('fmk') ? myMatchCount : incomingOffers.length}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>
+            {areaEnabled('fmk') ? 'Trade Matches' : 'Open Offers'}
+          </div>
         </div>
       </div>
 
@@ -300,7 +307,7 @@ export default function DashboardView({ setTab }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
         <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
-        <button className="btn-outline" onClick={() => setTab(3)}>⇄ F.M.K. Market</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ {areaEnabled('fmk') ? 'F.M.K. Market' : 'Trades'}</button>
       </div>
     </div>
   )
@@ -396,7 +403,7 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
-  const matchBanner = myMatchCount > 0 && (
+  const matchBanner = areaEnabled('fmk') && myMatchCount > 0 && (
     <button className="iff-card" onClick={() => setTab(3)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
       <span style={{ width: 40, height: 40, background: 'rgba(230,57,70,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>⇄</span>
       <span style={{ flex: 1 }}>

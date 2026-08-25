@@ -9,7 +9,7 @@ import { teamByName } from '../data/staticData'
 import { BeltRow, TeamAvatar } from './shared'
 import SettingsView from '../views/SettingsView'
 
-export default function Sidebar({ tabs, tab, setTab, matchCount }) {
+export default function Sidebar({ tabs, tab, setTab, matchCount, labelFor = (t) => t.label }) {
   const { userTeam } = useApp()
   const [showSettings, setShowSettings] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === '1')
@@ -38,11 +38,11 @@ export default function Sidebar({ tabs, tab, setTab, matchCount }) {
             key={t.label}
             className={`sidebar-item ${i === tab ? 'active' : ''}`}
             onClick={() => setTab(i)}
-            title={t.label}
-            aria-label={t.label}
+            title={labelFor(t)}
+            aria-label={labelFor(t)}
           >
             <span className="sidebar-glyph">{t.glyph}</span>
-            <span className="sidebar-label">{t.label}</span>
+            <span className="sidebar-label">{labelFor(t)}</span>
             {t.area === 'market' && matchCount > 0 && (
               <span className="sidebar-badge">{matchCount}</span>
             )}

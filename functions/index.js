@@ -196,96 +196,103 @@ async function executeTradeAssets(tradeId) {
  * Fires on every write to the trades collection.
  * Sends FCM push (iOS) + GroupMe DM to the relevant team(s).
  */
-exports.onTradeWrite = onDocumentWritten(
-  {document: "trades/{tradeId}", secrets: [GROUPME_TOKEN]},
-  async (event) => {
-    const before = event.data.before.exists ? event.data.before.data() : null;
-    const after  = event.data.after.exists  ? event.data.after.data()  : null;
-    if (!after) return null;
+/**
+ * The onTradeWrite body, extracted so the offline pipeline harness can
+ * drive it directly (functions/pipeline.test.js). The wrapped trigger
+ * below is the only production entry point; this is the same code.
+ */
+async function handleTradeWrite(event) {
+  const before = event.data.before.exists ? event.data.before.data() : null;
+  const after  = event.data.after.exists  ? event.data.after.data()  : null;
+  if (!after) return null;
 
-    const proposer = after.proposingTeamName;
-    const receiver = after.receivingTeamName;
-    const youGet = assetSummary(after.assetsFromProposer);
-    const theyGet = assetSummary(after.assetsFromReceiver);
+  const proposer = after.proposingTeamName;
+  const receiver = after.receivingTeamName;
+  const youGet = assetSummary(after.assetsFromProposer);
+  const theyGet = assetSummary(after.assetsFromReceiver);
 
-    // New trade created
-    if (!before) {
-      // Created directly as 'completed' — Record External Trade or the
-      // ESPN email auto-import. There was no offer to notify anyone
-      // about; it's already done.
-      if (after.status === "completed") {
-        await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
-        return null;
-      }
-      // Counter-offers: the original trade's status→countered already notified
-      // the proposer via push; but the DM for a counter should reach the NEW
-      // receiver (the original proposer) with the new terms — send it here.
-      if (after.parentTradeId) {
-        await sendGroupMeDM(
-          receiver,
-          `🏈 ${proposer} countered your trade offer.\n` +
-          `You'd get: ${theyGet}\nThey'd get: ${youGet}\n` +
-          `Respond in the app: ${APP_URL}`,
-        );
-        return null;
-      }
-      await sendPush(
-        receiver,
-        `Trade Offer from ${proposer}`,
-        `${proposer} wants to make a deal. Open the app to review.`
-      );
+  // New trade created
+  if (!before) {
+    // Created directly as 'completed' — Record External Trade or the
+    // ESPN email auto-import. There was no offer to notify anyone
+    // about; it's already done.
+    if (after.status === "completed") {
+      await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
+      return null;
+    }
+    // Counter-offers: the original trade's status→countered already notified
+    // the proposer via push; but the DM for a counter should reach the NEW
+    // receiver (the original proposer) with the new terms — send it here.
+    if (after.parentTradeId) {
       await sendGroupMeDM(
         receiver,
-        `🏈 ${proposer} sent you a trade offer!\n` +
-        `You'd get: ${youGet}\nThey'd get: ${theyGet}\n` +
-        (after.notes ? `"${after.notes}"\n` : "") +
-        `Accept, decline, or counter: ${APP_URL}`,
+        `🏈 ${proposer} countered your trade offer.\n` +
+        `You'd get: ${theyGet}\nThey'd get: ${youGet}\n` +
+        `Respond in the app: ${APP_URL}`,
       );
       return null;
     }
-
-    // No status change — nothing to notify
-    if (before.status === after.status) return null;
-
-    switch (after.status) {
-      case "accepted":
-        // No separate approval step — this IS the execution. Runs the
-        // asset transfer immediately; the resulting write to 'completed'
-        // re-triggers this function and the case below sends the DM.
-        try {
-          await executeTradeAssets(event.params.tradeId);
-        } catch (err) {
-          console.error(`Trade ${event.params.tradeId} auto-execute failed:`, err);
-        }
-        break;
-
-      case "rejected":
-        await sendPush(proposer, "Trade Declined",
-          `${receiver} declined your trade offer.`);
-        await sendGroupMeDM(
-          proposer,
-          `❌ ${receiver} declined your trade offer (${theyGet} for ${youGet}). ` +
-          `Back to the drawing board: ${APP_URL}`,
-        );
-        break;
-
-      case "countered":
-        // DM for the new terms goes out when the counter document is created
-        // (see parentTradeId branch above) — push only here to avoid doubles.
-        await sendPush(proposer, `Counter Offer from ${receiver}`,
-          `${receiver} sent a counter-offer. Open the app to review.`);
-        break;
-
-      case "completed":
-        await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
-        break;
-
-      default:
-        break;
-    }
-
+    await sendPush(
+      receiver,
+      `Trade Offer from ${proposer}`,
+      `${proposer} wants to make a deal. Open the app to review.`
+    );
+    await sendGroupMeDM(
+      receiver,
+      `🏈 ${proposer} sent you a trade offer!\n` +
+      `You'd get: ${youGet}\nThey'd get: ${theyGet}\n` +
+      (after.notes ? `"${after.notes}"\n` : "") +
+      `Accept, decline, or counter: ${APP_URL}`,
+    );
     return null;
-  },
+  }
+
+  // No status change — nothing to notify
+  if (before.status === after.status) return null;
+
+  switch (after.status) {
+    case "accepted":
+      // No separate approval step — this IS the execution. Runs the
+      // asset transfer immediately; the resulting write to 'completed'
+      // re-triggers this function and the case below sends the DM.
+      try {
+        await executeTradeAssets(event.params.tradeId);
+      } catch (err) {
+        console.error(`Trade ${event.params.tradeId} auto-execute failed:`, err);
+      }
+      break;
+
+    case "rejected":
+      await sendPush(proposer, "Trade Declined",
+        `${receiver} declined your trade offer.`);
+      await sendGroupMeDM(
+        proposer,
+        `❌ ${receiver} declined your trade offer (${theyGet} for ${youGet}). ` +
+        `Back to the drawing board: ${APP_URL}`,
+      );
+      break;
+
+    case "countered":
+      // DM for the new terms goes out when the counter document is created
+      // (see parentTradeId branch above) — push only here to avoid doubles.
+      await sendPush(proposer, `Counter Offer from ${receiver}`,
+        `${receiver} sent a counter-offer. Open the app to review.`);
+      break;
+
+    case "completed":
+      await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
+      break;
+
+    default:
+      break;
+  }
+
+  return null;
+}
+
+exports.onTradeWrite = onDocumentWritten(
+  {document: "trades/{tradeId}", secrets: [GROUPME_TOKEN]},
+  handleTradeWrite,
 );
 
 /**
@@ -657,7 +664,14 @@ async function fetchGroupMeMessagesSince(token, afterId) {
 
 exports.pollGroupMeTrades = onSchedule(
   {
-    schedule: "every 60 minutes",
+    // MUST lead pollEspnGmail (every 15 min). tradeReconcile Rule 4 holds an
+    // ESPN trade that has no corroborating GroupMe signal, and the signal
+    // only exists once this poller has captured it. At the old 60-minute
+    // cadence the ESPN poller routinely ran first, so a trade the league HAD
+    // announced in chat still got held for review — the corroboration simply
+    // had not been written yet. Ten minutes keeps the signal ahead of the
+    // ESPN scan in the ordinary case.
+    schedule: "every 10 minutes",
     timeZone: "America/Chicago",
     secrets: [GROUPME_TOKEN],
     retryCount: 0,
@@ -866,3 +880,12 @@ exports.pollEspnGmail = onSchedule(
     }
   },
 );
+
+// ── Offline test surface ──────────────────────────────────────
+// The pipeline's orchestration — dedupe, roster match, reconcile, apply,
+// and the accept→execute→completed hop — is the part most worth testing,
+// and none of it is reachable through the wrapped triggers without a live
+// Firestore. This machine has no Java, so the Firestore emulator can't run
+// either. functions/pipeline.test.js injects a fake Firestore and drives
+// these directly. Production never touches this export.
+exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite};

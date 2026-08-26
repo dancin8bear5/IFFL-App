@@ -336,6 +336,23 @@ export function cancelTrade(tradeId, reason) {
   })
 }
 
+/**
+ * Commissioner-only: undo a completed trade — ESPN voided it, or it was
+ * recorded in error.
+ *
+ * Only flips status; the onTradeWrite Cloud Function does the asset moves
+ * server-side with admin privileges, exactly as it does for an accept.
+ * Members never need write access to players or draftPicks, and the reversal
+ * gets the same duplicate guard as the original execution.
+ */
+export function reverseTrade(tradeId, reason) {
+  return updateDoc(doc(db, COL.trades, tradeId), {
+    status: 'reverseRequested',
+    reverseReason: reason || null,
+    reverseRequestedAt: Timestamp.now(),
+  })
+}
+
 export function respondToTrade(tradeId, response) {
   const status = response === 'yes' ? 'accepted' : 'rejected'
   return updateDoc(doc(db, COL.trades, tradeId), { response, status })

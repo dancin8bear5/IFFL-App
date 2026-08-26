@@ -41,6 +41,41 @@ function resolveEspnName(name) {
 const ACCEPTED_ANCHOR = /the following trade has been accepted/i;
 
 /**
+ * Void wording is a GUESS. We have a confirmed fixture for the accepted
+ * email and none for a void, so these patterns are plausible rather than
+ * verified. That is why the poller does not simply ignore an email it
+ * cannot classify: anything under the espn-trade label that is neither a
+ * recognised accept nor a recognised void is surfaced for review with its
+ * raw text, so a real void email can be read once and these tightened.
+ *
+ * The safety property that matters holds either way: a void can never be
+ * mistaken for a fresh trade, because applying requires ACCEPTED_ANCHOR.
+ */
+const VOID_ANCHORS = [
+  /trade has been (vetoed|voided|reversed|overturned|cancell?ed)/i,
+  /the following trade was (vetoed|voided|reversed|overturned)/i,
+  /trade .{0,40}has been removed/i,
+];
+
+/** 'accepted' | 'voided' | 'unknown' — never throws. */
+function classifyEspnEmail(body) {
+  const text = String(body ?? "");
+  if (ACCEPTED_ANCHOR.test(text)) return "accepted";
+  if (VOID_ANCHORS.some((re) => re.test(text))) return "voided";
+  return "unknown";
+}
+
+/**
+ * Does this look like it concerns a trade at all? Used to decide whether an
+ * unclassifiable email is worth a human's attention or is just noise that
+ * happened to land under the label.
+ */
+function looksTradeRelated(body) {
+  const text = String(body ?? "");
+  return /\btrade\b/i.test(text) && /\btrades\b/i.test(text);
+}
+
+/**
  * Parse an ESPN trade-accepted email body (plain text or lightly-marked).
  * Returns:
  *   { ok: true, moves: [{player, fromTeam, toTeam}], meta: {...} }
@@ -133,4 +168,7 @@ function parseEspnTradeEmail(body) {
   return { ok: true, moves, meta };
 }
 
-module.exports = { parseEspnTradeEmail, resolveAbbrev, resolveEspnName };
+module.exports = {
+  parseEspnTradeEmail, resolveAbbrev, resolveEspnName,
+  classifyEspnEmail, looksTradeRelated,
+};

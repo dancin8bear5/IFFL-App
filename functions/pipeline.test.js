@@ -158,35 +158,34 @@ test('B2 — an ambiguous duplicate name is flagged, never guessed', async () =>
 
 /* ═══════════════ PATH C — reconcile hold (the pick trap) ═══════════════ */
 
-test('C1 — a pick seen in GroupMe holds the trade instead of dropping it', async () => {
-  // This is the 2026-08-16 failure: ESPN auto-applied Dak/Turpin and the
-  // 2027 2nd silently vanished because ESPN emails never carry picks.
+test('C1 — a pick in GroupMe no longer holds the trade, but is not lost', async () => {
+  // The 2026-08-16 failure was the pick vanishing, not the players moving.
+  // Players apply; the pick becomes its own review item pointing at the
+  // trade that just landed, so it can be attached rather than dropped.
   const seed = baseSeed()
-  seed.groupmeTradeSignals.sig1 = {
-    capturedAt: Date.now() - 60 * 60 * 1000, // an hour ago, inside the 48h window
-    teams: ['Jared', 'Jason'],
+  seed.groupmeTradeSignals.sig1 = corroboratingSignal({
     hasPick: true,
     picks: [{ year: 2027, round: 2, raw: '2027 2nd' }],
-    directionPhrases: [],
-  }
+  })
   const { db, pipeline } = loadPipeline(seed)
 
   const res = await pipeline.processEspnTrade({ sourceId: 'gmail-msg-pick', moves: swapMoves })
 
-  assert.equal(res.status, 'needs_review', 'a pick must never auto-apply')
-  assert.match(res.reasons.join(' '), /pick/i)
-  assert.equal(db.get('players', 'p_dak').teamName, 'Jared', 'players must not move while the pick is unresolved')
-  assert.equal(db.dump('trades').length, 0)
+  assert.equal(res.status, 'applied')
+  assert.equal(res.pickToDo, true)
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jason', 'players must not be held hostage')
 
-  const ingest = db.get('tradeIngests', 'gmail-msg-pick')
-  assert.equal(ingest.status, 'needs_review')
-  assert.equal(ingest.groupmeSignalId, 'sig1', 'the review item must point back at the signal')
-  assert.equal(ingest.groupmePicks.length, 1)
+  const todo = db.get('tradeIngests', 'gmail-msg-pick__picks')
+  assert.ok(todo, 'the pick must leave a to-do behind')
+  assert.equal(todo.status, 'needs_review')
+  assert.equal(todo.kind, 'unattached_pick')
+  assert.equal(todo.attachToTradeId, db.dump('trades')[0].id, 'must point at the trade it belongs to')
+  assert.equal(todo.groupmePicks.length, 1)
 })
 
-test('C2 — a stale signal is not corroboration, so the trade is still held', async () => {
-  // A 4-day-old signal falls outside the 48h window, so no signal is found
-  // at all — which lands on Rule 4 rather than the pick rule.
+test('C2 — a stale signal is ignored, and the trade applies unimpeded', async () => {
+  // A 4-day-old signal is outside the 48h window, so no signal is found —
+  // which is now simply not a reason to stop.
   const seed = baseSeed()
   seed.groupmeTradeSignals.sigOld = corroboratingSignal({
     capturedAt: Date.now() - 96 * 60 * 60 * 1000,
@@ -197,26 +196,24 @@ test('C2 — a stale signal is not corroboration, so the trade is still held', a
 
   const res = await pipeline.processEspnTrade({ sourceId: 'gmail-msg-stale', moves: swapMoves })
 
-  assert.equal(res.status, 'needs_review')
-  assert.match(res.reasons.join(' '), /no human corroboration/i)
-  assert.equal(db.get('players', 'p_dak').teamName, 'Jared')
+  assert.equal(res.status, 'applied')
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jason')
+  assert.ok(!db.get('tradeIngests', 'gmail-msg-stale__picks'), 'a stale pick mention is not this trade')
 })
 
-test('C3 — an ESPN trade with NO GroupMe chatter is held, never auto-applied', async () => {
-  // tradeReconcile Rule 4. This is the DEFAULT outcome for a quiet trade,
-  // and the single most important operational fact about this pipeline:
-  // silence in the group chat means a human has to confirm the trade.
+test('C3 — an ESPN trade with NO GroupMe chatter now applies on its own', async () => {
+  // The email IS the confirmation. Silence in the group chat is not evidence
+  // of anything, and holding every quiet trade meant hand-entering them.
   const { db, pipeline } = loadPipeline(baseSeed())
 
   const res = await pipeline.processEspnTrade({ sourceId: 'gmail-msg-quiet', moves: swapMoves })
 
-  assert.equal(res.status, 'needs_review')
-  assert.match(res.reasons.join(' '), /no human corroboration/i)
-  assert.equal(db.get('players', 'p_dak').teamName, 'Jared', 'nothing moves without corroboration')
-  assert.equal(db.dump('trades').length, 0)
-  // It is still RECORDED — seen, ingested, logged, awaiting review.
-  assert.equal(db.get('tradeIngests', 'gmail-msg-quiet').status, 'needs_review')
-  assert.deepEqual(db.get('tradeIngests', 'gmail-msg-quiet').moves, swapMoves)
+  assert.equal(res.status, 'applied')
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jason')
+  assert.equal(db.get('players', 'p_turpin').teamName, 'Jared')
+  assert.equal(db.dump('trades').length, 1)
+  assert.equal(db.get('tradeIngests', 'gmail-msg-quiet').status, 'applied')
+  assert.ok(!db.get('tradeIngests', 'gmail-msg-quiet__picks'), 'no pick mentioned, no to-do')
 })
 
 test('C4 — a team mismatch between the two sources holds the trade', async () => {
@@ -340,34 +337,42 @@ test('E4 — a deleted trade is ignored rather than throwing', async () => {
 // So the two pollers' relative cadence decides whether a trade the league DID
 // announce in chat auto-applies or gets held. These pin that behavior.
 
-test('F1 — a signal that lands after the ESPN scan does not rescue the trade', async () => {
-  const seed = baseSeed()
-  const { db, pipeline } = loadPipeline(seed)
+test('F1 — a pick signal that lands after the ESPN scan is missed entirely', async () => {
+  // Auto-apply changed what this race costs. It no longer decides whether a
+  // trade applies — it decides whether the PICK riding along with it is
+  // noticed. Get here and the players are right, the pick is silently gone,
+  // and nothing in the app says so. This is why pollGroupMeTrades must run
+  // more often than pollEspnGmail.
+  const { db, pipeline } = loadPipeline(baseSeed())
 
-  // ESPN poller runs first: no signal exists yet.
-  const first = await pipeline.processEspnTrade({ sourceId: 'gmail-race', moves: swapMoves })
-  assert.equal(first.status, 'needs_review')
+  const res = await pipeline.processEspnTrade({ sourceId: 'gmail-race', moves: swapMoves })
+  assert.equal(res.status, 'applied')
 
-  // GroupMe poller catches up a minute later and writes the corroboration.
-  db.collection('groupmeTradeSignals').doc('late').set(corroboratingSignal())
+  // GroupMe catches up a minute later, mentioning the pick.
+  db.collection('groupmeTradeSignals').doc('late').set(
+    corroboratingSignal({ hasPick: true, picks: [{ year: 2027, round: 2, raw: '2027 2nd' }] }),
+  )
 
-  // The ingest is deduped by sourceId, so the late signal changes nothing.
-  const second = await pipeline.processEspnTrade({ sourceId: 'gmail-race', moves: swapMoves })
-  assert.equal(second.status, 'duplicate')
-  assert.equal(db.get('players', 'p_dak').teamName, 'Jared', 'still held — a human must resolve it')
+  // Too late — the ingest is deduped, so the pick never becomes a to-do.
+  const again = await pipeline.processEspnTrade({ sourceId: 'gmail-race', moves: swapMoves })
+  assert.equal(again.status, 'duplicate')
+  assert.ok(!db.get('tradeIngests', 'gmail-race__picks'), 'the pick is lost — the cost of losing the race')
 })
 
-test('F2 — the same trade auto-applies when the signal is already there', async () => {
-  // Identical inputs to F1 apart from ordering: this is the whole reason
-  // pollGroupMeTrades must run more often than pollEspnGmail.
+test('F2 — the same trade catches the pick when the signal is already there', async () => {
+  // Identical inputs to F1 apart from ordering.
   const seed = baseSeed()
-  seed.groupmeTradeSignals.early = corroboratingSignal()
+  seed.groupmeTradeSignals.early = corroboratingSignal({
+    hasPick: true,
+    picks: [{ year: 2027, round: 2, raw: '2027 2nd' }],
+  })
   const { db, pipeline } = loadPipeline(seed)
 
   const res = await pipeline.processEspnTrade({ sourceId: 'gmail-race', moves: swapMoves })
 
   assert.equal(res.status, 'applied')
-  assert.equal(db.get('players', 'p_dak').teamName, 'Jason')
+  assert.equal(res.pickToDo, true)
+  assert.ok(db.get('tradeIngests', 'gmail-race__picks'), 'the pick is caught and queued')
 })
 
 /* ═══════════════ PATH G — commissioner cancels a pending offer ═══════════════ */
@@ -480,4 +485,122 @@ test('H5 — all mode delivers to the team the message names', async () => {
   const dms = dmBodies(sent)
   assert.equal(dms[0].recipient_id, '222', 'the receiver gets his own offer')
   assert.ok(!/would have gone to/.test(dms[0].text))
+})
+
+/* ═══════════════ PATH I — ESPN voids a trade ═══════════════ */
+// ESPN can undo a trade after the fact. Anything this app applied from an
+// ESPN email has to be undoable the same way.
+
+const completedTrade = () => ({
+  proposingTeamName: 'Jared',
+  receivingTeamName: 'Jason',
+  assetsFromProposer: [{ assetType: 'player', assetId: 'p_dak', displayName: 'Dak Prescott' }],
+  assetsFromReceiver: [{ assetType: 'player', assetId: 'p_turpin', displayName: 'KaVontae Turpin' }],
+  season: 2026,
+  status: 'completed',
+})
+
+test('I1 — reversing sends every asset back to the side that sent it', async () => {
+  const seed = baseSeed()
+  seed.players.p_dak.teamName = 'Jason'      // already traded
+  seed.players.p_turpin.teamName = 'Jared'
+  seed.trades.t1 = completedTrade()
+  const { db, pipeline } = loadPipeline(seed)
+
+  const res = await pipeline.reverseTradeAssets('t1', 'voided in ESPN')
+
+  assert.equal(res.ok, true)
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jared', 'back to who sent him')
+  assert.equal(db.get('players', 'p_turpin').teamName, 'Jason')
+  assert.equal(db.get('trades', 't1').status, 'reversed')
+  assert.equal(db.get('trades', 't1').reverseReason, 'voided in ESPN')
+  assert.equal(db.dump('transactions').length, 2, 'the undo is on the ledger too')
+})
+
+test('I2 — a second reversal is refused, not applied twice', async () => {
+  const seed = baseSeed()
+  seed.players.p_dak.teamName = 'Jason'
+  seed.players.p_turpin.teamName = 'Jared'
+  seed.trades.t1 = completedTrade()
+  const { db, pipeline } = loadPipeline(seed)
+
+  await pipeline.reverseTradeAssets('t1', 'voided')
+  const second = await pipeline.reverseTradeAssets('t1', 'voided')
+
+  assert.equal(second.ok, false)
+  assert.match(second.error, /reversed/)
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jared', 'must not bounce back again')
+  assert.equal(db.dump('transactions').length, 2)
+})
+
+test('I3 — reversal also returns draft picks, by currentTeamName', async () => {
+  const seed = baseSeed()
+  seed.draftPicks.pick_jason_2027_2.currentTeamName = 'Jared' // was traded away
+  seed.trades.t1 = {
+    ...completedTrade(),
+    assetsFromReceiver: [{ assetType: 'draftPick', assetId: 'pick_jason_2027_2', displayName: '2027 Round 2' }],
+  }
+  const { db, pipeline } = loadPipeline(seed)
+
+  await pipeline.reverseTradeAssets('t1', 'voided')
+
+  assert.equal(db.get('draftPicks', 'pick_jason_2027_2').currentTeamName, 'Jason')
+})
+
+test('I4 — a historical entry with no live asset id reverses without throwing', async () => {
+  // Keeper-sheet backfills carry assetId: null by design.
+  const seed = baseSeed()
+  seed.trades.t1 = {
+    ...completedTrade(),
+    assetsFromProposer: [{ assetType: 'player', assetId: null, displayName: 'Someone' }],
+    assetsFromReceiver: [],
+  }
+  const { db, pipeline } = loadPipeline(seed)
+
+  const res = await pipeline.reverseTradeAssets('t1', 'voided')
+  assert.equal(res.ok, true)
+  assert.equal(db.get('trades', 't1').status, 'reversed')
+})
+
+test('I5 — a reversal notifies both teams', async () => {
+  const { pipeline, sent } = loadPipeline(baseSeed())
+  const before = completedTrade()
+
+  await pipeline.handleTradeWrite(
+    evt(before, { ...before, status: 'reversed', reverseReason: 'voided in ESPN' }),
+  )
+
+  assert.equal(sent.push.length, 2)
+  assert.deepEqual(sent.push.map((p) => p.token).sort(), ['tok-jared', 'tok-jason'])
+  for (const p of sent.push) assert.match(p.notification.title, /Reversed/)
+  assert.equal(sent.groupme.length, 2)
+})
+
+test('I6 — a reverse requested from the web app executes server-side', async () => {
+  // The web app can only flip status; members have no write access to
+  // players. This is the path a commissioner actually uses.
+  const seed = baseSeed()
+  seed.players.p_dak.teamName = 'Jason'
+  seed.players.p_turpin.teamName = 'Jared'
+  seed.trades.t1 = { ...completedTrade(), status: 'reverseRequested', reverseReason: 'ESPN voided it' }
+  const { db, pipeline } = loadPipeline(seed)
+
+  await pipeline.handleTradeWrite(
+    evt({ ...completedTrade() }, db.get('trades', 't1'), 't1'),
+  )
+
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jared')
+  assert.equal(db.get('players', 'p_turpin').teamName, 'Jason')
+  assert.equal(db.get('trades', 't1').status, 'reversed')
+})
+
+test('I7 — a proposed trade cannot be reversed', async () => {
+  const seed = baseSeed()
+  seed.trades.t1 = { ...completedTrade(), status: 'proposed' }
+  const { db, pipeline } = loadPipeline(seed)
+
+  const res = await pipeline.reverseTradeAssets('t1', 'nope')
+  assert.equal(res.ok, false)
+  assert.equal(db.get('trades', 't1').status, 'proposed')
+  assert.equal(db.dump('transactions').length, 0)
 })

@@ -3409,6 +3409,25 @@ function RepairTradeSection() {
     }
   }
 
+  async function reverse() {
+    const why = window.prompt(
+      `Reverse the ${trade.proposingTeamName} ↔ ${trade.receivingTeamName} trade?\n\n` +
+      'Every player and pick on it goes back to the team that sent it, and both teams are told. ' +
+      'Use this when ESPN voids a trade.\n\nReason (optional):',
+      'Voided in ESPN',
+    )
+    if (why === null) return
+    setBusy(true); setMsg(null)
+    try {
+      await fs.reverseTrade(trade.id, why.trim())
+      setMsg({ ok: true, text: 'Reversal requested — assets move back within a few seconds.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function drop(a) {
     if (!window.confirm(`Remove ${a.displayName} from this trade?\n\nIt goes back to the team that sent it.`)) return
     setBusy(true); setMsg(null)
@@ -3484,6 +3503,22 @@ function RepairTradeSection() {
               {busy ? 'Working…' : 'Add to trade'}
             </button>
           </div>
+
+          {trade.status === 'completed' && (
+            <button
+              className="btn-outline"
+              onClick={reverse}
+              disabled={busy}
+              style={{ alignSelf: 'flex-start', borderColor: '#EF4444', color: '#EF4444', fontSize: 12, padding: '6px 14px' }}
+            >
+              ↩ Reverse this whole trade
+            </button>
+          )}
+          {trade.status === 'reversed' && (
+            <div style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>
+              This trade was reversed{trade.reverseReason ? ` — ${trade.reverseReason}` : ''}.
+            </div>
+          )}
         </>
       )}
 

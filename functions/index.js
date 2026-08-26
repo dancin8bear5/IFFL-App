@@ -7,7 +7,7 @@ const crypto = require("crypto");
 const {validatePayload, matchPlayers, pickSides} = require("./tradeIngest");
 const {buildSignalGroups} = require("./groupmeParser");
 const {reconcile} = require("./tradeReconcile");
-const {parseEspnTradeEmail} = require("./espnEmailParser");
+const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
 
 admin.initializeApp();
@@ -223,6 +223,70 @@ async function executeTradeAssets(tradeId) {
 }
 
 /**
+ * Undo a completed trade — every asset goes back to the side that sent it.
+ *
+ * ESPN can void a trade after the fact, and a trade this app applied from an
+ * ESPN email has to be undoable the same way it was applied. Reversal is a
+ * mirror of executeTradeAssets: the side arrays say what each team SENT, so
+ * sending them back is the whole operation.
+ *
+ * Guarded on status like executeTradeAssets, so a redelivered event cannot
+ * reverse twice and hand everyone back the wrong roster. Sets 'reversed'
+ * rather than deleting, so the trade and its undo both stay on the record.
+ */
+async function reverseTradeAssets(tradeId, reason) {
+  return db.runTransaction(async (tx) => {
+    const tradeRef = db.collection("trades").doc(tradeId);
+    const snap = await tx.get(tradeRef);
+    if (!snap.exists) return {ok: false, error: "trade not found"};
+    const trade = snap.data();
+    // 'reverseRequested' is how the web app asks for this — it can only flip
+    // status, not move assets. Both it and a direct server-side call on a
+    // completed trade are valid starting points; anything else (already
+    // reversed, still proposed) is refused so a redelivered event cannot
+    // hand everyone back the wrong roster.
+    if (trade.status !== "completed" && trade.status !== "reverseRequested") {
+      return {ok: false, error: `trade is '${trade.status}', not completed`};
+    }
+
+    const giveBack = (assetRef, backTo, from) => {
+      if (!assetRef.assetId) return; // historical entries carry no live id
+      const col = assetRef.assetType === "player" ? "players" : "draftPicks";
+      const field = assetRef.assetType === "player" ? "teamName" : "currentTeamName";
+      tx.update(db.collection(col).doc(assetRef.assetId), {[field]: backTo});
+      tx.set(db.collection("transactions").doc(), {
+        type: "trade",
+        season: trade.season ?? null,
+        teamName: backTo,
+        fromTeam: from,
+        playerId: assetRef.assetId,
+        playerName: assetRef.displayName ?? null,
+        assetType: assetRef.assetType,
+        relatedTradeId: tradeId,
+        note: `Trade reversed${reason ? ` — ${reason}` : ""}`,
+        actorUid: null,
+        createdAt: admin.firestore.Timestamp.now(),
+      });
+    };
+
+    // What the proposer sent goes back to the proposer, and vice versa.
+    for (const ref of trade.assetsFromProposer ?? []) {
+      giveBack(ref, trade.proposingTeamName, trade.receivingTeamName);
+    }
+    for (const ref of trade.assetsFromReceiver ?? []) {
+      giveBack(ref, trade.receivingTeamName, trade.proposingTeamName);
+    }
+
+    tx.update(tradeRef, {
+      status: "reversed",
+      reversedAt: admin.firestore.Timestamp.now(),
+      reverseReason: reason ?? null,
+    });
+    return {ok: true, teams: [trade.proposingTeamName, trade.receivingTeamName]};
+  });
+}
+
+/**
  * Fires on every write to the trades collection.
  * Sends FCM push (iOS) + GroupMe DM to the relevant team(s).
  */
@@ -308,6 +372,33 @@ async function handleTradeWrite(event) {
       await sendPush(proposer, `Counter Offer from ${receiver}`,
         `${receiver} sent a counter-offer. Open the app to review.`);
       break;
+
+    case "reverseRequested":
+      // The web app can only flip status — members have no write access to
+      // players or draftPicks. Doing the moves here mirrors how an accept is
+      // executed, and the resulting write to 'reversed' re-triggers this
+      // function so the case below sends the notifications.
+      try {
+        const r = await reverseTradeAssets(event.params.tradeId, after.reverseReason);
+        if (!r.ok) console.error(`Reverse ${event.params.tradeId} refused: ${r.error}`);
+      } catch (err) {
+        console.error(`Reverse ${event.params.tradeId} failed:`, err);
+      }
+      break;
+
+    case "reversed": {
+      const why = after.reverseReason ? ` — ${after.reverseReason}` : "";
+      for (const team of [proposer, receiver]) {
+        await sendPush(team, "Trade Reversed",
+          `The ${proposer} ↔ ${receiver} trade has been undone${why}`);
+        await sendGroupMeDM(
+          team,
+          `↩️ The ${proposer} ↔ ${receiver} trade was REVERSED${why}. ` +
+          `Every player and pick has gone back: ${APP_URL}`,
+        );
+      }
+      break;
+    }
 
     case "cancelled": {
       // Commissioner pulled a pending offer. Both sides are told, because
@@ -448,7 +539,22 @@ async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabe
   }
 
   const recon = reconcile({ok: true, moves, meta: {}}, gmExtract);
-  if (recon.decision !== "auto-eligible") {
+
+  // An ESPN email IS the confirmation that a trade happened — there is no
+  // second source to wait on, so a clean parse applies. Only a genuine
+  // DISAGREEMENT between the two sources stops it: if GroupMe names teams
+  // the email doesn't, one of them is describing a different deal and
+  // guessing which would be worse than waiting.
+  //
+  // A pick no longer holds the trade. It cannot be verified against ESPN
+  // either way (emails never carry picks), so holding the players hostage to
+  // it bought nothing; the players apply and the pick becomes its own item
+  // in the review queue, which Admin → Trades → "Fix a recorded trade"
+  // attaches to the trade that just landed.
+  //
+  // Missing GroupMe chatter is no longer a reason for anything.
+  const blocked = recon.flags.teamMismatch || recon.flags.extraTeams;
+  if (blocked) {
     await ingestRef.set({
       sourceId,
       status: "needs_review",
@@ -464,7 +570,7 @@ async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabe
     });
     await sendGroupMeDM(
       COMMISSIONER_TEAM_NAME,
-      `⚠️ ESPN trade held for review (players resolved, but cross-check flagged it):\n` +
+      `⚠️ ESPN trade held — the email and the group chat disagree:\n` +
       recon.reasons.map((r) => `• ${r}`).join("\n") +
       `\nResolve it from Admin → Trades: ${APP_URL}`,
     ).catch(() => {});
@@ -525,7 +631,37 @@ async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabe
     });
   });
 
-  return {status: "applied", tradeId: tradeRef.id};
+  // A pick GroupMe mentioned rode along with this deal and ESPN could not
+  // tell us about it. The players are applied; the pick becomes its own
+  // review item pointing at the trade that just landed, so it is attached
+  // rather than lost. Written after the transaction so a failure here can
+  // never roll back a good trade.
+  if (recon.flags.picks && recon.picks.length > 0) {
+    const desc = recon.picks.map((p) => `${p.year ?? "?"} R${p.round}`).join(", ");
+    await db.collection("tradeIngests").doc(`${sourceId}__picks`).set({
+      sourceId: `${sourceId}__picks`,
+      status: "needs_review",
+      source: sourceLabel,
+      kind: "unattached_pick",
+      attachToTradeId: tradeRef.id,
+      teams: [proposingTeamName, receivingTeamName],
+      groupmePicks: recon.picks,
+      groupmeSignalId: gmExtract?.signalId ?? null,
+      reconcileReasons: [
+        `Players applied. GroupMe also mentioned ${desc}, which an ESPN email can never ` +
+        `contain — add it from Admin → Trades → "Fix a recorded trade".`,
+      ],
+      receivedAt: admin.firestore.Timestamp.now(),
+    }).catch((e) => console.error("pick to-do write failed:", e.message));
+
+    await sendGroupMeDM(
+      COMMISSIONER_TEAM_NAME,
+      `📋 ${proposingTeamName} ↔ ${receivingTeamName} applied, but the chat mentioned ${desc}. ` +
+      `ESPN never sends picks — add it in Admin → Trades: ${APP_URL}`,
+    ).catch(() => {});
+  }
+
+  return {status: "applied", tradeId: tradeRef.id, pickToDo: recon.flags.picks};
 }
 
 exports.ingestEspnTrade = onRequest(
@@ -878,10 +1014,43 @@ exports.pollEspnGmail = onSchedule(
         const parsed = parseEspnTradeEmail(body);
 
         if (!parsed.ok) {
-          // Not a parseable trade email (e.g. a digest under the same label).
+          const kind = classifyEspnEmail(body);
+
+          // A void or an email we can't classify but which clearly concerns a
+          // trade must NEVER be silently dropped — that is how a reversal
+          // goes unnoticed. Surface it with its raw text so it can be acted
+          // on, and so the void patterns can be tightened from a real sample.
+          if (kind === "voided" || looksTradeRelated(body)) {
+            await db.collection("tradeIngests").doc(`${id}__unhandled`).set({
+              sourceId: `${id}__unhandled`,
+              status: "needs_review",
+              source: "espn-gmail",
+              kind: kind === "voided" ? "espn_void" : "espn_unclassified",
+              subject: subject ?? null,
+              rawText: body.slice(0, 4000),
+              reconcileReasons: [
+                kind === "voided"
+                  ? "ESPN appears to have VOIDED a trade. Find it in the ledger and reverse it — " +
+                    "nothing has been undone automatically."
+                  : "An email under the espn-trade label mentions a trade but could not be parsed. " +
+                    "Read it and decide; nothing has been applied.",
+              ],
+              receivedAt: admin.firestore.Timestamp.now(),
+            }).catch((e) => console.error("unhandled-email flag failed:", e.message));
+
+            await sendGroupMeDM(
+              COMMISSIONER_TEAM_NAME,
+              kind === "voided"
+                ? `↩️ ESPN may have VOIDED a trade. Nothing was undone automatically — ` +
+                  `check Admin → Trades: ${APP_URL}`
+                : `❓ An unreadable trade email arrived. Check Admin → Trades: ${APP_URL}`,
+            ).catch(() => {});
+          }
+
           // Mark seen so we don't re-examine it forever, but record why.
           await seenRef.set({
             messageId: id, subject, parsedOk: false, parseError: parsed.error,
+            emailKind: kind,
             seenAt: admin.firestore.Timestamp.now(),
           });
           skipped++;
@@ -937,4 +1106,4 @@ exports.pollEspnGmail = onSchedule(
 // Firestore. This machine has no Java, so the Firestore emulator can't run
 // either. functions/pipeline.test.js injects a fake Firestore and drives
 // these directly. Production never touches this export.
-exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite};
+exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets};

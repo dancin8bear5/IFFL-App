@@ -583,6 +583,14 @@ async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabe
   const {proposingTeamName, receivingTeamName} = pickSides(match.resolved);
   const tradeRef = db.collection("trades").doc();
 
+  // When the trade actually happened, if we know it. The Gmail poller passes
+  // the email's arrival time; the webhook passes whatever the caller sent.
+  // Anything unusable falls back to now() rather than guessing.
+  const parsedDate = tradeDate ? new Date(tradeDate) : null;
+  const when = parsedDate && !Number.isNaN(parsedDate.getTime())
+    ? admin.firestore.Timestamp.fromDate(parsedDate)
+    : admin.firestore.Timestamp.now();
+
   const toRef = (m) => ({assetType: "player", assetId: m.assetId, displayName: m.displayName, teamName: m.toTeam});
   const assetsFromProposer = match.resolved.filter((m) => m.fromTeam === proposingTeamName).map(toRef);
   const assetsFromReceiver = match.resolved.filter((m) => m.fromTeam !== proposingTeamName).map(toRef);
@@ -616,7 +624,7 @@ async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabe
       season,
       status: "completed",
       source: sourceLabel,
-      date: admin.firestore.Timestamp.now(),
+      date: when,
       completedAt: admin.firestore.Timestamp.now(),
     });
     tx.set(ingestRef, {
@@ -1066,7 +1074,9 @@ exports.pollEspnGmail = onSchedule(
         // sourceId = Gmail message id → stable + idempotent across both pipes.
         const result = await processEspnTrade({
           sourceId: id,
-          tradeDate: null,
+          // The email's own arrival time, not whenever the poller happened
+          // to run — up to 15 minutes apart, which sorts the ledger wrongly.
+          tradeDate: gmailWatch.getInternalDate(message),
           rawText: body.slice(0, 4000),
           moves: parsed.moves,
           sourceLabel: "espn-gmail",

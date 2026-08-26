@@ -604,3 +604,29 @@ test('I7 — a proposed trade cannot be reversed', async () => {
   assert.equal(db.get('trades', 't1').status, 'proposed')
   assert.equal(db.dump('transactions').length, 0)
 })
+
+test('A3 — a trade is dated when it happened, not when the poller ran', async () => {
+  const seed = baseSeed()
+  seed.groupmeTradeSignals.sigOk = corroboratingSignal()
+  const { db, pipeline } = loadPipeline(seed)
+
+  const emailArrived = new Date('2026-08-26T09:35:00Z')
+  await pipeline.processEspnTrade({
+    sourceId: 'gmail-dated', tradeDate: emailArrived, moves: swapMoves,
+  })
+
+  const t = db.dump('trades')[0]
+  assert.equal(t.date.toMillis(), emailArrived.getTime(), 'ledger must sort by the real time')
+})
+
+test('A4 — an unusable date falls back to now rather than inventing one', async () => {
+  const seed = baseSeed()
+  seed.groupmeTradeSignals.sigOk = corroboratingSignal()
+  const { db, pipeline } = loadPipeline(seed)
+
+  const before = Date.now()
+  await pipeline.processEspnTrade({ sourceId: 'gmail-baddate', tradeDate: 'not a date', moves: swapMoves })
+
+  const t = db.dump('trades')[0]
+  assert.ok(t.date.toMillis() >= before, 'must be a real timestamp, not NaN')
+})

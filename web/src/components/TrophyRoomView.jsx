@@ -1,10 +1,11 @@
 // TrophyRoomView — the GRAND hall. Old-school NCAA trophy room treatment:
 // championship banners in the rafters, an all-time podium, per-team display
 // cases with trophies and brass plaques, and a records wall.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { fantasyTeams, teamByName } from '../data/staticData'
+import { fantasyTeams, teamByName, isActiveTeam } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
+import TrophyAnalytics from './TrophyAnalytics'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts, ownerName,
@@ -99,7 +100,11 @@ export default function TrophyRoomView({ onClose }) {
 
   const { rows, records, banners, formerCount, superlatives, droughts } = useMemo(() => {
     const all = defaultSort(computeAllTimeStats(leagueHistory))
-    const recs = computeRecords(all, leagueHistory)
+    // One toggle governs the whole room. It used to filter only the standings
+    // table, which let a departed manager hold "All-Time Wins" on a wall about
+    // the people still in the league.
+    const eligible = showFormer ? () => true : (team) => isActiveTeam(team)
+    const recs = computeRecords(all, leagueHistory, eligible)
     const bans = [...leagueHistory]
       .filter((s) => s.champion)
       .sort((a, b) => a.season - b.season)
@@ -109,10 +114,17 @@ export default function TrophyRoomView({ onClose }) {
       records: recs,
       banners: bans, // banners are history — every championship hangs forever
       formerCount: all.filter((r) => !r.active).length,
-      superlatives: leagueHistory.length ? computeSuperlatives(leagueHistory) : null,
+      superlatives: leagueHistory.length ? computeSuperlatives(leagueHistory, eligible) : null,
       droughts: leagueHistory.length ? computeDroughts(leagueHistory) : [],
     }
   }, [leagueHistory, showFormer])
+
+  // Commissioner-entered extremes get the same gate as the computed ones —
+  // a record with no team attached is league-wide and always shows.
+  const visibleRecords = useMemo(
+    () => (showFormer ? leagueRecords : leagueRecords.filter((r) => !r.team || isActiveTeam(r.team))),
+    [leagueRecords, showFormer],
+  )
 
   const podium = rows.slice(0, 3)
 
@@ -137,18 +149,7 @@ export default function TrophyRoomView({ onClose }) {
         ) : (
           <>
             {/* ── Championship banners in the rafters ── */}
-            <section className="troom-rafters">
-              <div className="troom-rafter-beam" />
-              <div className="troom-banner-row">
-                {banners.map((b) => (
-                  <div key={b.season} className="troom-banner" style={{ '--banner-color': b.color }}>
-                    <div className="troom-banner-year">{b.season}</div>
-                    <div className="troom-banner-team">{b.team.toUpperCase()}</div>
-                    <div className="troom-banner-label">CHAMPIONS</div>
-                  </div>
-                ))}
-              </div>
-            </section>
+            <BannerRafters banners={banners} />
 
             {/* ── All-time podium ── */}
             {podium.length === 3 && (
@@ -232,17 +233,20 @@ export default function TrophyRoomView({ onClose }) {
             <RecordScopeSection
               label="GAME EXTREMES"
               scope="game"
-              records={leagueRecords}
+              records={visibleRecords}
               isAdmin={isAdmin}
               hint="single-game records — highest score, biggest blowout, closest margin"
             />
             <RecordScopeSection
               label="PLAYER EXTREMES"
               scope="player"
-              records={leagueRecords}
+              records={visibleRecords}
               isAdmin={isAdmin}
               hint="individual performances — best player game, draft bargains, bench tragedies"
             />
+
+            {/* ── Distributions: the spread behind the single numbers ── */}
+            <TrophyAnalytics showFormer={showFormer} />
 
             {/* ── Drought table ── */}
             {droughts.length > 0 && (
@@ -381,5 +385,83 @@ export default function TrophyRoomView({ onClose }) {
         )}
       </div>
     </DetailOverlay>
+  )
+}
+
+/* ═══════════ Rafters ═══════════ */
+/**
+ * The banner strip scrolls horizontally, and its scrollbar is hidden on
+ * purpose — a scrollbar under the rafters ruins the effect. That's fine on
+ * a phone, where you swipe. On a desktop with a mouse there was no swipe,
+ * no scrollbar and no arrows, so the banners past the right edge were
+ * simply unreachable.
+ *
+ * These arrows only exist when the strip actually overflows, and each one
+ * hides at its end of the track, so a league with four banners sees exactly
+ * what it saw before. They're real buttons, so keyboard and screen readers
+ * get them too.
+ */
+function BannerRafters({ banners }) {
+  const rowRef = useRef(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(false)
+
+  const sync = useCallback(() => {
+    const el = rowRef.current
+    if (!el) return
+    // 1px of slack: fractional widths mean scrollLeft rarely lands exactly
+    // on the end, which would otherwise leave a dead arrow showing forever.
+    const max = el.scrollWidth - el.clientWidth
+    setCanLeft(el.scrollLeft > 1)
+    setCanRight(el.scrollLeft < max - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = rowRef.current
+    if (!el) return
+    sync()
+    el.addEventListener('scroll', sync, { passive: true })
+    // Overflow depends on the container width, so re-check on resize too —
+    // a sidebar collapse changes this without any scroll event firing.
+    const ro = new ResizeObserver(sync)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', sync)
+      ro.disconnect()
+    }
+  }, [sync, banners.length])
+
+  function nudge(dir) {
+    const el = rowRef.current
+    if (!el) return
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    // Roughly three banners a press — enough to feel like progress, little
+    // enough that you never blow past the one you were looking for.
+    el.scrollBy({ left: dir * Math.max(el.clientWidth * 0.7, 220), behavior: reduced ? 'auto' : 'smooth' })
+  }
+
+  return (
+    <section className="troom-rafters">
+      <div className="troom-rafter-beam" />
+      <div className="troom-banner-row" ref={rowRef}>
+        {banners.map((b) => (
+          <div key={b.season} className="troom-banner" style={{ '--banner-color': b.color }}>
+            <div className="troom-banner-year">{b.season}</div>
+            <div className="troom-banner-team">{b.team.toUpperCase()}</div>
+            <div className="troom-banner-label">CHAMPIONS</div>
+          </div>
+        ))}
+      </div>
+      {canLeft && (
+        <button className="troom-rafter-arrow left" onClick={() => nudge(-1)} aria-label="Scroll to earlier championships">
+          ‹
+        </button>
+      )}
+      {canRight && (
+        <button className="troom-rafter-arrow right" onClick={() => nudge(1)} aria-label="Scroll to later championships">
+          ›
+        </button>
+      )}
+    </section>
   )
 }

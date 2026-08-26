@@ -51,3 +51,4 @@ backend/**/node_modules/
 backend/.venv/
 backend/**/.venv/
 .DS_Store
+ios/build/

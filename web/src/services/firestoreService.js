@@ -318,6 +318,23 @@ export function proposeTrade(trade) {
   })
 }
 
+/**
+ * Commissioner-only: kill a trade that is still awaiting a response.
+ *
+ * Sets status 'cancelled' rather than deleting the document, so the trade
+ * stays auditable — who proposed what, and that it was pulled rather than
+ * declined. 'cancelled' is in neither the pending nor the completed filter,
+ * so it leaves both lists and clears the receiver's inbox badge, and it is
+ * not 'accepted', so it can never trigger executeTradeAssets.
+ */
+export function cancelTrade(tradeId, reason) {
+  return updateDoc(doc(db, COL.trades, tradeId), {
+    status: 'cancelled',
+    cancelReason: reason || null,
+    cancelledAt: Timestamp.now(),
+  })
+}
+
 export function respondToTrade(tradeId, response) {
   const status = response === 'yes' ? 'accepted' : 'rejected'
   return updateDoc(doc(db, COL.trades, tradeId), { response, status })

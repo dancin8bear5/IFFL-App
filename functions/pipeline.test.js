@@ -369,3 +369,49 @@ test('F2 — the same trade auto-applies when the signal is already there', asyn
   assert.equal(res.status, 'applied')
   assert.equal(db.get('players', 'p_dak').teamName, 'Jason')
 })
+
+/* ═══════════════ PATH G — commissioner cancels a pending offer ═══════════════ */
+
+test('G1 — cancelling tells both teams and moves nothing', async () => {
+  const { db, pipeline, sent } = loadPipeline(baseSeed())
+  const before = { ...proposedTrade(), status: 'proposed' }
+
+  await pipeline.handleTradeWrite(
+    evt(before, { ...before, status: 'cancelled', cancelReason: 'stale offer' }),
+  )
+
+  // Both sides notified — a cancelled trade otherwise just vanishes.
+  assert.equal(sent.push.length, 2)
+  assert.deepEqual(sent.push.map((p) => p.token).sort(), ['tok-jared', 'tok-jason'])
+  for (const p of sent.push) assert.match(p.notification.title, /Cancelled/)
+  assert.match(sent.push[0].notification.body, /stale offer/)
+
+  // And nothing executed.
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jared')
+  assert.equal(db.get('players', 'p_turpin').teamName, 'Jason')
+  assert.equal(db.dump('transactions').length, 0)
+})
+
+test('G2 — a cancelled trade can never execute, even if re-delivered', async () => {
+  // The guard in executeTradeAssets is status-based, so this is the property
+  // that matters: cancelled is not accepted, so the assets stay put.
+  const seed = baseSeed()
+  seed.trades.t1 = { ...proposedTrade(), status: 'cancelled' }
+  const { db, pipeline } = loadPipeline(seed)
+
+  await pipeline.executeTradeAssets('t1')
+
+  assert.equal(db.get('players', 'p_dak').teamName, 'Jared')
+  assert.equal(db.get('trades', 't1').status, 'cancelled', 'must not be flipped to completed')
+  assert.equal(db.dump('transactions').length, 0)
+})
+
+test('G3 — cancelling with no reason still notifies cleanly', async () => {
+  const { pipeline, sent } = loadPipeline(baseSeed())
+  const before = { ...proposedTrade(), status: 'proposed' }
+
+  await pipeline.handleTradeWrite(evt(before, { ...before, status: 'cancelled', cancelReason: null }))
+
+  assert.equal(sent.push.length, 2)
+  for (const p of sent.push) assert.ok(!/undefined|null/.test(p.notification.body), p.notification.body)
+})

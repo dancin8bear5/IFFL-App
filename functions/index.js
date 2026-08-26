@@ -279,6 +279,25 @@ async function handleTradeWrite(event) {
         `${receiver} sent a counter-offer. Open the app to review.`);
       break;
 
+    case "cancelled": {
+      // Commissioner pulled a pending offer. Both sides are told, because
+      // the trade simply vanishes from their lists otherwise and the
+      // receiver in particular would just see their inbox badge clear.
+      const why = after.cancelReason ? ` — "${after.cancelReason}"` : "";
+      await sendPush(proposer, "Trade Cancelled",
+        `The commissioner cancelled your offer to ${receiver}${why}`);
+      await sendPush(receiver, "Trade Cancelled",
+        `The commissioner cancelled ${proposer}'s offer to you${why}`);
+      for (const team of [proposer, receiver]) {
+        await sendGroupMeDM(
+          team,
+          `🚫 The commissioner cancelled the ${proposer} ↔ ${receiver} trade offer${why}. ` +
+          `Nothing moved: ${APP_URL}`,
+        );
+      }
+      break;
+    }
+
     case "completed":
       await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
       break;

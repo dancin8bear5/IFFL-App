@@ -41,3 +41,13 @@ fastlane/test_output
 .secrets/
 functions/.secret.local
 .firebase/
+
+# Local-only build output (never commit)
+ios/.build/
+ios/DerivedData/
+supabase/.temp/
+backend/node_modules/
+backend/**/node_modules/
+backend/.venv/
+backend/**/.venv/
+.DS_Store

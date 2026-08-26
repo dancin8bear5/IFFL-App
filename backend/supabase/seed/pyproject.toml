@@ -1,0 +1,13 @@
+[project]
+name = "iffl-seed"
+version = "0.1.0"
+description = "One-time importer: 2026 IFFL Keeper Master List.xlsx -> Postgres seed.sql"
+requires-python = ">=3.11"
+dependencies = [
+  "openpyxl>=3.1",
+]
+
+[tool.iffl-seed]
+canonical_config = "../../../../IFFL Commish Agent/iffl_agent_config.json"
+xlsx_path = "2026_IFFL_Master.xlsx"
+season = 2026

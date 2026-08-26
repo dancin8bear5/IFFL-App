@@ -41,3 +41,13 @@ fastlane/test_output
 .secrets/
 functions/.secret.local
 .firebase/
+
+# Local-only working trees that live on the archive branch, not here.
+# ios/ is a second native app (separate from the CodeRed target) and
+# backend/ is a parallel Supabase stack; both are archived on
+# archive/taylor-pro-2-local. Their build output is enormous — ios/build
+# alone is 600MB — so it stays out of every branch.
+ios/
+backend/
+supabase/.temp/
+CodeRed.xcodeproj/project.xcworkspace/xcshareddata/

@@ -317,3 +317,27 @@ export const previewPlayoffs = {
   selections: { 1: 'Foley', 2: 'Cantone' },
   winners: {},
 }
+
+/**
+ * A held ESPN import, so the Admin review queue can be seen (and its actions
+ * exercised) without waiting for a real trade to be flagged. Mirrors the two
+ * shapes the queue renders: matchPlayers `problems` and reconcile
+ * `reconcileReasons` + `groupmePicks`.
+ */
+export const previewIngests = [
+  {
+    id: 'gmail-preview-1',
+    status: 'needs_review',
+    source: 'espn-gmail',
+    moves: [
+      { player: 'Dak Prescott', fromTeam: 'Jared', toTeam: 'Jason' },
+      { player: 'KaVontae Turpin', fromTeam: 'Jason', toTeam: 'Jared' },
+    ],
+    reconcileDecision: 'hold-for-review',
+    reconcileReasons: [
+      'Draft pick(s) present in GroupMe but not in ESPN email: 2027 R2 — must be applied manually',
+    ],
+    groupmePicks: [{ year: 2027, round: 2, raw: '2027 2nd' }],
+    receivedAt: new Date(),
+  },
+]

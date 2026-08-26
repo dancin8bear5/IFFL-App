@@ -648,6 +648,7 @@ export function AppProvider({ children }) {
     isInitialLoadComplete,
     players, draftPicks, trades, messages,
     tradeVotes, castTradeVote, uid,
+    isPreview: DEV_PREVIEW,
     allDisplayAssets, droppedPlayers, matches, myMatchCount,
     // FMK + interests
     fmkSignals, allLeagueFMK, currentFMKSignal, setFMKSignal, removeFMKSignal,

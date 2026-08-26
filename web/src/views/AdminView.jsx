@@ -2148,33 +2148,29 @@ function KeeperSheetTradeImport() {
  * dismissing it as a false positive / already handled elsewhere.
  */
 function EspnIngestQueue({ onFixManually }) {
+  const { isPreview } = useApp()
   const [items, setItems] = useState(null) // null = loading
   const [err, setErr] = useState(null)
   const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
+    // Preview has no Firestore auth, and this queue is only ever populated by
+    // a real held import — so without a sample there is no way to review the
+    // one admin surface every flagged trade lands on.
+    if (isPreview) {
+      import('../data/previewData').then((d) => setItems(d.previewIngests ?? []))
+      return
+    }
     fs.fetchPendingIngests()
       .then((r) => { setItems(r); setErr(null) })
       .catch((e) => { setItems([]); setErr(e?.message || String(e)) })
-  }, [])
+  }, [isPreview])
 
   async function dismiss(id) {
     setBusyId(id)
     try {
-      await fs.dismissTradeIngest(id)
-      setItems((prev) => prev.filter((i) => i.id !== id))
-    } catch (e) {
-      alert(`Failed: ${e.message}`)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function confirmAndApply(id) {
-    setBusyId(id)
-    try {
-      const call = httpsCallable(await getFunctionsClient(), 'confirmPendingTrade')
-      await call({ ingestId: id })
+      if (isPreview) setItems((prev) => prev.filter((i) => i.id !== id))
+      else await fs.dismissTradeIngest(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
     } catch (e) {
       alert(`Failed: ${e.message}`)
@@ -2210,9 +2206,6 @@ function EspnIngestQueue({ onFixManually }) {
     return <div className="iff-card" style={{ padding: 12, fontSize: 12, color: 'var(--iff-subtext)' }}>No trades waiting for review. 🎉</div>
   }
 
-  const needsReview = items.filter((i) => i.status === 'needs_review')
-  const pendingConfirm = items.filter((i) => i.status === 'pending_confirmation')
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-accent)' }}>
@@ -2245,6 +2238,27 @@ function EspnIngestQueue({ onFixManually }) {
           {reasons.map((r, i) => (
             <div key={`r${i}`} style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 3, marginTop: i === 0 ? 6 : 0 }}>• {r}</div>
           ))}
+
+          {/* A held trade is unresolvable without these. Record it below
+              (teams pre-filled), then dismiss it here to clear the queue. */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn-outline"
+              disabled={busyId === item.id}
+              onClick={() => fixManually(item)}
+              style={{ fontSize: 11.5, padding: '6px 12px' }}
+            >
+              Record it below ›
+            </button>
+            <button
+              className="btn-outline"
+              disabled={busyId === item.id}
+              onClick={() => dismiss(item.id)}
+              style={{ fontSize: 11.5, padding: '6px 12px', borderColor: 'var(--iff-divider)', color: 'var(--iff-subtext)' }}
+            >
+              {busyId === item.id ? 'Working…' : 'Dismiss'}
+            </button>
+          </div>
         </div>
         )
       })}

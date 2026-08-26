@@ -17,6 +17,7 @@ import {
 } from '../services/playoffs'
 import { PLAYOFF_TEAMS } from '../data/staticData'
 import { tradeCapImpact } from '../services/contracts'
+import { trades2026, pickTransfers } from '../data/trades2026'
 import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
@@ -2060,8 +2061,73 @@ function TradesSection() {
         )}
       </div>
 
+      <KeeperSheetTradeImport />
       <EspnIngestQueue onFixManually={setPrefill} />
       <ExternalTradeSection prefill={prefill} onPrefillConsumed={() => setPrefill(null)} />
+    </div>
+  )
+}
+
+/**
+ * One-time backfill of the 2026 trades from the Keeper Master sheet.
+ *
+ * Ledger only — deliberately not Record External Trade below, which moves
+ * the assets. These deals are already reflected in the rosters, so this
+ * writes history and nothing else. Safe to re-run: doc ids are derived from
+ * the trade, so a second run overwrites in place instead of duplicating.
+ */
+function KeeperSheetTradeImport() {
+  const { activeSeason, user } = useApp()
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 14 }}>Import 2026 Trades from Keeper Sheet</span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          The {trades2026.length} deals dated Feb 1 2026 or later, from the Keeper Master trade tab.
+          Writes the ledger entries, and moves any draft pick that changed hands — ESPN can&apos;t
+          roster picks, so trades made outside this app never moved them. Players are left alone;
+          ESPN is authoritative there.
+          <b> Additive only:</b> an entry that already exists is never rewritten, so notes added by
+          hand are safe. To genuinely re-import a corrected trade, delete that trade first.
+        </span>
+      </span>
+      <button
+        className="btn-outline"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            const { imported, skipped } = await fs.seedHistoricalTrades(
+              trades2026, activeSeason, { actorUid: user?.uid },
+            )
+            const picks = await fs.applyPickTransfers(pickTransfers(), {
+              season: activeSeason, actorUid: user?.uid,
+            })
+
+            const lines = [`Ledger: imported ${imported} of ${trades2026.length} trades.`]
+            if (skipped.length) {
+              lines.push('', `Left untouched (${skipped.length}):`)
+              lines.push(...skipped.map((s) => `· ${s.row.date}  ${s.row.a.team} ↔ ${s.row.b.team} — ${s.reason}`))
+            }
+            lines.push('', `Picks: moved ${picks.applied.length}.`)
+            lines.push(...picks.applied.map((t) => `· ${t.displayName} → ${t.toTeam}`))
+            if (picks.skipped.length) {
+              lines.push('', `Picks not moved (${picks.skipped.length}):`)
+              lines.push(...picks.skipped.map((t) => `· ${t.displayName} → ${t.toTeam} — ${t.reason}`))
+            }
+            alert(lines.join('\n'))
+          } catch (e) {
+            alert(`Import failed: ${e.message}`)
+          } finally {
+            setBusy(false)
+          }
+        }}
+        style={{ fontSize: 12, padding: '6px 14px' }}
+      >
+        {busy ? 'Importing…' : 'Import'}
+      </button>
     </div>
   )
 }

@@ -24,6 +24,20 @@ service cloud.firestore {
       );
     }
 
+    // The voting member's own team, or '' for an authorized account that
+    // has no team assigned. Reuses the leagueConfig() read isMember() already
+    // paid for, so this costs nothing extra.
+    function myTeam() {
+      return request.auth.uid in leagueConfig().userTeamMap
+        ? leagueConfig().userTeamMap[request.auth.uid]
+        : '';
+    }
+
+    function tradeTeams(tradeId) {
+      let t = get(/databases/$(database)/documents/trades/$(tradeId)).data;
+      return [t.proposingTeamName, t.receivingTeamName];
+    }
+
     function isCommissioner() {
       // Jared only — both of his Google accounts
       return signedIn() && (
@@ -141,6 +155,27 @@ service cloud.firestore {
         request.resource.data.status in ['accepted', 'rejected', 'countered']
       );
       allow delete: if isCommissioner();
+    }
+
+    // Trade BOOM/DOOM votes — who won each trade, one verdict per member.
+    //
+    // Permanent by design: the doc id is "<tradeId>_<uid>", so a second vote
+    // collides with a doc that already exists and create fails; update and
+    // delete are denied to everyone, commissioner included. There is no
+    // override — a cast vote is cast.
+    //
+    // You cannot vote on a trade you were in. That's enforced here and not
+    // just in the UI, because it's the rule that makes the tally worth
+    // anything. It costs one extra document read per vote, which is a fine
+    // price for a once-per-trade write.
+    match /tradeVotes/{voteId} {
+      allow read: if isMember();
+      allow create: if isMember()
+        && voteId == request.resource.data.tradeId + '_' + request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.votedFor in tradeTeams(request.resource.data.tradeId)
+        && !(myTeam() in tradeTeams(request.resource.data.tradeId));
+      allow update, delete: if false;
     }
 
     // Rule proposals + voting — members propose anytime; votes only while

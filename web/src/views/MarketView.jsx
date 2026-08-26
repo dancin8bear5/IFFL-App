@@ -400,7 +400,18 @@ const STATUS_BADGE = {
 
 function TradeRow({ trade, last, onOpen }) {
   const badge = STATUS_BADGE[trade.status] ?? STATUS_BADGE.proposed
-  const assets = (trade.assetsFromProposer ?? []).map((a) => a.displayName)
+  // Both sides, framed as what each team RECEIVED — the row used to show one
+  // side's outgoing assets with no label saying whose they were, which read
+  // as "these are the proposer's players" when it meant the opposite.
+  // assetsFrom<X> is what X sends, so each team's haul is the other's list.
+  const names = (refs, fallback) =>
+    (refs ?? []).map((a) => a.displayName).length
+      ? refs.map((a) => a.displayName)
+      : (fallback ?? [])
+  const proposerGot = names(trade.assetsFromReceiver, trade.historicalReceiverAssets)
+  const receiverGot = names(trade.assetsFromProposer, trade.historicalProposerAssets)
+  const line = (team, got) =>
+    got.length ? `${team} received ${got.slice(0, 2).join(', ')}${got.length > 2 ? ` +${got.length - 2}` : ''}` : null
   return (
     <button
       onClick={onOpen}
@@ -413,9 +424,19 @@ function TradeRow({ trade, last, onOpen }) {
         <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
           {trade.proposingTeamName} ↔ {trade.receivingTeamName}
         </span>
-        <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {assets.slice(0, 2).join(', ') || (trade.historicalProposerAssets ?? []).slice(0, 2).join(', ')}
-        </span>
+        {[
+          line(trade.proposingTeamName, proposerGot),
+          line(trade.receivingTeamName, receiverGot),
+        ]
+          .filter(Boolean)
+          .map((text) => (
+            <span
+              key={text}
+              style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+            >
+              {text}
+            </span>
+          ))}
       </span>
       <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
         <span style={{ fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg, padding: '2px 7px', borderRadius: 6 }}>

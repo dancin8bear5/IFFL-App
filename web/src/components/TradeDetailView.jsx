@@ -10,6 +10,8 @@ import TradeProposalView from './TradeProposalView'
 import { tradeCapImpact } from '../services/contracts'
 import { ROSTER_CAP, LUXURY_TAX_TOTAL } from '../data/staticData'
 import * as fs from '../services/firestoreService'
+import { canVote, myVote, tallyVotes } from '../services/tradeVotes'
+import { teamByName } from '../data/staticData'
 import TaxWarning from './TaxWarning'
 
 export const TRADE_STATUS_STYLE = {
@@ -22,7 +24,10 @@ export const TRADE_STATUS_STYLE = {
 }
 
 export default function TradeDetailView({ trade, onClose }) {
-  const { userTeam, respondToTrade, trades, userSettings, allDisplayAssets, activeSeason, user } = useApp()
+  const {
+    userTeam, respondToTrade, trades, userSettings, allDisplayAssets, activeSeason, user,
+    tradeVotes, castTradeVote, uid,
+  } = useApp()
   const [responding, setResponding] = useState(false)
   const [localStatus, setLocalStatus] = useState(trade.status)
   const [showCounter, setShowCounter] = useState(false)
@@ -159,8 +164,17 @@ export default function TradeDetailView({ trade, onClose }) {
           </div>
         </div>
 
-        <SideCard title={`${trade.proposingTeamName} sends`} assets={proposerAssets.map((a) => a.displayName)} />
-        <SideCard title={`${trade.receivingTeamName} sends`} assets={receiverAssets.map((a) => a.displayName)} />
+        {/* Framed as what each side GOT, not what it gave up. A trade reads
+            as "who got what" when you look it up later, and the two cards
+            cross over: what the proposer received is what the receiver sent. */}
+        <SideCard
+          title={`${trade.proposingTeamName} received from ${trade.receivingTeamName}`}
+          assets={receiverAssets.map((a) => a.displayName)}
+        />
+        <SideCard
+          title={`${trade.receivingTeamName} received from ${trade.proposingTeamName}`}
+          assets={proposerAssets.map((a) => a.displayName)}
+        />
 
         {trade.notes && (
           <div className="iff-card" style={{ padding: 14 }}>
@@ -224,6 +238,14 @@ export default function TradeDetailView({ trade, onClose }) {
           </>
         )}
 
+        <BoomDoomCard
+          trade={trade}
+          votes={tradeVotes}
+          uid={uid}
+          userTeam={userTeam}
+          onVote={castTradeVote}
+        />
+
         {/* ESPN execution checklist — shown once a deal is agreed. Rosters in
             THIS app update themselves instantly on accept; ESPN doesn't, so
             players still need a manual swap there. */}
@@ -284,6 +306,135 @@ function SideCard({ title, assets }) {
         assets.map((name, i) => (
           <div key={i} style={{ fontSize: 14, padding: '3px 0' }}>• {name}</div>
         ))
+      )}
+    </div>
+  )
+}
+
+/* ═══════════ BOOM / DOOM ═══════════ */
+// One permanent verdict per member: which side won this trade.
+//
+// The tally stays hidden until you've voted. Votes can never be changed, so
+// letting the crowd anchor a judgment you're stuck with would be worse than
+// the mild suspense of not seeing it. Once you've voted — or if you were in
+// the trade and never get one — the split is shown.
+//
+// The two sides take the app's validated chart pair rather than the two team
+// colors: team hues are assigned for identity across twelve franchises and
+// two of them landing side by side can be nearly indistinguishable. Position
+// and a direct label carry which team is which; color only separates the
+// segments.
+const BOOM_FILL = '#5488CE'
+const DOOM_FILL = '#C68334'
+
+function BoomDoomCard({ trade, votes, uid, userTeam, onVote }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const eligible = canVote(trade, userTeam)
+  const mine = myVote(votes, trade.id, uid)
+  const tally = tallyVotes(votes, trade)
+  const revealed = !!mine || !eligible
+
+  async function vote(team) {
+    setBusy(true)
+    setErr(null)
+    try {
+      await onVote(trade, team)
+    } catch (e) {
+      // Permanent by design — a rejection means it is already decided.
+      setErr(e?.code === 'permission-denied'
+        ? 'That verdict is already locked in.'
+        : e?.message || String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Boom or Doom
+        </div>
+        {revealed && (
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>
+            {tally.total} vote{tally.total === 1 ? '' : 's'}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.5, marginBottom: 10 }}>
+        {!userTeam
+          ? 'Only league members with a team can vote.'
+          : !eligible
+            ? 'You were in this one — the league decides this verdict, not you.'
+            : mine
+              ? 'Your verdict is locked in.'
+              : 'Who won it? One vote, and it can’t be changed.'}
+      </div>
+
+      {!revealed ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {tally.rows.map((r) => (
+            <button
+              key={r.team}
+              className="btn-outline"
+              disabled={busy}
+              onClick={() => vote(r.team)}
+              style={{ borderColor: teamByName[r.team]?.color ?? 'var(--iff-divider)', padding: '10px 8px' }}
+            >
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 800 }}>{r.team}</span>
+              <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, color: 'var(--iff-subtext)', letterSpacing: 0.5 }}>
+                BOOMED
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : tally.total === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>No verdicts yet.</div>
+      ) : (
+        <>
+          {/* 100% split. Direct-labeled at both ends, so the bar never has to
+              be decoded from color alone. */}
+          <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', gap: 2 }}>
+            {tally.rows.map((r, i) => (
+              <span
+                key={r.team}
+                style={{
+                  width: `${Math.max(r.share * 100, r.count > 0 ? 4 : 0)}%`,
+                  background: i === 0 ? BOOM_FILL : DOOM_FILL,
+                  borderRadius: i === 0 ? '4px 0 0 4px' : '0 4px 4px 0',
+                }}
+              />
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 7 }}>
+            {tally.rows.map((r, i) => (
+              <span key={r.team} style={{ textAlign: i === 0 ? 'left' : 'right', minWidth: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexDirection: i === 0 ? 'row' : 'row-reverse' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: i === 0 ? BOOM_FILL : DOOM_FILL, flexShrink: 0 }} />
+                  <span className="tnum" style={{ fontSize: 13, fontWeight: 900 }}>
+                    {Math.round(r.share * 100)}%
+                  </span>
+                </span>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 700, marginTop: 1 }}>{r.team}</span>
+                <span style={{ display: 'block', fontSize: 9.5, color: 'var(--iff-subtext)' }}>
+                  {r.count} vote{r.count === 1 ? '' : 's'}
+                  {mine?.votedFor === r.team ? ' · yours' : ''}
+                </span>
+              </span>
+            ))}
+          </div>
+          {tally.leader === null && (
+            <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 8, textAlign: 'center' }}>
+              Dead split — the league can’t agree.
+            </div>
+          )}
+        </>
+      )}
+
+      {err && (
+        <div style={{ fontSize: 11, color: '#EF4444', marginTop: 8 }}>{err}</div>
       )}
     </div>
   )

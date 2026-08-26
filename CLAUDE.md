@@ -14,19 +14,19 @@
 
 ```bash
 # Pull latest + pod install + open Xcode (run this before every archive)
-cd ~/Documents/Claude/Projects/IFFL-App && pod install && open CodeRed.xcworkspace
+cd ~/claude-agents/apps/iffl-web-app && pod install && open CodeRed.xcworkspace
 
 # Deploy Cloud Functions
-cd ~/Documents/Claude/Projects/IFFL-App && firebase deploy --only functions
+cd ~/claude-agents/apps/iffl-web-app && firebase deploy --only functions
 
 # Deploy WEB APP + security rules (hosting serves web/dist — see web/DEPLOY.md)
-cd ~/Documents/Claude/Projects/IFFL-App/web && npm run build && cd .. && firebase deploy --only hosting,firestore:rules
+cd ~/claude-agents/apps/iffl-web-app/web && npm run build && cd .. && firebase deploy --only hosting,firestore:rules
 
 # Web app local dev (http://localhost:5173 — add ?preview=1 for sample data, no sign-in)
-cd ~/Documents/Claude/Projects/IFFL-App/web && npm run dev
+cd ~/claude-agents/apps/iffl-web-app/web && npm run dev
 
 # Pull from active branch
-cd ~/Documents/Claude/Projects/IFFL-App && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
+cd ~/claude-agents/apps/iffl-web-app && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
 ```
 
 ## Web app (`web/`) at a glance
@@ -42,7 +42,24 @@ cd ~/Documents/Claude/Projects/IFFL-App && git pull --no-rebase origin claude/in
 - Xcode project: `CodeRed.xcodeproj` — but **always open `CodeRed.xcworkspace`**.
 - Bundle ID: `com.thebelt.app` (was `com.IFFLtest.CodeRed`; changed in The Belt rebrand → a NEW App Store Connect record). Dev team: `LNHDZQ76WT`.
 - Firebase project: **IFFL Auth** (id `iffl-auth`, sender `876749980452`). The archived `codered-2b3b4` project is dead — never reference it.
-- User's Mac path: `~/Documents/Claude/Projects/IFFL-App`.
+- **Deploy box — one clone, verified Aug 26, 2026:** `~/claude-agents/apps/iffl-web-app`.
+  Two earlier paths in these notes were wrong and each cost a session:
+  `~/Documents/Claude/Projects/IFFL-App` and
+  `~/Documents/Claude/Projects/IFFL/"iOS App"`. Neither exists. There is
+  also `~/Desktop/IFFL-backup-2026-08-16`, a dated snapshot — never deploy
+  from it.
+  The machine's hostname changed from `taylor-mac-pro` to `taylor-pro-2`
+  at some point; both names are the same MacBook Pro, not two machines.
+- **`web/.env` is gitignored and always will be.** It holds the Firebase
+  web config. A fresh clone therefore builds *successfully* and produces an
+  app that cannot reach Firebase — a silent failure that reads like a
+  broken deploy. Copy the file across by hand; template at
+  `web/.env.example`, values from Console → Project settings → Your apps → Web.
+- **`archive/taylor-pro-2-local`** holds work that once existed on that
+  laptop only: the parallel Supabase backend (`backend/` — migrations,
+  seed scripts, `2026_IFFL_Master.xlsx`) and a second native app
+  (`ios/IFFL/`, separate from the CodeRed target). Both are gitignored on
+  the working branch; `ios/build` alone is 600MB.
 - Branch protection on `main` — pushes are rejected, PRs required.
 - Active development branch: `claude/insanity-league-ios-app-g73Jo`.
 
@@ -114,7 +131,7 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - **MARKETING_VERSION = 3.0, CURRENT_PROJECT_VERSION = 12** (build 12 submitted to App Store review June 2026)
 
 ### Pending / next session
-- [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/Documents/Claude/Projects/IFFL/"iOS App"` (space in name — quotes required). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
+- [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/claude-agents/apps/iffl-web-app` (verified Aug 26 — earlier notes had two wrong paths). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
 - [x] **EMAIL AUTO-LINK ONBOARDING** — ✅ LIVE Aug 13, 2026. `claimTeam` callable matches verified Google email against `config/league.teamEmailMap` → auto-assigns team on first sign-in. All 11 member emails entered via web Admin → Teams → Auto-Link by Email. League onboarding = just share iffl-auth.web.app. NOTE: one legacy @icloud.com auth account exists (Sign in with Apple era) — can't be used on web; that member auto-links via their Gmail instead.
 - [x] **TRADE PORTAL v2 + GROUPME NOTIFICATIONS** — ✅ SHIPPED & VERIFIED LIVE Aug 13, 2026 (web). Incoming-offer badges + Dashboard banners, offer notes, counter-offer loop w/ chain history, ESPN execution checklist (players swap in ESPN / picks app-only), GroupMe DMs on propose/accept/decline/counter/execute via onTradeWrite (GROUPME_TOKEN secret in Secret Manager; team→GroupMe mapping in `config/groupme`, managed from web Admin → GroupMe). Jared confirmed end-to-end GroupMe test successful.
 - [ ] **Trade Portal UX review** — superseded by web Trade Portal v2 (above); iOS flow unchanged

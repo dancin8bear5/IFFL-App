@@ -4,6 +4,7 @@
 import { keeperDocId } from './keeperImport.js'
 import { assetTypeOf } from '../data/trades2026.js'
 import { planHistoricalImport } from './tradeImport.js'
+import { planAssetAddition, planAssetRemoval } from './tradeEdit.js'
 import {
   collection,
   doc,
@@ -603,6 +604,105 @@ export function castTradeVote({ tradeId, uid, votedFor, season, voterTeam }) {
     // No merge: a merge would quietly overwrite an existing verdict, which
     // is the one thing this feature must never do.
   )
+}
+
+// ── Repairing a recorded trade ────────────────────────────────
+// ESPN emails cannot carry draft picks, so a trade that auto-applies from
+// one moves the players and silently leaves any pick with its original
+// owner. These attach the missing asset to the trade that already exists
+// rather than recording a second one — two half-trades between the same
+// teams on the same day is a worse record than one incomplete trade,
+// because nothing afterwards can tell they were the same deal.
+
+const assetDoc = (assetType, assetId) =>
+  doc(db, assetType === 'draftPick' ? COL.draftPicks : COL.players, assetId)
+const ownerField = (assetType) => (assetType === 'draftPick' ? 'currentTeamName' : 'teamName')
+
+/**
+ * Add an asset that was part of the deal but never made it onto the trade.
+ *
+ * Moves the asset, records it on the correct side, and writes a ledger row —
+ * the same three effects a normal trade execution has, so a repaired trade
+ * is indistinguishable from one that was complete to begin with.
+ *
+ * Direction is derived from who currently holds the asset (see tradeEdit),
+ * so there is no way to attach it backwards.
+ */
+export async function addAssetToTrade(tradeId, asset, meta = {}) {
+  const snap = await getDoc(doc(db, COL.trades, tradeId))
+  if (!snap.exists()) throw new Error('That trade no longer exists.')
+  const trade = { id: snap.id, ...snap.data() }
+
+  const plan = planAssetAddition(trade, asset)
+  if (!plan.ok) throw new Error(plan.error)
+
+  const batch = writeBatch(db)
+  batch.update(assetDoc(plan.ref.assetType, plan.ref.assetId), {
+    [ownerField(plan.ref.assetType)]: plan.toTeam,
+    tradeHistory: arrayUnion(`via ${plan.fromTeam}`),
+  })
+  batch.update(doc(db, COL.trades, tradeId), {
+    [plan.side]: arrayUnion(plan.ref),
+    repairedAt: Timestamp.now(),
+  })
+  batch.set(doc(collection(db, COL.transactions)), {
+    type: 'trade',
+    season: trade.season ?? null,
+    teamName: plan.toTeam,
+    fromTeam: plan.fromTeam,
+    playerId: plan.ref.assetId,
+    playerName: plan.ref.displayName,
+    assetType: plan.ref.assetType,
+    relatedTradeId: tradeId,
+    note: 'Added to a recorded trade — missing from the original import',
+    actorUid: meta.actorUid ?? null,
+    createdAt: Timestamp.now(),
+  })
+  await batch.commit()
+  return plan
+}
+
+/**
+ * Undo an addition. Sends the asset back to the side that sent it and drops
+ * it from the trade. Direction is read off the trade, not from the caller.
+ *
+ * Note this does NOT strip the `via` note from the asset's tradeHistory:
+ * arrayRemove would also delete an identical note from a genuine earlier
+ * trade between the same two teams, which is a worse outcome than one stale
+ * line. The corrective ledger row below is the honest record.
+ */
+export async function removeAssetFromTrade(tradeId, assetId, meta = {}) {
+  const snap = await getDoc(doc(db, COL.trades, tradeId))
+  if (!snap.exists()) throw new Error('That trade no longer exists.')
+  const trade = { id: snap.id, ...snap.data() }
+
+  const plan = planAssetRemoval(trade, assetId)
+  if (!plan.ok) throw new Error(plan.error)
+
+  const { side, ...ref } = plan.ref
+  const batch = writeBatch(db)
+  batch.update(assetDoc(ref.assetType, ref.assetId), {
+    [ownerField(ref.assetType)]: plan.backTo,
+  })
+  batch.update(doc(db, COL.trades, tradeId), {
+    [plan.side]: arrayRemove(ref),
+    repairedAt: Timestamp.now(),
+  })
+  batch.set(doc(collection(db, COL.transactions)), {
+    type: 'trade',
+    season: trade.season ?? null,
+    teamName: plan.backTo,
+    fromTeam: plan.from,
+    playerId: ref.assetId,
+    playerName: ref.displayName,
+    assetType: ref.assetType,
+    relatedTradeId: tradeId,
+    note: 'Removed from a recorded trade — added in error',
+    actorUid: meta.actorUid ?? null,
+    createdAt: Timestamp.now(),
+  })
+  await batch.commit()
+  return plan
 }
 
 // ── Dropped-player lifecycle (§Rosters + §Luxury Tax) ─────────

@@ -18,6 +18,8 @@ import {
 import { PLAYOFF_TEAMS } from '../data/staticData'
 import { tradeCapImpact } from '../services/contracts'
 import { trades2026, pickTransfers } from '../data/trades2026'
+import { listedAssets } from '../services/tradeEdit'
+import { formatTradeDate } from '../services/models'
 import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
@@ -2099,6 +2101,7 @@ function TradesSection() {
         )}
       </div>
 
+      <RepairTradeSection />
       <KeeperSheetTradeImport />
       <EspnIngestQueue onFixManually={setPrefill} />
       <ExternalTradeSection prefill={prefill} onPrefillConsumed={() => setPrefill(null)} />
@@ -3345,6 +3348,148 @@ function ImportBigBoardCard() {
       {result && (
         <div style={{ fontSize: 12, color: result.ok ? 'var(--iff-green)' : 'var(--iff-accent)' }}>
           {result.msg}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Attach an asset the original import never saw — in practice a draft pick,
+ * because an ESPN trade email cannot contain one.
+ *
+ * Edits the existing trade rather than recording a second one. Two
+ * half-trades between the same teams on the same day is a worse record than
+ * one incomplete trade: nothing afterwards can tell they were the same deal.
+ */
+function RepairTradeSection() {
+  const { trades, allDisplayAssets, activeSeason, user } = useApp()
+  const [tradeId, setTradeId] = useState('')
+  const [assetId, setAssetId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  const done = useMemo(
+    () => trades
+      .filter((t) => t.status === 'completed' || t.status === 'historical')
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [trades],
+  )
+  const trade = done.find((t) => t.id === tradeId) ?? null
+  const onTrade = trade ? listedAssets(trade) : []
+
+  // Only assets held by one of the two teams can join, and the direction is
+  // derived from which one holds it — so the list is the whole input.
+  const candidates = useMemo(() => {
+    if (!trade) return []
+    const teams = [trade.proposingTeamName, trade.receivingTeamName]
+    const already = new Set(onTrade.map((a) => a.assetId))
+    return allDisplayAssets
+      .filter((a) => teams.includes(a.teamName) && !already.has(a.assetId))
+      .sort((a, b) => Number(b.isPick) - Number(a.isPick) || a.name.localeCompare(b.name))
+  }, [trade, allDisplayAssets, onTrade])
+
+  async function add() {
+    const a = candidates.find((c) => c.assetId === assetId)
+    if (!a) return
+    setBusy(true); setMsg(null)
+    try {
+      const plan = await fs.addAssetToTrade(trade.id, {
+        assetId: a.assetId,
+        assetType: a.isPick ? 'draftPick' : 'player',
+        displayName: a.name,
+        currentTeam: a.teamName,
+      }, { actorUid: user?.uid })
+      setMsg({ ok: true, text: `${a.name} moved ${plan.fromTeam} → ${plan.toTeam} and added to the trade.` })
+      setAssetId('')
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function drop(a) {
+    if (!window.confirm(`Remove ${a.displayName} from this trade?\n\nIt goes back to the team that sent it.`)) return
+    setBusy(true); setMsg(null)
+    try {
+      const plan = await fs.removeAssetFromTrade(trade.id, a.assetId, { actorUid: user?.uid })
+      setMsg({ ok: true, text: `${a.displayName} returned to ${plan.backTo}.` })
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <span>
+        <span style={{ display: 'block', fontSize: 14 }}>Fix a recorded trade</span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+          Add something the original import missed — almost always a draft pick, since an ESPN
+          trade email can&apos;t contain one. The asset moves for real and lands on the ledger;
+          which way it goes is worked out from whoever holds it now.
+        </span>
+      </span>
+
+      <select value={tradeId} onChange={(e) => { setTradeId(e.target.value); setAssetId(''); setMsg(null) }}>
+        <option value="">Pick a completed trade…</option>
+        {done.map((t) => (
+          <option key={t.id} value={t.id}>
+            {formatTradeDate(t.date)} — {t.proposingTeamName} ↔ {t.receivingTeamName}
+          </option>
+        ))}
+      </select>
+
+      {trade && (
+        <>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+            Currently on this trade ({activeSeason}):
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {onTrade.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>Nothing recorded.</span>
+            )}
+            {onTrade.map((a) => (
+              <div key={a.assetId} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                <span style={{ flex: 1 }}>
+                  {a.displayName}
+                  <span style={{ color: 'var(--iff-subtext)' }}>
+                    {' '}— sent by {a.side === 'assetsFromProposer' ? trade.proposingTeamName : trade.receivingTeamName}
+                  </span>
+                </span>
+                <button
+                  onClick={() => drop(a)}
+                  disabled={busy}
+                  aria-label={`Remove ${a.displayName}`}
+                  style={{ fontSize: 12, color: '#EF4444', padding: '2px 8px' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <select value={assetId} onChange={(e) => setAssetId(e.target.value)} style={{ flex: 1, minWidth: 200 }}>
+              <option value="">Add a missing asset…</option>
+              {candidates.map((a) => (
+                <option key={a.assetId} value={a.assetId}>
+                  {a.isPick ? '📋 ' : ''}{a.name} ({a.teamName})
+                </option>
+              ))}
+            </select>
+            <button className="btn-primary" onClick={add} disabled={!assetId || busy} style={{ padding: '8px 18px', fontSize: 13 }}>
+              {busy ? 'Working…' : 'Add to trade'}
+            </button>
+          </div>
+        </>
+      )}
+
+      {msg && (
+        <div style={{ fontSize: 12, color: msg.ok ? '#4ADE80' : '#EF4444', lineHeight: 1.5 }}>
+          {msg.text}
         </div>
       )}
     </div>

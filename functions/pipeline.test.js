@@ -415,3 +415,69 @@ test('G3 — cancelling with no reason still notifies cleanly', async () => {
   assert.equal(sent.push.length, 2)
   for (const p of sent.push) assert.ok(!/undefined|null/.test(p.notification.body), p.notification.body)
 })
+
+/* ═══════════════ PATH H — GroupMe delivery modes ═══════════════ */
+// During rollout only the commissioner should hear anything, so the mode
+// has to be enforced where the DM is actually sent — not at each call site.
+
+const dmBodies = (sent) => sent.groupme.map((g) => JSON.parse(g.body).direct_message)
+
+test('H1 — commissioner mode redirects another team\'s DM to the commissioner', async () => {
+  const seed = baseSeed()
+  seed.config.groupme = { mode: 'commissioner', userMap: { Jared: '111', Jason: '222' } }
+  const { pipeline, sent } = loadPipeline(seed)
+
+  // A new offer would normally DM the receiver, Jason.
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'proposed' }))
+
+  const dms = dmBodies(sent)
+  assert.equal(dms.length, 1)
+  assert.equal(dms[0].recipient_id, '111', 'must land on Jared, not Jason')
+  assert.match(dms[0].text, /would have gone to Jason/)
+  assert.ok(!dms.some((d) => d.recipient_id === '222'), 'Jason must receive nothing')
+})
+
+test('H2 — a DM already addressed to the commissioner is not tagged', async () => {
+  const seed = baseSeed()
+  seed.config.groupme = { mode: 'commissioner', userMap: { Jared: '111', Jason: '222' } }
+  const { pipeline, sent } = loadPipeline(seed)
+
+  // Declining Jared's offer DMs Jared — he is the intended recipient.
+  const before = { ...proposedTrade(), status: 'proposed' }
+  await pipeline.handleTradeWrite(evt(before, { ...before, status: 'rejected' }))
+
+  const dms = dmBodies(sent)
+  assert.equal(dms[0].recipient_id, '111')
+  assert.ok(!/would have gone to/.test(dms[0].text), 'no redirect tag on his own message')
+})
+
+test('H3 — paused still sends nothing at all', async () => {
+  const seed = baseSeed()
+  seed.config.groupme = { mode: 'paused', userMap: { Jared: '111', Jason: '222' } }
+  const { pipeline, sent } = loadPipeline(seed)
+
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'proposed' }))
+  assert.equal(sent.groupme.length, 0)
+})
+
+test('H4 — the legacy paused boolean still means paused', async () => {
+  // An un-migrated config must not start blasting the league.
+  const seed = baseSeed()
+  seed.config.groupme = { paused: true, userMap: { Jared: '111', Jason: '222' } }
+  const { pipeline, sent } = loadPipeline(seed)
+
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'proposed' }))
+  assert.equal(sent.groupme.length, 0)
+})
+
+test('H5 — all mode delivers to the team the message names', async () => {
+  const seed = baseSeed()
+  seed.config.groupme = { mode: 'all', userMap: { Jared: '111', Jason: '222' } }
+  const { pipeline, sent } = loadPipeline(seed)
+
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'proposed' }))
+
+  const dms = dmBodies(sent)
+  assert.equal(dms[0].recipient_id, '222', 'the receiver gets his own offer')
+  assert.ok(!/would have gone to/.test(dms[0].text))
+})

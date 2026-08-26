@@ -71,19 +71,49 @@ async function sendPush(teamName, title, body) {
 // Mapping lives in config/groupme: { userMap: { "<teamName>": "<groupmeUserId>" } }
 // DMs are sent from the commissioner's GroupMe account (the token owner).
 
+/**
+ * Delivery mode, from config/groupme (Admin → GroupMe):
+ *
+ *   "all"          — normal: every DM goes to the team it names.
+ *   "commissioner" — every DM is REDIRECTED to the commissioner, tagged with
+ *                    who it was meant for. Nobody else hears anything. This
+ *                    is the rollout setting: the pipeline can run for real
+ *                    while only one person is on the receiving end.
+ *   "paused"       — nothing is sent to anyone.
+ *
+ * Falls back to the older `paused` boolean so an un-migrated config keeps
+ * behaving exactly as it did.
+ */
+function groupMeMode(cfg) {
+  if (cfg.mode === "all" || cfg.mode === "commissioner" || cfg.mode === "paused") return cfg.mode;
+  return cfg.paused ? "paused" : "all";
+}
+
 async function sendGroupMeDM(teamName, text) {
   const token = GROUPME_TOKEN.value();
   if (!token) return;
   const cfgSnap = await db.doc("config/groupme").get();
   const cfg = cfgSnap.data() ?? {};
-  // Master pause switch (Admin → GroupMe) — silences ALL DMs while testing
-  if (cfg.paused) {
+
+  const mode = groupMeMode(cfg);
+  if (mode === "paused") {
     console.log(`GroupMe: paused — skipping DM to ${teamName}`);
     return;
   }
-  const recipientId = cfg.userMap?.[teamName] ?? null;
+
+  let target = teamName;
+  if (mode === "commissioner" && teamName !== COMMISSIONER_TEAM_NAME) {
+    // Redirected, not dropped: the commissioner sees the league's whole
+    // notification traffic during rollout, and the tag says who each one
+    // would have gone to.
+    text = `[would have gone to ${teamName}]\n${text}`;
+    target = COMMISSIONER_TEAM_NAME;
+    console.log(`GroupMe: commissioner-only — redirecting ${teamName}'s DM`);
+  }
+
+  const recipientId = cfg.userMap?.[target] ?? null;
   if (!recipientId) {
-    console.log(`GroupMe: no mapping for team ${teamName} — skipping DM`);
+    console.log(`GroupMe: no mapping for team ${target} — skipping DM`);
     return;
   }
   try {

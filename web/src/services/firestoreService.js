@@ -826,9 +826,23 @@ export function saveGroupMeConfig(config) {
   return setDoc(doc(db, COL.config, 'groupme'), config, { merge: true })
 }
 
-/** Master pause for all GroupMe DMs (checked server-side before every send). */
-export function setGroupMePaused(paused) {
-  return setDoc(doc(db, COL.config, 'groupme'), { paused }, { merge: true })
+/**
+ * Delivery mode for all GroupMe DMs, enforced server-side before every send:
+ *
+ *   'all'          — each DM goes to the team it names.
+ *   'commissioner' — every DM is redirected to the commissioner, tagged with
+ *                    who it was for. Nobody else hears anything.
+ *   'paused'       — nothing is sent to anyone.
+ *
+ * Writes the legacy `paused` boolean alongside, so anything still reading
+ * the old field keeps agreeing with the new one.
+ */
+export function setGroupMeMode(mode) {
+  return setDoc(
+    doc(db, COL.config, 'groupme'),
+    { mode, paused: mode === 'paused' },
+    { merge: true },
+  )
 }
 
 // ── Keeper-deadline CSV reconciliation (see services/keeperImport.js) ──

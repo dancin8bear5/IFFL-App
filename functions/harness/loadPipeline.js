@@ -66,15 +66,25 @@ function loadPipeline(seed = {}) {
   }))
   stubbed.push(stubModule('firebase-functions/v2/scheduler', { onSchedule: passthrough }))
   stubbed.push(stubModule('firebase-functions/params', {
-    // No secret values offline. sendGroupMeDM bails on a falsy token, which
-    // is what keeps these tests from ever reaching api.groupme.com.
-    defineSecret: (name) => ({ value: () => '', name }),
+    // GROUPME_TOKEN gets a dummy value so the DM path actually executes and
+    // its routing is testable; every other secret stays empty. Nothing
+    // reaches api.groupme.com regardless — fetch is stubbed below.
+    defineSecret: (name) => ({
+      value: () => (name === 'GROUPME_TOKEN' ? 'test-token' : ''),
+      name,
+    }),
   }))
   stubbed.push(stubModule('googleapis', { google: { auth: { OAuth2: class {} }, gmail: () => ({}) } }))
 
-  // Record GroupMe traffic instead of sending it. sendGroupMeDM would bail
-  // on the empty token anyway; this makes the intent observable.
-  const realFetch = globalThis.fetch
+  // Record GroupMe traffic instead of sending it.
+  //
+  // This stub must stay installed for the LIFETIME of the returned pipeline,
+  // not just while index.js is being required — the DMs are sent when a
+  // handler runs, long after load. Restoring it here (as an earlier version
+  // did) meant the tests were quietly making real network calls to
+  // api.groupme.com and recording nothing. Each loadPipeline installs a
+  // fresh stub bound to its own `sent`; tests in a file run sequentially,
+  // so the last one loaded is always the one under test.
   globalThis.fetch = async (url, opts) => {
     sent.groupme.push({ url: String(url), body: opts?.body })
     return { ok: true, status: 200, text: async () => '' }
@@ -84,8 +94,8 @@ function loadPipeline(seed = {}) {
   delete require.cache[indexPath]
   const mod = require(indexPath)
 
-  // Leave the process as we found it, so suites can't leak into each other.
-  globalThis.fetch = realFetch
+  // Leave the module cache as we found it, so suites can't leak into each
+  // other. fetch stays stubbed on purpose — see above.
   delete require.cache[indexPath]
   for (const r of stubbed) delete require.cache[r]
 

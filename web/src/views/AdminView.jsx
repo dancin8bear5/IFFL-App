@@ -2764,7 +2764,7 @@ function GroupMeSection() {
   const [directory, setDirectory] = useState(null) // {groups:[{id,name,members}]}
   const [groupId, setGroupId] = useState('')
   const [userMap, setUserMap] = useState({}) // teamName -> groupme userId
-  const [paused, setPaused] = useState(false)
+  const [mode, setMode] = useState('all')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -2777,20 +2777,20 @@ function GroupMeSection() {
         if (cfg) {
           setGroupId(cfg.groupId ?? '')
           setUserMap(cfg.userMap ?? {})
-          setPaused(cfg.paused ?? false)
+          setMode(cfg.mode ?? (cfg.paused ? 'paused' : 'all'))
         }
       })
       .catch(() => {})
   }, [])
 
-  async function togglePaused() {
-    const next = !paused
-    setPaused(next) // optimistic — toggle feels instant
+  async function chooseMode(next) {
+    const prev = mode
+    setMode(next) // optimistic — the control feels instant
     try {
-      await fs.setGroupMePaused(next)
+      await fs.setGroupMeMode(next)
     } catch (err) {
-      setPaused(!next)
-      setError(`Couldn't update pause: ${err.message}`)
+      setMode(prev)
+      setError(`Couldn't change delivery: ${err.message}`)
     }
   }
 
@@ -2835,32 +2835,47 @@ function GroupMeSection() {
         className="iff-card"
         style={{
           padding: 14, display: 'flex', alignItems: 'center', gap: 12,
-          border: paused ? '1.5px solid rgba(244,162,97,0.5)' : '1px solid transparent',
+          border: mode === 'all' ? '1px solid transparent' : '1.5px solid rgba(244,162,97,0.5)',
         }}
       >
-        <span style={{ fontSize: 20 }}>{paused ? '🔕' : '🔔'}</span>
+        <span style={{ fontSize: 20 }}>{mode === 'paused' ? '🔕' : mode === 'commissioner' ? '🔂' : '🔔'}</span>
         <span style={{ flex: 1 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
-            {paused ? 'GroupMe messages PAUSED' : 'GroupMe messages active'}
+            {mode === 'paused' ? 'GroupMe messages PAUSED'
+              : mode === 'commissioner' ? 'GroupMe messages — you only'
+                : 'GroupMe messages active'}
           </span>
-          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
-            {paused
-              ? 'No DMs are being sent — trade activity stays in-app only.'
-              : 'Trade offers and responses send DMs. Pause while testing.'}
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+            {mode === 'paused'
+              ? 'Nothing is sent to anyone — trade activity stays in-app only, and you will not be told when an import needs review.'
+              : mode === 'commissioner'
+                ? 'Every DM is redirected to you, tagged with who it was meant for. Nobody else receives anything.'
+                : 'Everyone gets their own DMs — offers, responses, and review alerts.'}
           </span>
         </span>
-        <button
-          role="switch"
-          aria-checked={!paused}
-          aria-label="GroupMe messages"
-          onClick={togglePaused}
-          style={{
-            width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
-            background: paused ? 'var(--iff-elevated)' : '#22C55E', transition: 'background 0.15s',
-          }}
-        >
-          <span style={{ position: 'absolute', top: 2, left: paused ? 2 : 20, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.35)' }} />
-        </button>
+        <span style={{ display: 'flex', gap: 4, background: 'var(--iff-elevated)', borderRadius: 9, padding: 3, flexShrink: 0 }}>
+          {[
+            ['paused', 'Off'],
+            ['commissioner', 'You only'],
+            ['all', 'Everyone'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => chooseMode(key)}
+              aria-pressed={mode === key}
+              style={{
+                padding: '5px 11px', borderRadius: 7, fontSize: 11, fontWeight: 700,
+                whiteSpace: 'nowrap',
+                background: mode === key
+                  ? (key === 'all' ? '#22C55E' : key === 'commissioner' ? 'var(--iff-gold)' : 'var(--iff-accent)')
+                  : 'transparent',
+                color: mode === key ? '#0A0D1A' : 'var(--iff-subtext)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>

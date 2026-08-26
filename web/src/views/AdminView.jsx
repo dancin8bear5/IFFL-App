@@ -1120,7 +1120,6 @@ const APP_AREAS = [
     { key: 'rosters', label: 'Rosters tab', glyph: '👥' },
     { key: 'players', label: 'Players tab', glyph: '🔎' },
     { key: 'market',  label: 'Market tab (FMK, matches, trades)', glyph: '⇄' },
-    { key: 'fmk',     label: 'F.M.K. ratings & matches (leaves Trades up)', glyph: '🔥' },
     { key: 'builder', label: 'Team Builder tab', glyph: '🧪' },
   ]},
   { group: 'Dashboard sections', items: [

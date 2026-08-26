@@ -4,6 +4,7 @@
 import { useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { DetailOverlay } from './shared'
+import { FMK_ENABLED } from '../data/staticData'
 
 const SIGNALS = [
   { key: 'kill',  label: 'Kill',  glyph: '💀', color: '#EF4444' },
@@ -30,7 +31,6 @@ export function AssetDetailBody({ asset, onProposeTrade }) {
     removeFMKSignal,
     userTeam,
     loadAllLeagueInterests,
-    areaEnabled,
   } = useApp()
 
   useEffect(() => {
@@ -117,7 +117,7 @@ export function AssetDetailBody({ asset, onProposeTrade }) {
             off, since both the league counts and the rating buttons are
             F.M.K. and would otherwise be a live back door into it from
             every player card. */}
-        {areaEnabled('fmk') && (
+        {FMK_ENABLED && (
         <div className="iff-card" style={{ padding: 16 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
             League Interest

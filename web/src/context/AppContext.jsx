@@ -4,6 +4,7 @@
 // listeners, and load the user's interests, FMK signals, and settings.
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { listenToAuth } from '../services/authService'
+import { FMK_ENABLED } from '../data/staticData'
 import * as fs from '../services/firestoreService'
 import { playerToDisplayAsset, pickToDisplayAsset } from '../services/models'
 import { withOwnedRanks } from '../services/ownedRank'
@@ -205,7 +206,11 @@ export function AppProvider({ children }) {
         fs.listenToDraftPicks(setDraftPicks),
         fs.listenToMessages(setMessages),
         fs.listenToTeamAvatars(setTeamAvatars),
-        fs.listenToAllFMKSignals(setAllLeagueFMK),
+        // FMK_ENABLED is off, so this whole-collection subscription would be
+        // paying for data nothing renders. Every consumer of allLeagueFMK is
+        // behind the flag and degrades to zero/empty, so it stays unsubscribed
+        // until the feature comes back.
+        ...(FMK_ENABLED ? [fs.listenToAllFMKSignals(setAllLeagueFMK)] : []),
         fs.listenToRules(setRules),
         fs.listenToTransactions(setTransactions),
         fs.listenToParlayConfig(setParlayConfig),

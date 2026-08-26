@@ -7,6 +7,7 @@
 // Dashboard is always on, and the admin account always sees everything.
 import { lazy, Suspense, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
+import { FMK_ENABLED } from '../data/staticData'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import Sidebar from '../components/Sidebar'
 import ErrorBoundary from '../components/ErrorBoundary'
@@ -57,9 +58,10 @@ export default function TabLayout({ tab, setTab }) {
   // The rename resolves at RENDER time rather than by remapping the array:
   // both navs locate a tab with TABS.indexOf(t), so handing them freshly
   // spread copies would return -1 and break tab switching outright.
-  const fmkOn = areaEnabled('fmk')
-  const labelOf = (t) => (t?.fmkLabel && !fmkOn ? 'Trades' : t?.label)
-  const shortOf = (t) => (t?.fmkLabel && !fmkOn ? 'Trades' : t?.short)
+  // FMK_ENABLED is a hard constant, not the admin-exempt area switch, so
+  // this reads "Trades" for the commissioner too.
+  const labelOf = (t) => (t?.fmkLabel && !FMK_ENABLED ? 'Trades' : t?.label)
+  const shortOf = (t) => (t?.fmkLabel && !FMK_ENABLED ? 'Trades' : t?.short)
   const visibleTabs = TABS.filter(inNav)
   const activeTab = TABS[tab] && !canSee(TABS[tab]) ? 0 : tab
 

@@ -2,6 +2,7 @@
 // Three sections: Interest (FMK swiper), Matches, Trades.
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
+import { FMK_ENABLED } from '../data/staticData'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { Segmented, TeamAvatar } from '../components/shared'
 import { formatTradeDate } from '../services/models'
@@ -66,12 +67,12 @@ export default function MarketView({ setTab }) {
   const isDesktop = useIsDesktop()
   const {
     matches, userTeam, trades, triggerTradeProposal, setTriggerTradeProposal,
-    loadAllLeagueInterests, areaEnabled,
+    loadAllLeagueInterests,
   } = useApp()
-  // F.M.K. can be switched off in Admin → Areas while it's still being
-  // tested, leaving the trade portal — the part the league already uses —
-  // running. Admins always see it, so testing continues uninterrupted.
-  const fmkOn = areaEnabled('fmk')
+  // F.M.K. is off for EVERYONE, commissioner included — see FMK_ENABLED in
+  // staticData.js. The trade portal below is untouched; this tab is now
+  // just the trade portal and is titled accordingly.
+  const fmkOn = FMK_ENABLED
   const [section, setSection] = useState(fmkOn ? 'Interest' : 'Trades')
   const [showSettings, setShowSettings] = useState(false)
   const [showProposal, setShowProposal] = useState(false)

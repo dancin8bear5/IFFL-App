@@ -71,6 +71,26 @@ export const STARTING_LINEUP = [
   { slot: 'D/ST', count: 1 },
 ]
 
+// ── Feature flags ─────────────────────────────────────────────
+/**
+ * F.M.K. — the swipe deck, the mutual-interest matching, the per-player
+ * ratings and the League Interest counts.
+ *
+ * OFF for everyone, deliberately as a hard constant rather than the
+ * Admin > Areas switch. That switch runs through areaEnabled(), which is
+ * admin-exempt by design — so with it off the league lost F.M.K. but the
+ * commissioner still saw it on every screen, which is not "hidden".
+ *
+ * Flipping this to true restores every F.M.K. surface at once. Nothing was
+ * deleted: the swiper, the matching engine in marketEngine.js, the
+ * playerFMK collection and its security rules are all still here and still
+ * tested. This is the only line that has to change.
+ *
+ * The trade portal is NOT part of this — it lives in the same tab and the
+ * league uses it weekly, so that tab stays, renamed "Trades".
+ */
+export const FMK_ENABLED = false
+
 // ── Season structure ──────────────────────────────────────────
 export const REGULAR_SEASON_WEEKS = 14
 export const PLAYOFF_TEAMS = 8       // top 8 make the playoffs

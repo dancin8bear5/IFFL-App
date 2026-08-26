@@ -2,7 +2,7 @@
 // Navigation is grouped by job (Data / Trades / League / Setup) rather
 // than one flat row, remembers the last section across visits, badges
 // the sections with work waiting, and is searchable. See SECTION_GROUPS.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar } from '../components/shared'
@@ -2037,6 +2037,34 @@ function TradesSection() {
   const { trades } = useApp()
   const pending = trades.filter((t) => t.status === 'proposed')
   const [prefill, setPrefill] = useState(null) // {teamA, teamB} from a flagged ingest, or null
+  const [cancelling, setCancelling] = useState(null)
+
+  /**
+   * Commissioner kill-switch for an offer nobody is going to answer.
+   *
+   * Only ever offered on 'proposed' trades — once a trade is accepted the
+   * assets have already moved, and undoing that is a different job than
+   * cancelling an offer. Sets 'cancelled' rather than deleting, so the
+   * record survives for the ledger.
+   */
+  async function cancel(t) {
+    const why = window.prompt(
+      `Cancel the ${t.proposingTeamName} ↔ ${t.receivingTeamName} offer?\n\n` +
+      'It leaves both teams\' trade lists and clears the pending badge. Nothing moves — ' +
+      'no assets change hands either way.\n\n' +
+      'Reason (optional, shown to both teams):',
+      '',
+    )
+    if (why === null) return
+    setCancelling(t.id)
+    try {
+      await fs.cancelTrade(t.id, why.trim())
+    } catch (e) {
+      alert(`Cancel failed: ${e.message}`)
+    } finally {
+      setCancelling(null)
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -2052,9 +2080,19 @@ function TradesSection() {
         ) : (
           pending.map((t, i) => (
             <div key={t.id} style={{ padding: '12px 14px', borderBottom: i < pending.length - 1 ? '1px solid var(--iff-divider)' : 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{t.proposingTeamName} ↔ {t.receivingTeamName}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)' }}>PROPOSED — awaiting {t.receivingTeamName}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)' }}>PROPOSED — awaiting {t.receivingTeamName}</span>
+                  <button
+                    className="btn-outline"
+                    disabled={cancelling === t.id}
+                    onClick={() => cancel(t)}
+                    style={{ fontSize: 11, padding: '4px 10px', borderColor: '#EF4444', color: '#EF4444', whiteSpace: 'nowrap' }}
+                  >
+                    {cancelling === t.id ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </span>
               </div>
             </div>
           ))
@@ -2167,6 +2205,18 @@ function EspnIngestQueue({ onFixManually }) {
   }, [isPreview])
 
   async function dismiss(id) {
+    // Dismiss only marks the ingest 'ignored' — it applies nothing. Hitting
+    // it on a real held trade drops that trade silently: no assets move and
+    // the item disappears, so nothing afterwards says it was lost. The two
+    // buttons look symmetrical and are not, so say so before it's too late.
+    const ok = window.confirm(
+      'Dismiss does NOT apply this trade.\n\n' +
+      'No players or picks will move and nothing is added to the ledger — it only ' +
+      'clears this item from the review queue.\n\n' +
+      'If this trade really happened, cancel and use "Log It" first.\n\n' +
+      'Dismiss anyway?',
+    )
+    if (!ok) return
     setBusyId(id)
     try {
       if (isPreview) setItems((prev) => prev.filter((i) => i.id !== id))
@@ -2248,7 +2298,7 @@ function EspnIngestQueue({ onFixManually }) {
               onClick={() => fixManually(item)}
               style={{ fontSize: 11.5, padding: '6px 12px' }}
             >
-              Record it below ›
+              Log It ›
             </button>
             <button
               className="btn-outline"
@@ -2266,7 +2316,34 @@ function EspnIngestQueue({ onFixManually }) {
   )
 }
 
+/**
+ * Scroll `el` to the top of whichever ancestor actually scrolls.
+ *
+ * Not scrollIntoView: the Admin panel sits inside nested .overlay-scroll
+ * containers, and the browser treats a section that is merely on-screen as
+ * "already in view" and does nothing — which is exactly the case that made
+ * the Log It button look dead. Walking to the real scroll parent and setting
+ * scrollTop is deterministic.
+ */
+function scrollToTopOf(el) {
+  if (!el) return
+  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 4) {
+      const delta = el.getBoundingClientRect().top - p.getBoundingClientRect().top - 12
+      p.scrollTo({ top: p.scrollTop + delta, behavior: smooth ? 'smooth' : 'auto' })
+      return
+    }
+  }
+  el.scrollIntoView({ block: 'start' })
+}
+
 function ExternalTradeSection({ prefill, onPrefillConsumed }) {
+  // "Log It" fills these fields from a held import, but the section sits below
+  // the fold on a normal window — so the click filled them invisibly and read
+  // as a dead button. Scroll to what was just filled in.
+  const sectionRef = useRef(null)
   const { allDisplayAssets, activeSeason } = useApp()
   const [teamA, setTeamA] = useState('')
   const [teamB, setTeamB] = useState('')
@@ -2275,6 +2352,11 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(null)
+  // "Log It" fills this form from a held import. Scrolling alone proved
+  // unreliable to verify across the nested admin overlays, so the section
+  // also says out loud that it was just pre-filled — feedback that doesn't
+  // depend on where the viewport happens to be.
+  const [prefilled, setPrefilled] = useState(false)
 
   // Coming from a flagged ESPN import — set the teams so the commissioner
   // only has to fix the ambiguous player(s), not re-pick everything.
@@ -2284,6 +2366,11 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
     setTeamB(prefill.teamB ?? '')
     setFromA(new Set())
     setFromB(new Set())
+    // Deferred a frame: setTeamA above expands this section with the team's
+    // roster, and measuring before React commits that gives a stale offset —
+    // which is why the earlier scrollIntoView appeared to do nothing at all.
+    setPrefilled(true)
+    requestAnimationFrame(() => scrollToTopOf(sectionRef.current))
     onPrefillConsumed?.()
   }, [prefill, onPrefillConsumed])
 
@@ -2327,6 +2414,7 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
         source: 'espn',
       })
       setDone(id)
+      setPrefilled(false)
       setTeamA(''); setTeamB(''); setFromA(new Set()); setFromB(new Set()); setNotes('')
     } catch (e) {
       alert(`Failed: ${e.message}`)
@@ -2336,7 +2424,21 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div ref={sectionRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, scrollMarginTop: 12 }}>
+      {prefilled && (
+        <div
+          role="status"
+          className="iff-card"
+          style={{
+            padding: '10px 13px', border: '1.5px solid var(--iff-accent)',
+            fontSize: 12, lineHeight: 1.5,
+          }}
+        >
+          <b style={{ color: 'var(--iff-accent)' }}>Pre-filled from the held import.</b>{' '}
+          Both teams are set below — pick the players and picks that actually moved, then
+          <b> Record &amp; Execute</b>. Dismiss the review item afterwards.
+        </div>
+      )}
       <div style={{ fontSize: 13, fontWeight: 800 }}>Record External Trade</div>
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.55 }}>
         For a deal that happened outside the app — most often executed straight in ESPN. Pick both

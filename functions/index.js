@@ -10,6 +10,7 @@ const {reconcile} = require("./tradeReconcile");
 const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
 const {runFeedSync} = require("./ifflFeedSync");
+const {parseScoreboard, currentWeek, inGameWindow} = require("./espnScores");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -36,6 +37,9 @@ const GMAIL_REFRESH_TOKEN = defineSecret("GMAIL_REFRESH_TOKEN");
 // so it lives as a secret, never in git.
 const IFFL_FEED_URL = defineSecret("IFFL_FEED_URL");
 const ESPN_TRADE_LABEL = "espn-trade";
+// Mirrors web/src/data/staticData.js ESPN_LEAGUE_ID — the two runtimes
+// share no module, the same way ESPN_TEAM_MAP is duplicated in tradeIngest.
+const ESPN_LEAGUE_ID = "331652";
 
 const APP_URL = "https://iffl-auth.web.app";
 const COMMISSIONER_EMAIL = "jaredrogtaylor@gmail.com";
@@ -873,6 +877,59 @@ async function fetchGroupMeMessagesSince(token, afterId) {
  * becomes a diff report (config/ifflFeedReport) and a commissioner DM;
  * nothing is applied. The engine and its tests live in ifflFeedSync.js.
  */
+/**
+ * Live scoreboard from ESPN's public v3 API — the same endpoint their own
+ * site calls. No key, no cookies, no scraping.
+ *
+ * Writes to espnLiveScores/{season}, which is DELIBERATELY not the
+ * weeklyScores collection the league's charts read: this is on trial, and a
+ * separate collection means test mode cannot leak into anyone's Dashboard.
+ * Visibility is a separate decision (config/league.liveScores), and the
+ * write happens either way so there is real data to look at before it ships.
+ *
+ * Polls every 3 minutes but returns immediately outside NFL game windows —
+ * the scoreboard cannot move on a Tuesday, and this would otherwise burn a
+ * run every three minutes for five months.
+ */
+exports.pollEspnScores = onSchedule(
+  {schedule: "every 3 minutes", timeZone: "America/Chicago", retryCount: 0},
+  async () => {
+    const cfgSnap = await db.doc("config/league").get();
+    const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
+    const stateRef = db.doc(`espnLiveScores/${season}`);
+
+    // `force` lets the commissioner pull a scoreboard out of window while
+    // evaluating this — otherwise there would be nothing to look at until
+    // kickoff.
+    const force = (await stateRef.get()).data()?.forcePoll === true;
+    if (!force && !inGameWindow(new Date(), 1)) return;
+
+    const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
+      `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mMatchupScore`;
+    let data;
+    try {
+      const res = await fetch(url, {headers: {"User-Agent": "iffl-app/1.0"}});
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch (e) {
+      console.error("pollEspnScores: fetch failed:", e.message);
+      await stateRef.set({lastError: e.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true});
+      return;
+    }
+
+    const board = parseScoreboard(data, currentWeek(data));
+    await stateRef.set({
+      season,
+      week: board.week,
+      games: board.games,
+      problems: board.problems,
+      lastError: null,
+      lastRunAt: admin.firestore.Timestamp.now(),
+    }, {merge: true});
+    console.log(`pollEspnScores: week ${board.week}, ${board.games.length} games, ${board.problems.length} problems`);
+  },
+);
+
 exports.pollIfflFeed = onSchedule(
   {
     schedule: "every 5 minutes",

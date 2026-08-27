@@ -1143,7 +1143,19 @@ const APP_AREAS = [
 ]
 
 function AreasSection() {
-  const { disabledAreas, toggleArea, bigBoardInNav, toggleBigBoardInNav } = useApp()
+  const { disabledAreas, toggleArea, bigBoardInNav, toggleBigBoardInNav, liveScoresMode, setLiveScoresMode, isPreview } = useApp()
+
+  async function chooseScores(next) {
+    const prev = liveScoresMode
+    setLiveScoresMode(next) // optimistic
+    if (isPreview) return // no Firestore auth in preview; local state is the point
+    try {
+      await fs.setLiveScoresMode(next)
+    } catch (e) {
+      setLiveScoresMode(prev)
+      alert(`Couldn't change live scores: ${e.message}`)
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -1174,6 +1186,36 @@ function AreasSection() {
         >
           <span style={{ position: 'absolute', top: 2, left: bigBoardInNav ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
         </button>
+      </div>
+
+      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ flex: 1, minWidth: 220 }}>
+          <span style={{ display: 'block', fontSize: 14 }}>📺 Live scoreboard (ESPN)</span>
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+            This week&apos;s matchup scores, pulled from ESPN every few minutes during games.
+            <b> You only</b> is the trial setting — it runs for real and nobody else sees the card.
+            Kept in its own collection, so it can never reach the league&apos;s season charts while
+            it&apos;s being evaluated.
+          </span>
+        </span>
+        <span style={{ display: 'flex', gap: 4, background: 'var(--iff-elevated)', borderRadius: 9, padding: 3, flexShrink: 0 }}>
+          {[['off', 'Off'], ['commissioner', 'You only'], ['all', 'Everyone']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => chooseScores(key)}
+              aria-pressed={liveScoresMode === key}
+              style={{
+                padding: '5px 11px', borderRadius: 7, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                background: liveScoresMode === key
+                  ? (key === 'all' ? '#22C55E' : key === 'commissioner' ? 'var(--iff-gold)' : 'var(--iff-accent)')
+                  : 'transparent',
+                color: liveScoresMode === key ? '#0A0D1A' : 'var(--iff-subtext)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
       </div>
 
       {APP_AREAS.map((g) => (

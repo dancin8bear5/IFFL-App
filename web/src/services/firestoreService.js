@@ -579,6 +579,26 @@ export async function applyPickTransfers(transfers, meta = {}) {
   return { applied, skipped }
 }
 
+// ── Live scoreboard (ESPN v3, written by pollEspnScores) ──────
+// Its own collection on purpose: while this is on trial it must not be
+// able to reach the league's season charts, which read weeklyScores.
+
+export function listenToLiveScores(season, callback, onError) {
+  return onSnapshot(
+    doc(db, 'espnLiveScores', String(season)),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    (err) => {
+      console.error(`listenToLiveScores(${season}) failed:`, err)
+      onError?.(err)
+    },
+  )
+}
+
+/** 'off' | 'commissioner' | 'all' — who can see the live scoreboard. */
+export function setLiveScoresMode(mode) {
+  return updateDoc(doc(db, COL.config, 'league'), { liveScores: mode })
+}
+
 // ── Trade BOOM/DOOM votes ─────────────────────────────────────
 // One permanent verdict per member per trade: which side won it. See
 // services/tradeVotes.js for the rules this enforces and firestore.rules

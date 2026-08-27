@@ -89,6 +89,7 @@ export function AppProvider({ children }) {
   // Off unless the config says otherwise — the Big Board stays out of
   // the nav by default and is reached by its #board URL.
   const [bigBoardInNav, setBigBoardInNav] = useState(false)
+  const [liveScoresMode, setLiveScoresMode] = useState('off')
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
   const [selectedAssetForTrade, setSelectedAssetForTrade] = useState(null)
@@ -185,6 +186,7 @@ export function AppProvider({ children }) {
           setDisabledAreas(new Set(config.disabledAreas ?? []))
           setRolloverArmed(config.rolloverArmed ?? false)
           setBigBoardInNav(config.bigBoardInNav ?? false)
+          setLiveScoresMode(config.liveScores ?? 'off')
           setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
           const team = config.userTeamMap?.[uid]
           if (team) {
@@ -682,6 +684,7 @@ export function AppProvider({ children }) {
     players, draftPicks, trades, messages,
     tradeVotes, castTradeVote, uid,
     isPreview: DEV_PREVIEW,
+    liveScoresMode, setLiveScoresMode,
     allDisplayAssets, droppedPlayers, matches, myMatchCount,
     // FMK + interests
     fmkSignals, allLeagueFMK, currentFMKSignal, setFMKSignal, removeFMKSignal,

@@ -15,6 +15,7 @@ import TrophyRoomView from '../components/TrophyRoomView'
 import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
+import LiveScoreboard from '../components/LiveScoreboard'
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
@@ -451,6 +452,9 @@ export default function DashboardView({ setTab }) {
 
   // Off-season: a 5-week look-ahead (this week + next 4) with every league
   // activity in the window. In-season: the old next-milestones strip.
+  // Renders itself only when the mode allows it — see LiveScoreboard.
+  const liveScores = <LiveScoreboard />
+
   const calendar = isOffSeason ? (
     <div>
       <SectionHeader title="League Calendar" />
@@ -777,6 +781,7 @@ export default function DashboardView({ setTab }) {
         ) : (
           <div className="dash-grid">
             <div className="dash-main">
+              {liveScores}
               {powerChart}
               {scoringSection}
               {playoffSection}
@@ -828,6 +833,7 @@ export default function DashboardView({ setTab }) {
         <LoadingList count={4} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
+          {liveScores}
           {powerChart}
           {scoringSection}
           {playoffSection}

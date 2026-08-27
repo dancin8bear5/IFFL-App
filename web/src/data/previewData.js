@@ -460,3 +460,16 @@ export const previewHistoryLineups = (() => {
   })
   return { sinceSeason: 2023, rows, positionShare }
 })()
+
+/** A mid-Sunday scoreboard, so the live-scores card is reviewable offline. */
+export const previewLiveScores = {
+  season: 2026, week: 1, problems: [],
+  games: [
+    { matchupId: 1, away: 'M. Zurek', home: 'Wayne', awayScore: 88.1, homeScore: 92.4, final: false },
+    { matchupId: 2, away: 'Jason', home: 'Cantone', awayScore: 104.6, homeScore: 71.2, final: false },
+    { matchupId: 3, away: 'Abad', home: 'Dugan', awayScore: 66.0, homeScore: 66.0, final: false },
+    { matchupId: 4, away: 'A. Zurek', home: 'Jared', awayScore: 79.8, homeScore: 118.3, final: true },
+    { matchupId: 5, away: 'Foley', home: 'Faybik', awayScore: 95.5, homeScore: 90.1, final: false },
+    { matchupId: 6, away: 'Ryan', home: 'Bill', awayScore: 61.4, homeScore: 133.9, final: true },
+  ],
+}

@@ -13,6 +13,7 @@ import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
 import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
+import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
 import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
@@ -23,6 +24,26 @@ import SettingsView from './SettingsView'
 import { useEffect } from 'react'
 
 const KEEPER_POS = ['QB', 'RB', 'WR', 'TE']
+
+// ── League Calendar tile palette ──────────────────────────────
+// The calendar tiles wear their milestone's own color at full strength
+// rather than as an accent on a dark card. It's the one strip on the
+// Dashboard that has to be findable at a glance, and a saturated block
+// does that where a tinted card doesn't — it also breaks the page's long
+// run of identical dark cards into visible sections.
+//
+// The ink is near-black on every hue, and that is measured, not taste:
+// white fails WCAG AA on four of the six milestone colors (2.06:1 on the
+// auction gold, 2.28:1 on the kickoff green), while #0A0D1A clears AA on
+// all six — 4.64:1 on the tightest, the Rosters Frozen red, up to 9.39:1.
+//
+// For the same reason the secondary date line is NOT dimmed. Near-black at
+// any alpha at all drops that red tile under 4.5:1 (0.88 alpha still only
+// reaches 4.25:1), so the hierarchy is carried by size and weight instead
+// of opacity. Re-check these if a milestone color ever changes.
+const CAL_INK = '#0A0D1A'
+const CAL_VEIL = 'rgba(255,255,255,0.34)' // icon disc + day pill; ink on it holds ≥6.4:1
+const CAL_RING = 'rgba(10,13,26,0.55)' // "happening this week" ring; reads on all six hues
 
 const ordinal = (n) =>
   `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
@@ -347,7 +368,16 @@ export default function DashboardView({ setTab }) {
   // Leads the Dashboard on both layouts — the one view that answers
   // "where does everyone stand" without a tap. Tapping opens the full
   // ranked list + cap tracker.
-  const powerChart = <PowerRankingsChart onOpenFull={() => setHistoryView('power')} />
+  //
+  // Which ranking that is depends on the calendar. In-season it's roster
+  // salary, and tapping opens the ranked list + cap tracker. Between
+  // seasons salary ranks nothing anyone is playing for yet, so the board
+  // switches to the all-time ranking — career wins + championships — and
+  // taps through to the full history table instead. It flips back on its
+  // own the moment the commissioner clears the off-season flag.
+  const powerChart = isOffSeason
+    ? <LegacyPowerRankings onOpenFull={() => setHistoryView('table')} />
+    : <PowerRankingsChart onOpenFull={() => setHistoryView('power')} />
 
   // In-season only. Off-season this is a chart of nothing — the last
   // completed season already has its own home in Last Season / League
@@ -833,26 +863,42 @@ function WeeklyCalendar({ isDesktop }) {
   const eventCard = (m) => {
     const days = Math.round((m.date - dayStart) / 86400000)
     const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days < 0 ? 'Done' : `in ${days} days`
+    // Colour means "still ahead of you". A date that has passed drains back
+    // to the ordinary dark card — which also sidesteps the contrast trap in
+    // the old `opacity: 0.6`: fading a colored tile toward the near-black
+    // page takes its near-black ink with it (2.30:1 on the red at 0.6).
+    const past = days < 0
+    const thisWeek = days >= 0 && days <= 7
     return (
       <div
         key={m.name}
         className="iff-card"
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', minWidth: 0,
-          border: days >= 0 && days <= 7 ? '1.5px solid rgba(230,57,70,0.45)' : '1px solid transparent',
-          opacity: days < 0 ? 0.6 : 1,
+          background: past ? undefined : m.color,
+          border: thisWeek ? `1.5px solid ${CAL_RING}` : '1px solid transparent',
+          opacity: past ? 0.75 : 1,
         }}
       >
-        <span style={{ width: 32, height: 32, borderRadius: '50%', background: `${m.color}26`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+        <span style={{ width: 32, height: 32, borderRadius: '50%', background: past ? `${m.color}26` : CAL_VEIL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
           {m.icon}
         </span>
         <span style={{ minWidth: 0, flex: 1 }}>
-          <span style={{ display: 'block', fontSize: 13, fontWeight: 800, lineHeight: 1.2 }}>{m.name}</span>
-          <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: m.color, marginTop: 2 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 800, lineHeight: 1.2, color: past ? undefined : CAL_INK }}>
+            {m.name}
+          </span>
+          <span style={{ display: 'block', fontSize: 11, fontWeight: past ? 700 : 600, color: past ? m.color : CAL_INK, marginTop: 2 }}>
             {m.date.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </span>
         </span>
-        <span style={{ fontSize: 9.5, fontWeight: 700, color: m.color, background: `${m.color}1F`, padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap' }}>
+        <span
+          style={{
+            fontSize: 9.5, fontWeight: past ? 700 : 800,
+            color: past ? m.color : CAL_INK,
+            background: past ? `${m.color}1F` : CAL_VEIL,
+            padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
+          }}
+        >
           {daysLabel}
         </span>
       </div>
@@ -885,18 +931,22 @@ function MilestoneCard({ milestone }) {
   const month = milestone.date.toLocaleString('en-US', { month: 'short' }).toUpperCase()
 
   return (
-    <div className="iff-card" style={{ width: 110, overflow: 'hidden', flexShrink: 0 }}>
-      <div style={{ height: 4, background: milestone.color, borderRadius: '12px 12px 0 0' }} />
-      <div style={{ padding: '10px 10px 12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <span style={{ width: 38, height: 38, borderRadius: '50%', background: `${milestone.color}26`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+    // Same treatment as the off-season WeeklyCalendar tiles — see the
+    // CAL_INK palette note. The old 4px color cap is gone: it was there to
+    // identify the milestone by hue, and the whole tile now does that.
+    <div className="iff-card" style={{ width: 110, overflow: 'hidden', flexShrink: 0, background: milestone.color }}>
+      <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 38, height: 38, borderRadius: '50%', background: CAL_VEIL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
           {milestone.icon}
         </span>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: milestone.color, letterSpacing: 0.5 }}>{month}</div>
+        <div style={{ textAlign: 'center', color: CAL_INK }}>
+          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>{month}</div>
           <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1 }}>{milestone.date.getDate()}</div>
         </div>
-        <div style={{ fontSize: 10, fontWeight: 600, textAlign: 'center', lineHeight: 1.3 }}>{milestone.name}</div>
-        <span style={{ fontSize: 9, fontWeight: 600, color: milestone.color, background: `${milestone.color}1F`, padding: '2px 8px', borderRadius: 20 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'center', lineHeight: 1.3, color: CAL_INK }}>
+          {milestone.name}
+        </div>
+        <span style={{ fontSize: 9, fontWeight: 800, color: CAL_INK, background: CAL_VEIL, padding: '2px 8px', borderRadius: 20 }}>
           {daysLabel}
         </span>
       </div>

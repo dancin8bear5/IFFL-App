@@ -93,11 +93,19 @@ export function defaultSort(rows) {
   )
 }
 
-/** League-wide superlatives for the Trophy Room records wall. */
-export function computeRecords(rows, history) {
-  if (!rows.length) return []
+/**
+ * League-wide superlatives for the Trophy Room records wall.
+ *
+ * `isEligible(team)` gates who can HOLD a record. The Trophy Room passes a
+ * current-membership test, so a departed manager can't sit at the top of a
+ * wall about the people still in the league. It defaults to allowing
+ * everyone, so callers that want the full historical picture get it.
+ */
+export function computeRecords(rows, history, isEligible = () => true) {
+  const eligible = rows.filter((r) => isEligible(r.team))
+  if (!eligible.length) return []
   const by = (fn, dir = 'max') =>
-    [...rows].sort((a, b) => (dir === 'max' ? fn(b) - fn(a) : fn(a) - fn(b)))[0]
+    [...eligible].sort((a, b) => (dir === 'max' ? fn(b) - fn(a) : fn(a) - fn(b)))[0]
 
   const records = []
   const champs = by((r) => r.championships)
@@ -109,7 +117,7 @@ export function computeRecords(rows, history) {
   const pct = by((r) => (r.seasons >= 3 ? r.pct : -1))
   if (pct) records.push({ label: 'Best Win %', team: pct.team, value: `${(pct.pct * 100).toFixed(1)}%` })
 
-  const withPoints = rows.filter((r) => r.pointsFor != null)
+  const withPoints = eligible.filter((r) => r.pointsFor != null)
   if (withPoints.length) {
     const pts = withPoints.sort((a, b) => b.pointsFor - a.pointsFor)[0]
     records.push({ label: 'All-Time Points', team: pts.team, value: pts.pointsFor.toLocaleString('en-US', { maximumFractionDigits: 0 }) })
@@ -126,7 +134,7 @@ export function computeRecords(rows, history) {
   let bestStreak = { team: null, len: 0 }
   let cur = { team: null, len: 0, lastSeason: null }
   for (const s of seasonsAsc) {
-    if (!s.champion) continue
+    if (!s.champion || !isEligible(s.champion)) continue
     if (s.champion === cur.team && s.season === (cur.lastSeason ?? -99) + 1) {
       cur.len += 1
     } else {
@@ -165,12 +173,17 @@ function placeMaps(history) {
  *   bestSeason / worstSeason — highest/lowest single-season win pct
  *   turnaround / collapse    — biggest year-over-year place jump/fall
  * Each entry carries team, season(s), and display detail.
+ *
+ * `isEligible(team)` gates who can hold one, same as computeRecords. Places
+ * are still read from the full standings, so a filtered team's finish stays
+ * accurate — it just can't be the one reported.
  */
-export function computeSuperlatives(history) {
+export function computeSuperlatives(history, isEligible = () => true) {
   let best = null
   let worst = null
   for (const s of history) {
     for (const row of s.standings ?? []) {
+      if (!isEligible(row.teamName)) continue
       const { w, l, t } = parseRecord(row.record)
       const games = w + l + t
       if (games === 0) continue
@@ -190,6 +203,7 @@ export function computeSuperlatives(history) {
     const prev = maps.get(seasons[i - 1])
     const cur = maps.get(seasons[i])
     for (const [team, place] of cur) {
+      if (!isEligible(team)) continue
       const prevPlace = prev.get(team)
       if (prevPlace == null) continue
       const delta = prevPlace - place

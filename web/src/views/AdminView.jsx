@@ -2,7 +2,7 @@
 // Navigation is grouped by job (Data / Trades / League / Setup) rather
 // than one flat row, remembers the last section across visits, badges
 // the sections with work waiting, and is searchable. See SECTION_GROUPS.
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar } from '../components/shared'
@@ -17,6 +17,9 @@ import {
 } from '../services/playoffs'
 import { PLAYOFF_TEAMS } from '../data/staticData'
 import { tradeCapImpact } from '../services/contracts'
+import { trades2026, pickTransfers } from '../data/trades2026'
+import { listedAssets } from '../services/tradeEdit'
+import { formatTradeDate } from '../services/models'
 import TaxWarning from '../components/TaxWarning'
 import { getFunctionsClient } from '../firebase'
 import { httpsCallable } from 'firebase/functions'
@@ -2036,6 +2039,34 @@ function TradesSection() {
   const { trades } = useApp()
   const pending = trades.filter((t) => t.status === 'proposed')
   const [prefill, setPrefill] = useState(null) // {teamA, teamB} from a flagged ingest, or null
+  const [cancelling, setCancelling] = useState(null)
+
+  /**
+   * Commissioner kill-switch for an offer nobody is going to answer.
+   *
+   * Only ever offered on 'proposed' trades — once a trade is accepted the
+   * assets have already moved, and undoing that is a different job than
+   * cancelling an offer. Sets 'cancelled' rather than deleting, so the
+   * record survives for the ledger.
+   */
+  async function cancel(t) {
+    const why = window.prompt(
+      `Cancel the ${t.proposingTeamName} ↔ ${t.receivingTeamName} offer?\n\n` +
+      'It leaves both teams\' trade lists and clears the pending badge. Nothing moves — ' +
+      'no assets change hands either way.\n\n' +
+      'Reason (optional, shown to both teams):',
+      '',
+    )
+    if (why === null) return
+    setCancelling(t.id)
+    try {
+      await fs.cancelTrade(t.id, why.trim())
+    } catch (e) {
+      alert(`Cancel failed: ${e.message}`)
+    } finally {
+      setCancelling(null)
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -2051,17 +2082,93 @@ function TradesSection() {
         ) : (
           pending.map((t, i) => (
             <div key={t.id} style={{ padding: '12px 14px', borderBottom: i < pending.length - 1 ? '1px solid var(--iff-divider)' : 'none' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{t.proposingTeamName} ↔ {t.receivingTeamName}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)' }}>PROPOSED — awaiting {t.receivingTeamName}</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)' }}>PROPOSED — awaiting {t.receivingTeamName}</span>
+                  <button
+                    className="btn-outline"
+                    disabled={cancelling === t.id}
+                    onClick={() => cancel(t)}
+                    style={{ fontSize: 11, padding: '4px 10px', borderColor: '#EF4444', color: '#EF4444', whiteSpace: 'nowrap' }}
+                  >
+                    {cancelling === t.id ? 'Cancelling…' : 'Cancel'}
+                  </button>
+                </span>
               </div>
             </div>
           ))
         )}
       </div>
 
+      <RepairTradeSection />
+      <KeeperSheetTradeImport />
       <EspnIngestQueue onFixManually={setPrefill} />
       <ExternalTradeSection prefill={prefill} onPrefillConsumed={() => setPrefill(null)} />
+    </div>
+  )
+}
+
+/**
+ * One-time backfill of the 2026 trades from the Keeper Master sheet.
+ *
+ * Ledger only — deliberately not Record External Trade below, which moves
+ * the assets. These deals are already reflected in the rosters, so this
+ * writes history and nothing else. Safe to re-run: doc ids are derived from
+ * the trade, so a second run overwrites in place instead of duplicating.
+ */
+function KeeperSheetTradeImport() {
+  const { activeSeason, user } = useApp()
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 14 }}>Import 2026 Trades from Keeper Sheet</span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          The {trades2026.length} deals dated Feb 1 2026 or later, from the Keeper Master trade tab.
+          Writes the ledger entries, and moves any draft pick that changed hands — ESPN can&apos;t
+          roster picks, so trades made outside this app never moved them. Players are left alone;
+          ESPN is authoritative there.
+          <b> Additive only:</b> an entry that already exists is never rewritten, so notes added by
+          hand are safe. To genuinely re-import a corrected trade, delete that trade first.
+        </span>
+      </span>
+      <button
+        className="btn-outline"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true)
+          try {
+            const { imported, skipped } = await fs.seedHistoricalTrades(
+              trades2026, activeSeason, { actorUid: user?.uid },
+            )
+            const picks = await fs.applyPickTransfers(pickTransfers(), {
+              season: activeSeason, actorUid: user?.uid,
+            })
+
+            const lines = [`Ledger: imported ${imported} of ${trades2026.length} trades.`]
+            if (skipped.length) {
+              lines.push('', `Left untouched (${skipped.length}):`)
+              lines.push(...skipped.map((s) => `· ${s.row.date}  ${s.row.a.team} ↔ ${s.row.b.team} — ${s.reason}`))
+            }
+            lines.push('', `Picks: moved ${picks.applied.length}.`)
+            lines.push(...picks.applied.map((t) => `· ${t.displayName} → ${t.toTeam}`))
+            if (picks.skipped.length) {
+              lines.push('', `Picks not moved (${picks.skipped.length}):`)
+              lines.push(...picks.skipped.map((t) => `· ${t.displayName} → ${t.toTeam} — ${t.reason}`))
+            }
+            alert(lines.join('\n'))
+          } catch (e) {
+            alert(`Import failed: ${e.message}`)
+          } finally {
+            setBusy(false)
+          }
+        }}
+        style={{ fontSize: 12, padding: '6px 14px' }}
+      >
+        {busy ? 'Importing…' : 'Import'}
+      </button>
     </div>
   )
 }
@@ -2082,33 +2189,41 @@ function TradesSection() {
  * dismissing it as a false positive / already handled elsewhere.
  */
 function EspnIngestQueue({ onFixManually }) {
+  const { isPreview } = useApp()
   const [items, setItems] = useState(null) // null = loading
   const [err, setErr] = useState(null)
   const [busyId, setBusyId] = useState(null)
 
   useEffect(() => {
+    // Preview has no Firestore auth, and this queue is only ever populated by
+    // a real held import — so without a sample there is no way to review the
+    // one admin surface every flagged trade lands on.
+    if (isPreview) {
+      import('../data/previewData').then((d) => setItems(d.previewIngests ?? []))
+      return
+    }
     fs.fetchPendingIngests()
       .then((r) => { setItems(r); setErr(null) })
       .catch((e) => { setItems([]); setErr(e?.message || String(e)) })
-  }, [])
+  }, [isPreview])
 
   async function dismiss(id) {
+    // Dismiss only marks the ingest 'ignored' — it applies nothing. Hitting
+    // it on a real held trade drops that trade silently: no assets move and
+    // the item disappears, so nothing afterwards says it was lost. The two
+    // buttons look symmetrical and are not, so say so before it's too late.
+    const ok = window.confirm(
+      'Dismiss does NOT apply this trade.\n\n' +
+      'No players or picks will move and nothing is added to the ledger — it only ' +
+      'clears this item from the review queue.\n\n' +
+      'If this trade really happened, cancel and use "Log It" first.\n\n' +
+      'Dismiss anyway?',
+    )
+    if (!ok) return
     setBusyId(id)
     try {
-      await fs.dismissTradeIngest(id)
-      setItems((prev) => prev.filter((i) => i.id !== id))
-    } catch (e) {
-      alert(`Failed: ${e.message}`)
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function confirmAndApply(id) {
-    setBusyId(id)
-    try {
-      const call = httpsCallable(await getFunctionsClient(), 'confirmPendingTrade')
-      await call({ ingestId: id })
+      if (isPreview) setItems((prev) => prev.filter((i) => i.id !== id))
+      else await fs.dismissTradeIngest(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
     } catch (e) {
       alert(`Failed: ${e.message}`)
@@ -2144,9 +2259,6 @@ function EspnIngestQueue({ onFixManually }) {
     return <div className="iff-card" style={{ padding: 12, fontSize: 12, color: 'var(--iff-subtext)' }}>No trades waiting for review. 🎉</div>
   }
 
-  const needsReview = items.filter((i) => i.status === 'needs_review')
-  const pendingConfirm = items.filter((i) => i.status === 'pending_confirmation')
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--iff-accent)' }}>
@@ -2179,6 +2291,27 @@ function EspnIngestQueue({ onFixManually }) {
           {reasons.map((r, i) => (
             <div key={`r${i}`} style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 3, marginTop: i === 0 ? 6 : 0 }}>• {r}</div>
           ))}
+
+          {/* A held trade is unresolvable without these. Record it below
+              (teams pre-filled), then dismiss it here to clear the queue. */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <button
+              className="btn-outline"
+              disabled={busyId === item.id}
+              onClick={() => fixManually(item)}
+              style={{ fontSize: 11.5, padding: '6px 12px' }}
+            >
+              Log It ›
+            </button>
+            <button
+              className="btn-outline"
+              disabled={busyId === item.id}
+              onClick={() => dismiss(item.id)}
+              style={{ fontSize: 11.5, padding: '6px 12px', borderColor: 'var(--iff-divider)', color: 'var(--iff-subtext)' }}
+            >
+              {busyId === item.id ? 'Working…' : 'Dismiss'}
+            </button>
+          </div>
         </div>
         )
       })}
@@ -2186,7 +2319,34 @@ function EspnIngestQueue({ onFixManually }) {
   )
 }
 
+/**
+ * Scroll `el` to the top of whichever ancestor actually scrolls.
+ *
+ * Not scrollIntoView: the Admin panel sits inside nested .overlay-scroll
+ * containers, and the browser treats a section that is merely on-screen as
+ * "already in view" and does nothing — which is exactly the case that made
+ * the Log It button look dead. Walking to the real scroll parent and setting
+ * scrollTop is deterministic.
+ */
+function scrollToTopOf(el) {
+  if (!el) return
+  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight + 4) {
+      const delta = el.getBoundingClientRect().top - p.getBoundingClientRect().top - 12
+      p.scrollTo({ top: p.scrollTop + delta, behavior: smooth ? 'smooth' : 'auto' })
+      return
+    }
+  }
+  el.scrollIntoView({ block: 'start' })
+}
+
 function ExternalTradeSection({ prefill, onPrefillConsumed }) {
+  // "Log It" fills these fields from a held import, but the section sits below
+  // the fold on a normal window — so the click filled them invisibly and read
+  // as a dead button. Scroll to what was just filled in.
+  const sectionRef = useRef(null)
   const { allDisplayAssets, activeSeason } = useApp()
   const [teamA, setTeamA] = useState('')
   const [teamB, setTeamB] = useState('')
@@ -2195,6 +2355,11 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
   const [notes, setNotes] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(null)
+  // "Log It" fills this form from a held import. Scrolling alone proved
+  // unreliable to verify across the nested admin overlays, so the section
+  // also says out loud that it was just pre-filled — feedback that doesn't
+  // depend on where the viewport happens to be.
+  const [prefilled, setPrefilled] = useState(false)
 
   // Coming from a flagged ESPN import — set the teams so the commissioner
   // only has to fix the ambiguous player(s), not re-pick everything.
@@ -2204,6 +2369,11 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
     setTeamB(prefill.teamB ?? '')
     setFromA(new Set())
     setFromB(new Set())
+    // Deferred a frame: setTeamA above expands this section with the team's
+    // roster, and measuring before React commits that gives a stale offset —
+    // which is why the earlier scrollIntoView appeared to do nothing at all.
+    setPrefilled(true)
+    requestAnimationFrame(() => scrollToTopOf(sectionRef.current))
     onPrefillConsumed?.()
   }, [prefill, onPrefillConsumed])
 
@@ -2247,6 +2417,7 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
         source: 'espn',
       })
       setDone(id)
+      setPrefilled(false)
       setTeamA(''); setTeamB(''); setFromA(new Set()); setFromB(new Set()); setNotes('')
     } catch (e) {
       alert(`Failed: ${e.message}`)
@@ -2256,7 +2427,21 @@ function ExternalTradeSection({ prefill, onPrefillConsumed }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div ref={sectionRef} style={{ display: 'flex', flexDirection: 'column', gap: 12, scrollMarginTop: 12 }}>
+      {prefilled && (
+        <div
+          role="status"
+          className="iff-card"
+          style={{
+            padding: '10px 13px', border: '1.5px solid var(--iff-accent)',
+            fontSize: 12, lineHeight: 1.5,
+          }}
+        >
+          <b style={{ color: 'var(--iff-accent)' }}>Pre-filled from the held import.</b>{' '}
+          Both teams are set below — pick the players and picks that actually moved, then
+          <b> Record &amp; Execute</b>. Dismiss the review item afterwards.
+        </div>
+      )}
       <div style={{ fontSize: 13, fontWeight: 800 }}>Record External Trade</div>
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.55 }}>
         For a deal that happened outside the app — most often executed straight in ESPN. Pick both
@@ -2582,7 +2767,7 @@ function GroupMeSection() {
   const [directory, setDirectory] = useState(null) // {groups:[{id,name,members}]}
   const [groupId, setGroupId] = useState('')
   const [userMap, setUserMap] = useState({}) // teamName -> groupme userId
-  const [paused, setPaused] = useState(false)
+  const [mode, setMode] = useState('all')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -2595,20 +2780,20 @@ function GroupMeSection() {
         if (cfg) {
           setGroupId(cfg.groupId ?? '')
           setUserMap(cfg.userMap ?? {})
-          setPaused(cfg.paused ?? false)
+          setMode(cfg.mode ?? (cfg.paused ? 'paused' : 'all'))
         }
       })
       .catch(() => {})
   }, [])
 
-  async function togglePaused() {
-    const next = !paused
-    setPaused(next) // optimistic — toggle feels instant
+  async function chooseMode(next) {
+    const prev = mode
+    setMode(next) // optimistic — the control feels instant
     try {
-      await fs.setGroupMePaused(next)
+      await fs.setGroupMeMode(next)
     } catch (err) {
-      setPaused(!next)
-      setError(`Couldn't update pause: ${err.message}`)
+      setMode(prev)
+      setError(`Couldn't change delivery: ${err.message}`)
     }
   }
 
@@ -2653,32 +2838,47 @@ function GroupMeSection() {
         className="iff-card"
         style={{
           padding: 14, display: 'flex', alignItems: 'center', gap: 12,
-          border: paused ? '1.5px solid rgba(244,162,97,0.5)' : '1px solid transparent',
+          border: mode === 'all' ? '1px solid transparent' : '1.5px solid rgba(244,162,97,0.5)',
         }}
       >
-        <span style={{ fontSize: 20 }}>{paused ? '🔕' : '🔔'}</span>
+        <span style={{ fontSize: 20 }}>{mode === 'paused' ? '🔕' : mode === 'commissioner' ? '🔂' : '🔔'}</span>
         <span style={{ flex: 1 }}>
           <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
-            {paused ? 'GroupMe messages PAUSED' : 'GroupMe messages active'}
+            {mode === 'paused' ? 'GroupMe messages PAUSED'
+              : mode === 'commissioner' ? 'GroupMe messages — you only'
+                : 'GroupMe messages active'}
           </span>
-          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
-            {paused
-              ? 'No DMs are being sent — trade activity stays in-app only.'
-              : 'Trade offers and responses send DMs. Pause while testing.'}
+          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+            {mode === 'paused'
+              ? 'Nothing is sent to anyone — trade activity stays in-app only, and you will not be told when an import needs review.'
+              : mode === 'commissioner'
+                ? 'Every DM is redirected to you, tagged with who it was meant for. Nobody else receives anything.'
+                : 'Everyone gets their own DMs — offers, responses, and review alerts.'}
           </span>
         </span>
-        <button
-          role="switch"
-          aria-checked={!paused}
-          aria-label="GroupMe messages"
-          onClick={togglePaused}
-          style={{
-            width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
-            background: paused ? 'var(--iff-elevated)' : '#22C55E', transition: 'background 0.15s',
-          }}
-        >
-          <span style={{ position: 'absolute', top: 2, left: paused ? 2 : 20, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s', boxShadow: '0 1px 3px rgba(0,0,0,0.35)' }} />
-        </button>
+        <span style={{ display: 'flex', gap: 4, background: 'var(--iff-elevated)', borderRadius: 9, padding: 3, flexShrink: 0 }}>
+          {[
+            ['paused', 'Off'],
+            ['commissioner', 'You only'],
+            ['all', 'Everyone'],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => chooseMode(key)}
+              aria-pressed={mode === key}
+              style={{
+                padding: '5px 11px', borderRadius: 7, fontSize: 11, fontWeight: 700,
+                whiteSpace: 'nowrap',
+                background: mode === key
+                  ? (key === 'all' ? '#22C55E' : key === 'commissioner' ? 'var(--iff-gold)' : 'var(--iff-accent)')
+                  : 'transparent',
+                color: mode === key ? '#0A0D1A' : 'var(--iff-subtext)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
@@ -3148,6 +3348,183 @@ function ImportBigBoardCard() {
       {result && (
         <div style={{ fontSize: 12, color: result.ok ? 'var(--iff-green)' : 'var(--iff-accent)' }}>
           {result.msg}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Attach an asset the original import never saw — in practice a draft pick,
+ * because an ESPN trade email cannot contain one.
+ *
+ * Edits the existing trade rather than recording a second one. Two
+ * half-trades between the same teams on the same day is a worse record than
+ * one incomplete trade: nothing afterwards can tell they were the same deal.
+ */
+function RepairTradeSection() {
+  const { trades, allDisplayAssets, activeSeason, user } = useApp()
+  const [tradeId, setTradeId] = useState('')
+  const [assetId, setAssetId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+
+  const done = useMemo(
+    () => trades
+      .filter((t) => t.status === 'completed' || t.status === 'historical')
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [trades],
+  )
+  const trade = done.find((t) => t.id === tradeId) ?? null
+  const onTrade = trade ? listedAssets(trade) : []
+
+  // Only assets held by one of the two teams can join, and the direction is
+  // derived from which one holds it — so the list is the whole input.
+  const candidates = useMemo(() => {
+    if (!trade) return []
+    const teams = [trade.proposingTeamName, trade.receivingTeamName]
+    const already = new Set(onTrade.map((a) => a.assetId))
+    return allDisplayAssets
+      .filter((a) => teams.includes(a.teamName) && !already.has(a.assetId))
+      .sort((a, b) => Number(b.isPick) - Number(a.isPick) || a.name.localeCompare(b.name))
+  }, [trade, allDisplayAssets, onTrade])
+
+  async function add() {
+    const a = candidates.find((c) => c.assetId === assetId)
+    if (!a) return
+    setBusy(true); setMsg(null)
+    try {
+      const plan = await fs.addAssetToTrade(trade.id, {
+        assetId: a.assetId,
+        assetType: a.isPick ? 'draftPick' : 'player',
+        displayName: a.name,
+        currentTeam: a.teamName,
+      }, { actorUid: user?.uid })
+      setMsg({ ok: true, text: `${a.name} moved ${plan.fromTeam} → ${plan.toTeam} and added to the trade.` })
+      setAssetId('')
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function reverse() {
+    const why = window.prompt(
+      `Reverse the ${trade.proposingTeamName} ↔ ${trade.receivingTeamName} trade?\n\n` +
+      'Every player and pick on it goes back to the team that sent it, and both teams are told. ' +
+      'Use this when ESPN voids a trade.\n\nReason (optional):',
+      'Voided in ESPN',
+    )
+    if (why === null) return
+    setBusy(true); setMsg(null)
+    try {
+      await fs.reverseTrade(trade.id, why.trim())
+      setMsg({ ok: true, text: 'Reversal requested — assets move back within a few seconds.' })
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function drop(a) {
+    if (!window.confirm(`Remove ${a.displayName} from this trade?\n\nIt goes back to the team that sent it.`)) return
+    setBusy(true); setMsg(null)
+    try {
+      const plan = await fs.removeAssetFromTrade(trade.id, a.assetId, { actorUid: user?.uid })
+      setMsg({ ok: true, text: `${a.displayName} returned to ${plan.backTo}.` })
+    } catch (e) {
+      setMsg({ ok: false, text: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <span>
+        <span style={{ display: 'block', fontSize: 14 }}>Fix a recorded trade</span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
+          Add something the original import missed — almost always a draft pick, since an ESPN
+          trade email can&apos;t contain one. The asset moves for real and lands on the ledger;
+          which way it goes is worked out from whoever holds it now.
+        </span>
+      </span>
+
+      <select value={tradeId} onChange={(e) => { setTradeId(e.target.value); setAssetId(''); setMsg(null) }}>
+        <option value="">Pick a completed trade…</option>
+        {done.map((t) => (
+          <option key={t.id} value={t.id}>
+            {formatTradeDate(t.date)} — {t.proposingTeamName} ↔ {t.receivingTeamName}
+          </option>
+        ))}
+      </select>
+
+      {trade && (
+        <>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+            Currently on this trade ({activeSeason}):
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {onTrade.length === 0 && (
+              <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>Nothing recorded.</span>
+            )}
+            {onTrade.map((a) => (
+              <div key={a.assetId} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
+                <span style={{ flex: 1 }}>
+                  {a.displayName}
+                  <span style={{ color: 'var(--iff-subtext)' }}>
+                    {' '}— sent by {a.side === 'assetsFromProposer' ? trade.proposingTeamName : trade.receivingTeamName}
+                  </span>
+                </span>
+                <button
+                  onClick={() => drop(a)}
+                  disabled={busy}
+                  aria-label={`Remove ${a.displayName}`}
+                  style={{ fontSize: 12, color: '#EF4444', padding: '2px 8px' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <select value={assetId} onChange={(e) => setAssetId(e.target.value)} style={{ flex: 1, minWidth: 200 }}>
+              <option value="">Add a missing asset…</option>
+              {candidates.map((a) => (
+                <option key={a.assetId} value={a.assetId}>
+                  {a.isPick ? '📋 ' : ''}{a.name} ({a.teamName})
+                </option>
+              ))}
+            </select>
+            <button className="btn-primary" onClick={add} disabled={!assetId || busy} style={{ padding: '8px 18px', fontSize: 13 }}>
+              {busy ? 'Working…' : 'Add to trade'}
+            </button>
+          </div>
+
+          {trade.status === 'completed' && (
+            <button
+              className="btn-outline"
+              onClick={reverse}
+              disabled={busy}
+              style={{ alignSelf: 'flex-start', borderColor: '#EF4444', color: '#EF4444', fontSize: 12, padding: '6px 14px' }}
+            >
+              ↩ Reverse this whole trade
+            </button>
+          )}
+          {trade.status === 'reversed' && (
+            <div style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>
+              This trade was reversed{trade.reverseReason ? ` — ${trade.reverseReason}` : ''}.
+            </div>
+          )}
+        </>
+      )}
+
+      {msg && (
+        <div style={{ fontSize: 12, color: msg.ok ? '#4ADE80' : '#EF4444', lineHeight: 1.5 }}>
+          {msg.text}
         </div>
       )}
     </div>

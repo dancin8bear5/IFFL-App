@@ -4,6 +4,7 @@ import {
   parseRecord, computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts,
 } from './leagueStats.js'
+import { isActiveTeam } from '../data/staticData.js'
 
 const HISTORY = [
   {
@@ -109,4 +110,70 @@ test('records wall includes title streak for back-to-back champs', () => {
   assert.ok(streak)
   assert.equal(streak.team, 'Bill')
   assert.equal(streak.value, '2 straight')
+})
+
+// ── Record eligibility — former members can't hold the wall ──────────
+// 'Eric' is not in fantasyTeams, so isActiveTeam('Eric') is false.
+const withFormer = [
+  { season: 2012, champion: 'Eric', runnerUp: 'Jared', standings: [
+    { teamName: 'Eric', place: 1, record: '13-1', pointsFor: 2000 },
+    { teamName: 'Jared', place: 2, record: '4-10', pointsFor: 900 },
+  ] },
+  { season: 2013, champion: 'Eric', runnerUp: 'Jared', standings: [
+    { teamName: 'Eric', place: 1, record: '13-1', pointsFor: 2000 },
+    { teamName: 'Jared', place: 2, record: '9-5', pointsFor: 1400 },
+  ] },
+  { season: 2014, champion: 'Jared', runnerUp: 'Bill', standings: [
+    { teamName: 'Jared', place: 1, record: '10-4', pointsFor: 1500 },
+    { teamName: 'Bill', place: 2, record: '9-5', pointsFor: 1450 },
+    { teamName: 'Eric', place: 3, record: '8-6', pointsFor: 1400 },
+  ] },
+]
+
+const activeOnly = (team) => isActiveTeam(team)
+
+test('a departed manager holds every record when nothing is filtered', () => {
+  const rows = computeAllTimeStats(withFormer)
+  const recs = computeRecords(rows, withFormer)
+  const holders = new Set(recs.map((r) => r.team))
+  assert.ok(holders.has('Eric'), 'unfiltered wall should still credit Eric')
+})
+
+test('no record is held by a former member once eligibility is applied', () => {
+  const rows = computeAllTimeStats(withFormer)
+  const recs = computeRecords(rows, withFormer, activeOnly)
+  assert.ok(recs.length > 0, 'filtering must not empty the wall')
+  for (const r of recs) {
+    assert.ok(isActiveTeam(r.team), `${r.label} still credits ${r.team}`)
+  }
+})
+
+test("a former member's title streak is not the league's longest streak", () => {
+  // Eric went back-to-back in 2012-13; no active team ever repeated.
+  const rows = computeAllTimeStats(withFormer)
+  const unfiltered = computeRecords(rows, withFormer).find((r) => r.label === 'Longest Title Streak')
+  assert.equal(unfiltered?.team, 'Eric')
+  const filtered = computeRecords(rows, withFormer, activeOnly).find((r) => r.label === 'Longest Title Streak')
+  assert.equal(filtered, undefined, 'Eric’s streak must not survive the filter')
+})
+
+test('superlatives skip former members but keep their effect on the standings', () => {
+  const all = computeSuperlatives(withFormer)
+  assert.equal(all.bestSeason.team, 'Eric')
+
+  const filtered = computeSuperlatives(withFormer, activeOnly)
+  assert.equal(filtered.bestSeason.team, 'Jared')
+  assert.equal(filtered.bestSeason.season, 2014)
+  assert.ok(isActiveTeam(filtered.worstSeason.team))
+  // Jared's 2013 -> 2014 rise is measured against the real finishing order,
+  // which still included Eric — filtering changes who is reported, not places.
+  assert.equal(filtered.turnaround?.team, 'Jared')
+  assert.equal(filtered.turnaround?.from, 2)
+  assert.equal(filtered.turnaround?.to, 1)
+})
+
+test('eligibility defaults to open, so existing callers are unaffected', () => {
+  const rows = computeAllTimeStats(withFormer)
+  assert.deepEqual(computeRecords(rows, withFormer), computeRecords(rows, withFormer, () => true))
+  assert.deepEqual(computeSuperlatives(withFormer), computeSuperlatives(withFormer, () => true))
 })

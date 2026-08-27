@@ -9,11 +9,12 @@ export const UI_THEMES = [
   { key: 'default', label: 'Modern',   glyph: '🏟️', blurb: 'The standard Insanity League look' },
   { key: '50s',     label: '1950s',    glyph: '🍒', blurb: 'Chrome diner — cream, cherry red & teal' },
   { key: '60s',     label: '1960s',    glyph: '☮️', blurb: 'Groovy — mustard, burnt orange & flower power' },
-  { key: '70s',     label: '1970s',    glyph: '🕺', blurb: 'Funk — harvest gold, avocado & shag stripes' },
+  { key: '70s',     label: '1970s',    glyph: '🥑', blurb: 'Avocado kitchen — olive green, harvest gold & shag' },
   { key: '80s',     label: '1980s',    glyph: '🕹️', blurb: 'Synthwave — neon on the grid' },
   { key: '90s',     label: '1990s',    glyph: '📼', blurb: 'Saved by the Bell — full Memphis cheese' },
   { key: '2000s',   label: '2000s',    glyph: '💿', blurb: 'Y2K — glossy aqua, silver & Frutiger air' },
   { key: 'bears',   label: 'Da Bears', glyph: '🐻', blurb: 'BEAR DOWN. Navy & orange, Monsters of the Midway' },
+  { key: '2150',    label: '2150',     glyph: '🧬', blurb: 'Bioluminescent — grown surfaces, light instead of lines' },
 ]
 
 /** Active theme key, honoring the old retroMode boolean from before eras existed. */

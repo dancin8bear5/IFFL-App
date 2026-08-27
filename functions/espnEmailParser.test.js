@@ -114,3 +114,46 @@ FOLLOW US`;
   assert.equal(r.moves.filter((m) => m.fromTeam === "Jared").length, 2);
   assert.equal(r.moves.filter((m) => m.fromTeam === "Jason").length, 1);
 });
+
+// ── Void / unclassified classification ────────────────────────
+const { classifyEspnEmail, looksTradeRelated } = require("./espnEmailParser");
+
+test("an accepted email classifies as accepted", () => {
+  assert.strictEqual(
+    classifyEspnEmail("The following trade has been accepted in your ESPN Fantasy Football league."),
+    "accepted",
+  );
+});
+
+test("plausible void wordings classify as voided", () => {
+  for (const body of [
+    "This trade has been vetoed by the league manager.",
+    "The trade has been voided.",
+    "Your trade has been reversed.",
+    "The following trade was overturned.",
+    "This trade has been cancelled.",
+    "This trade has been canceled.",
+  ]) {
+    assert.strictEqual(classifyEspnEmail(body), "voided", body);
+  }
+});
+
+test("a void is never mistaken for an accept", () => {
+  // The safety property: applying requires the accepted anchor, so even a
+  // void we fail to classify can never move a roster.
+  const { parseEspnTradeEmail } = require("./espnEmailParser");
+  const voided = "The following trade has been vetoed.\nMOON trades\nDak Prescott, QB (DAL)";
+  assert.strictEqual(parseEspnTradeEmail(voided).ok, false);
+});
+
+test("unknown wording is flagged as trade-related so it surfaces", () => {
+  const odd = "Something happened with a trade. MOON trades were involved.";
+  assert.strictEqual(classifyEspnEmail(odd), "unknown");
+  assert.strictEqual(looksTradeRelated(odd), true, "must still reach a human");
+});
+
+test("unrelated mail is neither classified nor surfaced", () => {
+  const noise = "Your weekly matchup recap is ready.";
+  assert.strictEqual(classifyEspnEmail(noise), "unknown");
+  assert.strictEqual(looksTradeRelated(noise), false);
+});

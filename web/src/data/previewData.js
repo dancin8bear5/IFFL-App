@@ -26,6 +26,20 @@ export const previewPicks = [
   { id: 'dp3', season: 2027, round: 1, slot: null, currentTeamName: 'Foley', originalTeamName: 'Foley',   prices: { 2026: 8, 2027: 8 }, tradeHistory: [], status: 'available' },
 ]
 
+// BOOM/DOOM verdicts. t2 (Bill <-> Cantone) is pre-loaded so the revealed
+// split renders in preview; t1 is left unjudged so the vote buttons do too.
+// Preview signs in as Jared, who is IN t1 — so t1 shows the "you were in
+// this one" state, and t3 (Jared <-> Foley) exercises it as well.
+export const previewTradeVotes = [
+  { id: 't2_u1', tradeId: 't2', uid: 'u1', votedFor: 'Cantone', season: 2026, voterTeam: 'Wayne' },
+  { id: 't2_u2', tradeId: 't2', uid: 'u2', votedFor: 'Cantone', season: 2026, voterTeam: 'Faybik' },
+  { id: 't2_u3', tradeId: 't2', uid: 'u3', votedFor: 'Cantone', season: 2026, voterTeam: 'Dugan' },
+  { id: 't2_u4', tradeId: 't2', uid: 'u4', votedFor: 'Bill', season: 2026, voterTeam: 'Jason' },
+  { id: 't2_u5', tradeId: 't2', uid: 'u5', votedFor: 'Bill', season: 2026, voterTeam: 'Abad' },
+  { id: 't2_u6', tradeId: 't2', uid: 'u6', votedFor: 'Cantone', season: 2026, voterTeam: 'Ryan' },
+  { id: 't2_u7', tradeId: 't2', uid: 'u7', votedFor: 'Cantone', season: 2026, voterTeam: 'A. Zurek' },
+]
+
 export const previewTrades = [
   {
     id: 't1', season: 2026, date: new Date(2026, 7, 1), status: 'completed',
@@ -303,3 +317,27 @@ export const previewPlayoffs = {
   selections: { 1: 'Foley', 2: 'Cantone' },
   winners: {},
 }
+
+/**
+ * A held ESPN import, so the Admin review queue can be seen (and its actions
+ * exercised) without waiting for a real trade to be flagged. Mirrors the two
+ * shapes the queue renders: matchPlayers `problems` and reconcile
+ * `reconcileReasons` + `groupmePicks`.
+ */
+export const previewIngests = [
+  {
+    id: 'gmail-preview-1',
+    status: 'needs_review',
+    source: 'espn-gmail',
+    moves: [
+      { player: 'Dak Prescott', fromTeam: 'Jared', toTeam: 'Jason' },
+      { player: 'KaVontae Turpin', fromTeam: 'Jason', toTeam: 'Jared' },
+    ],
+    reconcileDecision: 'hold-for-review',
+    reconcileReasons: [
+      'Draft pick(s) present in GroupMe but not in ESPN email: 2027 R2 — must be applied manually',
+    ],
+    groupmePicks: [{ year: 2027, round: 2, raw: '2027 2nd' }],
+    receivedAt: new Date(),
+  },
+]

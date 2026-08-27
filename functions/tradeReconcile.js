@@ -25,11 +25,17 @@
 
 function reconcile(espn, gm) {
   const reasons = [];
+  // Individually actionable flags. The caller decides what each one means:
+  // a pick is something to attach afterwards, a source disagreement is a
+  // reason to stop, and missing chatter is neither. Collapsing them all
+  // into one "hold" made every quiet trade need hand-entry.
+  const flags = {picks: false, teamMismatch: false, extraTeams: false, noCorroboration: false};
 
   if (!espn || !espn.ok) {
     return {
       decision: "reject",
       reasons: [`ESPN email did not parse: ${espn?.error ?? "no espn input"}`],
+      flags: {picks: false, teamMismatch: false, extraTeams: false, noCorroboration: false},
       espnMoves: [],
       picks: [],
       teams: [],
@@ -47,6 +53,7 @@ function reconcile(espn, gm) {
   // only come from GroupMe, and it can never be auto-verified against ESPN.
   if (picks.length > 0) {
     hold = true;
+    flags.picks = true;
     const desc = picks
       .map((p) => `${p.year ?? "?"} R${p.round}`)
       .join(", ");
@@ -61,6 +68,7 @@ function reconcile(espn, gm) {
       gmTeams.every((t, i) => t === espnTeams[i]);
     if (!sameTeams) {
       hold = true;
+      flags.teamMismatch = true;
       reasons.push(
         `Team mismatch: ESPN email involves [${espnTeams.join(", ")}] but GroupMe named [${gmTeams.join(", ")}]`,
       );
@@ -80,6 +88,7 @@ function reconcile(espn, gm) {
     const extraGmTeams = [...gmTeamSet].filter((t) => !espnTeamSet.has(t));
     if (extraGmTeams.length > 0) {
       hold = true;
+      flags.extraTeams = true;
       reasons.push(
         `GroupMe references team(s) not in the ESPN trade: ${extraGmTeams.join(", ")}`,
       );
@@ -91,15 +100,16 @@ function reconcile(espn, gm) {
   // corroboration is unusual enough to eyeball once.
   if (!gm) {
     hold = true;
+    flags.noCorroboration = true;
     reasons.push("No matching GroupMe signal found for this ESPN trade — no human corroboration");
   }
 
   if (hold) {
-    return { decision: "hold-for-review", reasons, espnMoves, picks, teams: espnTeams };
+    return { decision: "hold-for-review", reasons, flags, espnMoves, picks, teams: espnTeams };
   }
 
   reasons.push("ESPN players clean, no picks, no cross-source conflict — eligible for auto-apply after roster validation");
-  return { decision: "auto-eligible", reasons, espnMoves, picks, teams: espnTeams };
+  return { decision: "auto-eligible", reasons, flags, espnMoves, picks, teams: espnTeams };
 }
 
 module.exports = { reconcile };

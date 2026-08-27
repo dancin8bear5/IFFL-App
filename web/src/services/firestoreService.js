@@ -2,6 +2,9 @@
 // Same collections, same queries, same batch semantics. Listener functions
 // return an unsubscribe fn (the JS analogue of ListenerRegistration.remove()).
 import { keeperDocId } from './keeperImport.js'
+import { assetTypeOf } from '../data/trades2026.js'
+import { planHistoricalImport } from './tradeImport.js'
+import { planAssetAddition, planAssetRemoval } from './tradeEdit.js'
 import {
   collection,
   doc,
@@ -42,6 +45,7 @@ const COL = {
   bigBoard: 'bigBoard',
   weeklyScores: 'weeklyScores',
   playoffs: 'playoffs',
+  tradeVotes: 'tradeVotes',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -287,14 +291,23 @@ export async function convertPickToPlayer(pickId, player) {
 
 // ── Trades ────────────────────────────────────────────────────
 
-export function listenToTrades(season, callback) {
+export function listenToTrades(season, callback, onError) {
   const q = query(
     collection(db, COL.trades),
     where('season', '==', season),
     orderBy('date', 'desc'),
   )
-  return onSnapshot(q, (snap) =>
-    callback(snapToDocs(snap).map((t) => ({ ...t, date: tsToDate(t.date) }))),
+  return onSnapshot(
+    q,
+    (snap) => callback(snapToDocs(snap).map((t) => ({ ...t, date: tsToDate(t.date) }))),
+    // An equality filter plus an orderBy on a different field needs a
+    // composite index (see firestore.indexes.json). Without this handler a
+    // missing index fails silently — the callback simply never fires and the
+    // Trades tab sits empty forever with no clue why. Never leave this off.
+    (err) => {
+      console.error(`listenToTrades(${season}) failed — trades will render empty:`, err)
+      onError?.(err)
+    },
   )
 }
 
@@ -303,6 +316,40 @@ export function proposeTrade(trade) {
     ...trade,
     status: 'proposed',
     date: Timestamp.fromDate(trade.date ?? new Date()),
+  })
+}
+
+/**
+ * Commissioner-only: kill a trade that is still awaiting a response.
+ *
+ * Sets status 'cancelled' rather than deleting the document, so the trade
+ * stays auditable — who proposed what, and that it was pulled rather than
+ * declined. 'cancelled' is in neither the pending nor the completed filter,
+ * so it leaves both lists and clears the receiver's inbox badge, and it is
+ * not 'accepted', so it can never trigger executeTradeAssets.
+ */
+export function cancelTrade(tradeId, reason) {
+  return updateDoc(doc(db, COL.trades, tradeId), {
+    status: 'cancelled',
+    cancelReason: reason || null,
+    cancelledAt: Timestamp.now(),
+  })
+}
+
+/**
+ * Commissioner-only: undo a completed trade — ESPN voided it, or it was
+ * recorded in error.
+ *
+ * Only flips status; the onTradeWrite Cloud Function does the asset moves
+ * server-side with admin privileges, exactly as it does for an accept.
+ * Members never need write access to players or draftPicks, and the reversal
+ * gets the same duplicate guard as the original execution.
+ */
+export function reverseTrade(tradeId, reason) {
+  return updateDoc(doc(db, COL.trades, tradeId), {
+    status: 'reverseRequested',
+    reverseReason: reason || null,
+    reverseRequestedAt: Timestamp.now(),
   })
 }
 
@@ -390,6 +437,289 @@ export function recordExternalTrade({ proposingTeamName, receivingTeamName, asse
     completedAt: Timestamp.now(),
   })
   return batch.commit().then(() => tradeRef.id)
+}
+
+/**
+ * Backfill trades that happened before the app tracked them — a ledger
+ * write and nothing else.
+ *
+ * Deliberately NOT recordExternalTrade: that one transfers the assets and
+ * stamps `date: now`. These deals are already reflected in the rosters, so
+ * re-applying them would double-move players and date every one of them
+ * today. This writes `status: 'historical'` docs with their real dates and
+ * touches no player or draftPick document.
+ *
+ * Asset refs carry a displayName and assetType but `assetId: null` — the
+ * players and picks named here may since have moved on again, and nothing
+ * that renders a historical trade resolves the id (the cap-impact and ESPN
+ * checklist paths are both gated on proposed/accepted/completed status).
+ *
+ * Doc ids are derived from the trade, so re-running overwrites in place and
+ * never duplicates.
+ */
+export async function seedHistoricalTrades(rows, season, meta = {}) {
+  const ref = (displayName) => ({
+    assetId: null,
+    assetType: assetTypeOf(displayName),
+    displayName,
+  })
+
+  // Equality-only query: no composite index needed.
+  const existing = snapToDocs(await getDocs(
+    query(collection(db, COL.trades), where('season', '==', season)),
+  )).map((t) => ({ ...t, date: tsToDate(t.date) }))
+
+  // planHistoricalImport decides what may be written. It is additive only —
+  // an entry this import already created is never rewritten, because these
+  // are whole-document writes and a rewrite would discard the hand-written
+  // "via X" provenance notes on the 2026 trades. See services/tradeImport.js.
+  const { toWrite, skipped } = planHistoricalImport(rows, existing)
+
+  const batch = writeBatch(db)
+  for (const { row, id, at } of toWrite) {
+    const ts = Timestamp.fromDate(at)
+    batch.set(doc(db, COL.trades, id), {
+      proposingTeamName: row.a.team,
+      receivingTeamName: row.b.team,
+      // The sheet lists what each side RECEIVED; these fields are what each
+      // side SENDS. That's why the two columns cross over here.
+      assetsFromProposer: row.b.received.map(ref),
+      assetsFromReceiver: row.a.received.map(ref),
+      notes: null,
+      season,
+      status: 'historical',
+      source: meta.source ?? 'keeper-sheet',
+      date: ts,
+      completedAt: ts,
+    })
+  }
+  if (toWrite.length) await batch.commit()
+  return { imported: toWrite.length, skipped }
+}
+
+/**
+ * Move draft picks that changed hands in trades this app never saw.
+ *
+ * This is the one asset class a ledger-only import CANNOT skip. Players are
+ * safe to leave alone — ESPN is authoritative for them and the rosters here
+ * follow it — but ESPN cannot roster a draft pick, so this app is the only
+ * place picks exist. A pick traded outside the app therefore never moved,
+ * and both teams keep showing the pick they started with.
+ *
+ * Resolution is exact or it does nothing: season + round + originalTeamName
+ * identifies a pick uniquely, since every team owns one per round per
+ * season. Anything missing, ambiguous, or already spent is reported rather
+ * than guessed at — same rule the ESPN ingest follows.
+ *
+ * Idempotent: a pick already sitting with the right team is left untouched,
+ * so this can be re-run alongside the ledger import safely.
+ *
+ * Transfers MUST arrive oldest-first (see data/trades2026.pickTransfers) —
+ * a pick that changed hands twice has to be replayed in order.
+ */
+export async function applyPickTransfers(transfers, meta = {}) {
+  const picks = snapToDocs(await getDocs(collection(db, COL.draftPicks)))
+
+  const applied = []
+  const skipped = []
+  // Track in-memory so a pick moved twice in one run resolves off the
+  // result of the earlier move, not the stale snapshot.
+  const owner = new Map(picks.map((p) => [p.id, p.currentTeamName]))
+  const batch = writeBatch(db)
+  let writes = 0
+
+  for (const t of transfers) {
+    const { season, round, originalTeam } = t.ref
+    const matches = picks.filter(
+      (p) => Number(p.season) === season && Number(p.round) === round && p.originalTeamName === originalTeam,
+    )
+
+    if (matches.length === 0) {
+      skipped.push({ ...t, reason: 'no matching pick — already spent, or never generated' })
+      continue
+    }
+    if (matches.length > 1) {
+      skipped.push({ ...t, reason: `${matches.length} picks match — not guessing` })
+      continue
+    }
+
+    const pick = matches[0]
+    if (pick.status && pick.status !== 'available') {
+      skipped.push({ ...t, reason: `pick is '${pick.status}' — the draft already resolved it` })
+      continue
+    }
+    if (owner.get(pick.id) === t.toTeam) {
+      skipped.push({ ...t, reason: 'already owned by the right team' })
+      continue
+    }
+
+    batch.update(doc(db, COL.draftPicks, pick.id), {
+      currentTeamName: t.toTeam,
+      tradeHistory: arrayUnion(`via ${t.fromTeam}`),
+    })
+    batch.set(doc(collection(db, COL.transactions)), {
+      type: 'trade',
+      season: meta.season ?? null,
+      teamName: t.toTeam,
+      fromTeam: t.fromTeam,
+      playerId: pick.id,
+      playerName: t.displayName,
+      assetType: 'draftPick',
+      note: `Pick transfer backfilled from the Keeper Master trade tab (${t.date})`,
+      actorUid: meta.actorUid ?? null,
+      createdAt: Timestamp.now(),
+    })
+    owner.set(pick.id, t.toTeam)
+    applied.push({ ...t, pickId: pick.id, from: pick.currentTeamName })
+    writes += 1
+  }
+
+  if (writes > 0) await batch.commit()
+  return { applied, skipped }
+}
+
+// ── Trade BOOM/DOOM votes ─────────────────────────────────────
+// One permanent verdict per member per trade: which side won it. See
+// services/tradeVotes.js for the rules this enforces and firestore.rules
+// for where they're actually enforced.
+
+/**
+ * Votes for one season. Season is denormalized onto the vote so this stays
+ * a single equality filter — no orderBy, so no composite index (the exact
+ * trap that left the Trades tab blank; see listenToTrades).
+ */
+export function listenToTradeVotes(season, callback, onError) {
+  const q = query(collection(db, COL.tradeVotes), where('season', '==', season))
+  return onSnapshot(
+    q,
+    (snap) => callback(snapToDocs(snap)),
+    (err) => {
+      console.error(`listenToTradeVotes(${season}) failed — verdicts will render empty:`, err)
+      onError?.(err)
+    },
+  )
+}
+
+/**
+ * Cast a verdict. The doc id is what makes the vote permanent and unique:
+ * "<tradeId>_<uid>" already exists after your first vote, and the rules
+ * allow create only — so a second attempt fails at the database, not just
+ * in the UI. Rejection here means you already voted (or you were in the
+ * trade); surface it, don't retry.
+ */
+export function castTradeVote({ tradeId, uid, votedFor, season, voterTeam }) {
+  return setDoc(
+    doc(db, COL.tradeVotes, `${tradeId}_${uid}`),
+    {
+      tradeId,
+      uid,
+      votedFor,
+      season: season ?? null,
+      voterTeam: voterTeam ?? null,
+      createdAt: Timestamp.now(),
+    },
+    // No merge: a merge would quietly overwrite an existing verdict, which
+    // is the one thing this feature must never do.
+  )
+}
+
+// ── Repairing a recorded trade ────────────────────────────────
+// ESPN emails cannot carry draft picks, so a trade that auto-applies from
+// one moves the players and silently leaves any pick with its original
+// owner. These attach the missing asset to the trade that already exists
+// rather than recording a second one — two half-trades between the same
+// teams on the same day is a worse record than one incomplete trade,
+// because nothing afterwards can tell they were the same deal.
+
+const assetDoc = (assetType, assetId) =>
+  doc(db, assetType === 'draftPick' ? COL.draftPicks : COL.players, assetId)
+const ownerField = (assetType) => (assetType === 'draftPick' ? 'currentTeamName' : 'teamName')
+
+/**
+ * Add an asset that was part of the deal but never made it onto the trade.
+ *
+ * Moves the asset, records it on the correct side, and writes a ledger row —
+ * the same three effects a normal trade execution has, so a repaired trade
+ * is indistinguishable from one that was complete to begin with.
+ *
+ * Direction is derived from who currently holds the asset (see tradeEdit),
+ * so there is no way to attach it backwards.
+ */
+export async function addAssetToTrade(tradeId, asset, meta = {}) {
+  const snap = await getDoc(doc(db, COL.trades, tradeId))
+  if (!snap.exists()) throw new Error('That trade no longer exists.')
+  const trade = { id: snap.id, ...snap.data() }
+
+  const plan = planAssetAddition(trade, asset)
+  if (!plan.ok) throw new Error(plan.error)
+
+  const batch = writeBatch(db)
+  batch.update(assetDoc(plan.ref.assetType, plan.ref.assetId), {
+    [ownerField(plan.ref.assetType)]: plan.toTeam,
+    tradeHistory: arrayUnion(`via ${plan.fromTeam}`),
+  })
+  batch.update(doc(db, COL.trades, tradeId), {
+    [plan.side]: arrayUnion(plan.ref),
+    repairedAt: Timestamp.now(),
+  })
+  batch.set(doc(collection(db, COL.transactions)), {
+    type: 'trade',
+    season: trade.season ?? null,
+    teamName: plan.toTeam,
+    fromTeam: plan.fromTeam,
+    playerId: plan.ref.assetId,
+    playerName: plan.ref.displayName,
+    assetType: plan.ref.assetType,
+    relatedTradeId: tradeId,
+    note: 'Added to a recorded trade — missing from the original import',
+    actorUid: meta.actorUid ?? null,
+    createdAt: Timestamp.now(),
+  })
+  await batch.commit()
+  return plan
+}
+
+/**
+ * Undo an addition. Sends the asset back to the side that sent it and drops
+ * it from the trade. Direction is read off the trade, not from the caller.
+ *
+ * Note this does NOT strip the `via` note from the asset's tradeHistory:
+ * arrayRemove would also delete an identical note from a genuine earlier
+ * trade between the same two teams, which is a worse outcome than one stale
+ * line. The corrective ledger row below is the honest record.
+ */
+export async function removeAssetFromTrade(tradeId, assetId, meta = {}) {
+  const snap = await getDoc(doc(db, COL.trades, tradeId))
+  if (!snap.exists()) throw new Error('That trade no longer exists.')
+  const trade = { id: snap.id, ...snap.data() }
+
+  const plan = planAssetRemoval(trade, assetId)
+  if (!plan.ok) throw new Error(plan.error)
+
+  const { side, ...ref } = plan.ref
+  const batch = writeBatch(db)
+  batch.update(assetDoc(ref.assetType, ref.assetId), {
+    [ownerField(ref.assetType)]: plan.backTo,
+  })
+  batch.update(doc(db, COL.trades, tradeId), {
+    [plan.side]: arrayRemove(ref),
+    repairedAt: Timestamp.now(),
+  })
+  batch.set(doc(collection(db, COL.transactions)), {
+    type: 'trade',
+    season: trade.season ?? null,
+    teamName: plan.backTo,
+    fromTeam: plan.from,
+    playerId: ref.assetId,
+    playerName: ref.displayName,
+    assetType: ref.assetType,
+    relatedTradeId: tradeId,
+    note: 'Removed from a recorded trade — added in error',
+    actorUid: meta.actorUid ?? null,
+    createdAt: Timestamp.now(),
+  })
+  await batch.commit()
+  return plan
 }
 
 // ── Dropped-player lifecycle (§Rosters + §Luxury Tax) ─────────
@@ -613,9 +943,23 @@ export function saveGroupMeConfig(config) {
   return setDoc(doc(db, COL.config, 'groupme'), config, { merge: true })
 }
 
-/** Master pause for all GroupMe DMs (checked server-side before every send). */
-export function setGroupMePaused(paused) {
-  return setDoc(doc(db, COL.config, 'groupme'), { paused }, { merge: true })
+/**
+ * Delivery mode for all GroupMe DMs, enforced server-side before every send:
+ *
+ *   'all'          — each DM goes to the team it names.
+ *   'commissioner' — every DM is redirected to the commissioner, tagged with
+ *                    who it was for. Nobody else hears anything.
+ *   'paused'       — nothing is sent to anyone.
+ *
+ * Writes the legacy `paused` boolean alongside, so anything still reading
+ * the old field keeps agreeing with the new one.
+ */
+export function setGroupMeMode(mode) {
+  return setDoc(
+    doc(db, COL.config, 'groupme'),
+    { mode, paused: mode === 'paused' },
+    { merge: true },
+  )
 }
 
 // ── Keeper-deadline CSV reconciliation (see services/keeperImport.js) ──

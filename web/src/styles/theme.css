@@ -737,6 +737,33 @@ a { color: inherit; text-decoration: none; }
   scrollbar-width: none;
 }
 .troom-banner-row::-webkit-scrollbar { display: none; }
+/* Scroll arrows — only rendered when the strip overflows, and each hides at
+   its own end of the track. They sit over the banners rather than beside
+   them so the rafter beam keeps its full width. */
+.troom-rafter-arrow {
+  position: absolute;
+  top: 44%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--iff-text);
+  background: rgba(10, 13, 26, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+  cursor: pointer;
+}
+.troom-rafter-arrow:hover { background: rgba(10, 13, 26, 0.95); }
+.troom-rafter-arrow.left { left: 2px; }
+.troom-rafter-arrow.right { right: 2px; }
 .troom-banner {
   flex-shrink: 0;
   width: 86px;
@@ -1135,15 +1162,20 @@ a { color: inherit; text-decoration: none; }
 
 /* ── 1970s — funk: harvest gold, avocado, shag stripes ──────── */
 [data-era="70s"] {
-  --iff-bg:       #221709;
-  --iff-surface:  #33250F;
-  --iff-elevated: #463314;
-  --iff-accent:   #C75B12;
-  --iff-gold:     #D9A419;
-  --iff-text:     #F7E8C8;
-  --iff-subtext:  #B39A6B;
-  --iff-green:    #7A8A2E;
-  --iff-divider:  rgba(217, 164, 25, 0.25);
+  /* Avocado, not brown. The 60s already owns mustard-and-burnt-orange on a
+     brown ground, and the two eras were reading as the same theme. The real
+     split is the appliance palette: the 70s kitchen was avocado green with
+     harvest gold trim, so the ground goes green and gold/orange stay as
+     accents where they can actually contrast against it. */
+  --iff-bg:       #16210E;
+  --iff-surface:  #223014;
+  --iff-elevated: #31421D;
+  --iff-accent:   #D98324;
+  --iff-gold:     #E0B040;
+  --iff-text:     #F2EAD0;
+  --iff-subtext:  #A6B183;
+  --iff-green:    #9BB03F;
+  --iff-divider:  rgba(224, 176, 64, 0.28);
   --card-radius: 10px;
   --card-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
 }
@@ -1157,10 +1189,10 @@ a { color: inherit; text-decoration: none; }
   /* superfly stripe band */
   background-image: linear-gradient(180deg,
     transparent 0 68px,
-    rgba(199, 91, 18, 0.16) 68px 78px,
-    rgba(217, 164, 25, 0.16) 78px 88px,
-    rgba(122, 138, 46, 0.16) 88px 98px,
-    rgba(140, 60, 20, 0.16) 98px 108px,
+    rgba(155, 176, 63, 0.20) 68px 78px,
+    rgba(224, 176, 64, 0.18) 78px 88px,
+    rgba(217, 131, 36, 0.18) 88px 98px,
+    rgba(90, 110, 40, 0.20) 98px 108px,
     transparent 108px 100%);
   background-repeat: no-repeat;
   background-attachment: fixed;
@@ -1168,8 +1200,8 @@ a { color: inherit; text-decoration: none; }
 [data-era="70s"] .iff-card,
 [data-era="70s"] .milestone-card,
 [data-era="70s"] .season-card {
-  border: 1px solid rgba(217, 164, 25, 0.45);
-  border-bottom: 4px solid rgba(199, 91, 18, 0.6);
+  border: 1px solid rgba(224, 176, 64, 0.42);
+  border-bottom: 4px solid rgba(155, 176, 63, 0.7);
   border-radius: 10px;
 }
 [data-era="70s"] .btn-primary {
@@ -1180,11 +1212,11 @@ a { color: inherit; text-decoration: none; }
 }
 [data-era="70s"] .sidebar,
 [data-era="70s"] .tab-bar,
-[data-era="70s"] .nav-bar { background: #2A1D0B; border-color: rgba(217, 164, 25, 0.4); }
+[data-era="70s"] .nav-bar { background: #1C2A11; border-color: rgba(224, 176, 64, 0.38); }
 [data-era="70s"] .sidebar-logo-mark,
 [data-era="70s"] .league-title { font-style: italic; letter-spacing: 1px; }
-[data-era="70s"] .sidebar-item.active { background: var(--iff-accent); color: #F7E8C8; }
-[data-era="70s"] .overlay-container { border: 1px solid rgba(217, 164, 25, 0.45); }
+[data-era="70s"] .sidebar-item.active { background: var(--iff-accent); color: #17210E; }
+[data-era="70s"] .overlay-container { border: 1px solid rgba(224, 176, 64, 0.42); }
 
 /* ── 1980s — synthwave: neon on the grid ────────────────────── */
 [data-era="80s"] {
@@ -1292,6 +1324,93 @@ a { color: inherit; text-decoration: none; }
 }
 [data-era="2000s"] .sidebar-item.active { background: var(--iff-accent); color: #fff; border-radius: 10px; }
 [data-era="2000s"] .overlay-container { border: 1px solid #AFC4D8; background: var(--iff-bg); }
+
+/* ── 2150 — bioluminescent. A guess at design 125 years out. ──
+   Deliberately NOT chrome-and-neon: that is the 1980s' idea of the future
+   and it already reads as period costume. The bet here is that after the
+   cyberpunk phase design goes quiet and biological — surfaces that look
+   grown rather than manufactured, interfaces that are mostly absent, and
+   LIGHT used where earlier eras used lines. So: no borders, only glow; a
+   deep void ground instead of a bright one; a bioluminescent aqua that
+   reads as living rather than electric; and type set light, wide and
+   lowercase, because shouting is a 20th-century habit. */
+[data-era="2150"] {
+  --iff-bg:       #04060C;
+  --iff-surface:  #0A101C;
+  --iff-elevated: #121C2C;
+  --iff-accent:   #4FF0C4;
+  --iff-gold:     #FFB86B;
+  --iff-text:     #E9F5FF;
+  --iff-subtext:  #7B93A8;
+  --iff-green:    #4FF0C4;
+  --iff-divider:  rgba(79, 240, 196, 0.16);
+  --card-radius: 18px;
+  --card-shadow: 0 0 0 1px rgba(79, 240, 196, 0.10), 0 10px 44px rgba(79, 240, 196, 0.05);
+}
+[data-era="2150"] body,
+[data-era="2150"] .app-frame,
+[data-era="2150"] .desktop-main {
+  font-family: 'Avenir Next', 'Inter', 'SF Pro Text', system-ui, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.4px;
+}
+[data-era="2150"] body {
+  background-color: var(--iff-bg);
+  /* Aurora — a slow bloom of living light, not a grid. */
+  background-image:
+    radial-gradient(120% 80% at 12% -10%, rgba(79, 240, 196, 0.13), transparent 60%),
+    radial-gradient(100% 70% at 100% 0%, rgba(120, 110, 255, 0.12), transparent 55%),
+    radial-gradient(90% 60% at 50% 115%, rgba(255, 184, 107, 0.07), transparent 60%);
+  background-attachment: fixed;
+}
+[data-era="2150"] .iff-card,
+[data-era="2150"] .milestone-card,
+[data-era="2150"] .season-card {
+  border: none;
+  border-radius: 18px;
+  background-image: linear-gradient(160deg, rgba(79, 240, 196, 0.05), rgba(79, 240, 196, 0) 55%);
+  box-shadow: 0 0 0 1px rgba(79, 240, 196, 0.10), 0 10px 44px rgba(0, 0, 0, 0.55);
+}
+[data-era="2150"] .btn-primary {
+  border-radius: 999px;
+  border: none;
+  color: #04060C;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: lowercase;
+  background-image: linear-gradient(100deg, #4FF0C4, #7CE7FF);
+  box-shadow: 0 0 22px rgba(79, 240, 196, 0.35);
+}
+[data-era="2150"] .btn-outline {
+  border-radius: 999px;
+  border: 1px solid rgba(79, 240, 196, 0.35);
+  text-transform: lowercase;
+  letter-spacing: 1.2px;
+}
+[data-era="2150"] .sidebar,
+[data-era="2150"] .tab-bar,
+[data-era="2150"] .nav-bar {
+  background: rgba(6, 10, 18, 0.82);
+  backdrop-filter: blur(18px);
+  border-color: rgba(79, 240, 196, 0.14);
+}
+[data-era="2150"] .sidebar-item.active {
+  background: rgba(79, 240, 196, 0.14);
+  color: var(--iff-accent);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(79, 240, 196, 0.30);
+}
+[data-era="2150"] .sidebar-logo-mark,
+[data-era="2150"] .league-title {
+  font-weight: 200;
+  letter-spacing: 4px;
+  text-transform: lowercase;
+}
+[data-era="2150"] .overlay-container {
+  border: none;
+  box-shadow: 0 0 0 1px rgba(79, 240, 196, 0.14), 0 30px 90px rgba(0, 0, 0, 0.7);
+}
+[data-era="2150"] .troom-section-label { letter-spacing: 5px; font-weight: 300; }
 
 /* ── DA BEARS — navy & orange. BEAR DOWN. ───────────────────── */
 [data-era="bears"] {
@@ -1402,3 +1521,16 @@ a { color: inherit; text-decoration: none; }
    stack above their parent, or the parent's backdrop eats the clicks. */
 .overlay-root .overlay-root { z-index: 60; }
 .overlay-root .overlay-root .overlay-root { z-index: 70; }
+
+/* ── All-Time Power Rankings ───────────────────────────────── */
+/* Bars grow from zero on first paint. Purely decorative — the rows, their
+   direct labels and the tooltip are all correct before it runs and if it
+   never runs at all. Lives here rather than inline so reduced motion can
+   actually turn it off (an inline transition would need !important). */
+.legacy-bar {
+  transition: width 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--legacy-delay, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .legacy-bar { transition: none; }
+}

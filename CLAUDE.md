@@ -37,6 +37,45 @@ cd ~/claude-agents/apps/iffl-web-app && git pull --no-rebase origin claude/insan
 - `web/.env` holds Firebase web config (from Console → Project settings → Your apps → Web). Never committed; template in `web/.env.example`.
 - PWA: manifest + icons → Add to Home Screen gives near-native feel. `public/privacy.html` still served at `/privacy.html`.
 
+## Historical data — full ESPN export imported (Aug 26, 2026)
+The complete ESPN league history 2008–2025 (every team, player, week, and
+draft) lives in Firestore, imported from `iffl_fantasy_history_2008-2025.csv`
+by `web/scripts/import-history.mjs` (re-runnable; fixed doc ids, so re-import
+replaces rather than duplicates). Auth: the script uses
+`gcloud auth print-access-token` + Firestore REST — **there is no
+serviceAccountKey.json on this Mac**; the gcloud CLI login (jaredrogtaylor@)
+is the admin path.
+
+Collections (doc id = season year unless noted; member-read/commissioner-write
+rules deployed):
+- `historyTeamSeasons/{year}` — per-team W-L-T, PF/PA, finalRank, playoffSeed,
+  espnTeamId + espnName + master `team` name (the per-season identity map).
+- `historyMatchups/{year}` — every game, one row per team per week (incl.
+  playoffs), with margin, result, benchPoints.
+- `historyPlayerSeasons/{year}` — every rostered player's season totals.
+- `historyPlayerWeeks/{year}-{WW}` — weekly player lines (**2018+ only**;
+  ESPN kept no weekly player data before 2018).
+- `historyDrafts/{year}` — full draft results (auction prices, keeper flags)
+  + keeperRoundPicks (2020+).
+- `weeklyScores/{year}` — backfilled in the app's native
+  `{weeks: {"1": [{teamName, points}]}, records}` format for all 18 seasons,
+  so historical seasons power the same charts/True-Record math as the current
+  one. The import skips any season that already has entered weeks.
+- `leagueRecords/auto-*` — 9 computed Trophy Room record cards (highest/lowest
+  game, biggest blowout, closest margin, best player game, etc.).
+- `leagueHistory/{year}` — standings **rebuilt from ESPN data**: real
+  pointsFor/pointsAgainst/playoffSeed added, record strings corrected (the
+  hand-seeded records had many errors — e.g. Jared 2019 is 8-5, not 11-3),
+  and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
+  champion/runnerUp/notableTrades preserved from the seeds.
+
+Team identity across eras: ESPN team ids are stable franchise slots. The
+import joined ESPN FinalRank against the seeded `leagueHistory` standings
+per season to name each slot's owner per year (former members: Eric, Jim,
+Lukas, Kerry, Chad, Vaswani, Vince, Yuancie, Nick, James, DeMott…). 2008
+owners were borrowed from each slot's 2009 owner (validated: slot 5 =
+M. Zurek = known 2008 champion). The full mapping prints when the script runs.
+
 ## Project at a glance
 - SwiftUI iOS app (iOS 17.0+), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.
 - Xcode project: `CodeRed.xcodeproj` — but **always open `CodeRed.xcworkspace`**.

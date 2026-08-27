@@ -95,6 +95,25 @@ async function getMessage(gmail, id) {
   return res.data;
 }
 
+/**
+ * When Gmail received the message, as a Date — which for an ESPN trade
+ * notification is within seconds of the trade itself.
+ *
+ * Worth using because the alternative is the time the poller happened to
+ * run, which can be a quarter of an hour later and makes the ledger sort
+ * wrongly against anything recorded by hand. Gmail sends internalDate as a
+ * string of epoch milliseconds; anything unparseable returns null so the
+ * caller falls back rather than inventing a date.
+ */
+function getInternalDate(message) {
+  const raw = message?.internalDate;
+  if (raw == null) return null;
+  const ms = Number(raw);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const d = new Date(ms);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /** Extract the Subject header from a Gmail message. */
 function getSubject(message) {
   const headers = message?.payload?.headers || [];
@@ -103,6 +122,7 @@ function getSubject(message) {
 }
 
 module.exports = {
+  getInternalDate,
   createGmailClient,
   decodeMessageBody,
   resolveLabelId,

@@ -6,6 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useCal
 import { listenToAuth } from '../services/authService'
 import { FMK_ENABLED } from '../data/staticData'
 import * as fs from '../services/firestoreService'
+import { canVote } from '../services/tradeVotes'
 import { playerToDisplayAsset, pickToDisplayAsset } from '../services/models'
 import { withOwnedRanks } from '../services/ownedRank'
 import { findMatches } from '../services/marketEngine'
@@ -51,6 +52,7 @@ export function AppProvider({ children }) {
   const [players, setPlayers] = useState([])
   const [draftPicks, setDraftPicks] = useState([])
   const [trades, setTrades] = useState([])
+  const [tradeVotes, setTradeVotes] = useState([])
   const [messages, setMessages] = useState([])
   const [teamAvatars, setTeamAvatars] = useState({})
   const [interestedAssetIds, setInterestedAssetIds] = useState(new Set())
@@ -120,6 +122,7 @@ export function AppProvider({ children }) {
       setPlayers(d.previewPlayers)
       setDraftPicks(d.previewPicks)
       setTrades(d.previewTrades)
+      setTradeVotes(d.previewTradeVotes ?? [])
       setMessages(d.previewMessages)
       setAllLeagueFMK(d.previewFMK)
       setLeagueHistory(d.previewHistory)
@@ -245,6 +248,12 @@ export function AppProvider({ children }) {
     if (DEV_PREVIEW || !user) return
     const unsub = fs.listenToTrades(activeSeason, setTrades)
     return unsub
+  }, [user, activeSeason])
+
+  // BOOM/DOOM verdicts, season-scoped like the trades they belong to.
+  useEffect(() => {
+    if (DEV_PREVIEW || !user) return
+    return fs.listenToTradeVotes(activeSeason, setTradeVotes)
   }, [user, activeSeason])
 
   // Weekly scores follow activeSeason. League-readable (weeklyScores/),
@@ -375,6 +384,32 @@ export function AppProvider({ children }) {
   )
 
   const uid = user?.uid ?? (DEV_PREVIEW ? 'preview-user' : null)
+
+  /**
+   * Cast a permanent BOOM/DOOM verdict. Rejection from Firestore means the
+   * vote already existed or the caller was in the trade — both are final,
+   * so surface the failure instead of retrying.
+   */
+  const castTradeVote = useCallback(
+    async (trade, votedFor) => {
+      if (!uid || !canVote(trade, userTeam)) return false
+      if (DEV_PREVIEW) {
+        // Preview has no auth, so the real write would just 401. Keep the
+        // flow demoable locally — and still one-shot, like the real thing.
+        setTradeVotes((prev) =>
+          prev.some((v) => v.tradeId === trade.id && v.uid === uid)
+            ? prev
+            : [...prev, { id: `${trade.id}_${uid}`, tradeId: trade.id, uid, votedFor, season: activeSeason, voterTeam: userTeam }],
+        )
+        return true
+      }
+      await fs.castTradeVote({
+        tradeId: trade.id, uid, votedFor, season: activeSeason, voterTeam: userTeam,
+      })
+      return true
+    },
+    [uid, userTeam, activeSeason],
+  )
 
   const setFMKSignal = useCallback(
     async (asset, signal) => {
@@ -612,6 +647,8 @@ export function AppProvider({ children }) {
     isOffSeason, setIsOffSeason,
     isInitialLoadComplete,
     players, draftPicks, trades, messages,
+    tradeVotes, castTradeVote, uid,
+    isPreview: DEV_PREVIEW,
     allDisplayAssets, droppedPlayers, matches, myMatchCount,
     // FMK + interests
     fmkSignals, allLeagueFMK, currentFMKSignal, setFMKSignal, removeFMKSignal,

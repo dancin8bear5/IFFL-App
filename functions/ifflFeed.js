@@ -286,6 +286,12 @@ function diffSnapshot(feed, ours) {
   const feedPlayerById = new Map((feed.players ?? []).map((p) => [p.id, p]));
   const feedPickById = new Map((feed.draft_picks ?? []).map((p) => [p.id, p]));
 
+  // Stamped trades match by id, exactly and first — the pair-window
+  // heuristic below is only ever a first-contact mechanism.
+  const ourByIfflTradeId = new Map(
+    ourDone.filter((t) => t.ifflTradeId != null).map((t) => [Number(t.ifflTradeId), t]),
+  );
+
   for (const ft of feed.trades ?? []) {
     const teamsInvolved = [...new Set((ft.items ?? []).flatMap((i) => [i.sender_team_id, i.receiver_team_id]))]
       .map(teamName).filter(Boolean);
@@ -295,6 +301,18 @@ function diffSnapshot(feed, ours) {
         ? feedPlayerById.get(i.player_id)?.name ?? `player#${i.player_id}`
         : (() => { const p = feedPickById.get(i.draftpick_id); return p ? `${p.pick_year} R${p.pick_round} pick` : `pick#${i.draftpick_id}`; })(),
     );
+    const stamped = ourByIfflTradeId.get(ft.id);
+    if (stamped) {
+      claimed.add(stamped.id);
+      const ourCount = (stamped.assetsFromProposer?.length ?? 0) + (stamped.assetsFromReceiver?.length ?? 0);
+      const entry = {
+        ifflTradeId: ft.id, ourTradeId: stamped.id, date: ft.trade_date,
+        teams: teamsInvolved, feedItems: itemNames.length, ourItems: ourCount, via: "ifflTradeId",
+      };
+      if (itemNames.length > ourCount) { entry.missingHere = itemNames; report.trades.adoptedNeedingItems.push(entry); }
+      else report.trades.adopted.push(entry);
+      continue;
+    }
     const candidates = ourDone.filter(
       (t) => !claimed.has(t.id) &&
         pairKey(t.proposingTeamName, t.receivingTeamName) === pairKey(teamsInvolved[0], teamsInvolved[1]) &&

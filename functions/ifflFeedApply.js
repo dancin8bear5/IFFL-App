@@ -17,7 +17,7 @@
 // plan. A sync that applies 90% of a snapshot and guesses the rest is worse
 // than one that stops and says why.
 
-const { matchTeams, matchPlayers } = require("./ifflFeed");
+const { matchTeams, matchPlayers, normalizeName } = require("./ifflFeed");
 
 /** Deterministic doc id for a feed-created player. */
 const createdId = (ifflId) => `iffl-${ifflId}`;
@@ -43,10 +43,14 @@ const pricesEqual = (a, b) => {
  *   { ok, reasons, writes: [{col, id, op, fields}], ledger: [rows], counts }
  * `armed` gates sections: {players: bool, picks: bool}.
  */
-function planApply(league, ours, armed = { players: false, picks: false }) {
+function planApply(league, ours, armed = { players: false, picks: false, trades: false }, opts = {}) {
+  const nowMs = opts.nowMs ?? 0;
   const writes = [];
   const ledger = [];
-  const counts = { teamMoves: 0, deactivated: 0, reactivated: 0, priceUpdates: 0, anchorUpdates: 0, created: 0, pickMoves: 0 };
+  const counts = {
+    teamMoves: 0, deactivated: 0, reactivated: 0, priceUpdates: 0, anchorUpdates: 0, created: 0, pickMoves: 0,
+    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0,
+  };
 
   const teams = matchTeams(league.teams);
   if (teams.problems.length) {
@@ -166,7 +170,155 @@ function planApply(league, ours, armed = { players: false, picks: false }) {
     }
   }
 
+  if (armed.trades) {
+    planTrades(league, ours, { teamName, pm, writes, counts, nowMs });
+  }
+
   return { ok: true, reasons: [], writes, ledger, counts };
+}
+
+/**
+ * Trades: adopt-don't-duplicate, then backfill.
+ *
+ * A matched trade gets ifflTradeId stamped so it self-matches forever; if
+ * the feed lists items ours lacks (picks, usually), they're appended to the
+ * correct side as refs — no asset moves here, the players/picks sections
+ * already own state. An unmatched feed trade is created outright:
+ * older than a week as 'historical' (silent by onTradeWrite's gating),
+ * recent as 'completed' (notifies normally). Nothing of ours is ever
+ * overwritten — sides only ever gain items.
+ */
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const PAIR_WINDOW_MS = 3 * 24 * 60 * 60 * 1000;
+const asDate = (v) => (v && typeof v.toDate === "function" ? v.toDate() : v ? new Date(v) : null);
+
+function planTrades(league, ours, ctx) {
+  const { teamName, pm, writes, counts, nowMs } = ctx;
+  const ourDone = (ours.trades ?? []).filter((t) => t.status === "completed" || t.status === "historical");
+  const ourByIfflTradeId = new Map(ourDone.filter((t) => t.ifflTradeId != null).map((t) => [Number(t.ifflTradeId), t]));
+  const feedPlayerById = new Map((league.players ?? []).map((p) => [p.id, p]));
+  const feedPickById = new Map((league.draft_picks ?? []).map((p) => [p.id, p]));
+  const oursByFeedId = new Map(pm.matched.map((m) => [m.feed.id, m.ours]));
+  const claimed = new Set();
+  const pairKey = (a, b) => [a, b].sort().join("::");
+
+  // A feed item as one of our asset refs. Players we track get real ids;
+  // anyone gone from our DB (2025-season names) rides as displayName-only,
+  // the same shape the keeper-sheet backfill established.
+  const toRef = (item) => {
+    if (item.player_id != null) {
+      const fp = feedPlayerById.get(item.player_id);
+      const op = fp ? oursByFeedId.get(fp.id) : null;
+      return { assetId: op?.id ?? null, assetType: "player", displayName: fp?.name ?? `player#${item.player_id}` };
+    }
+    const pick = feedPickById.get(item.draftpick_id);
+    const orig = pick ? teamName(pick.original_team_id) : null;
+    return {
+      assetId: null,
+      assetType: "draftPick",
+      displayName: pick ? `${pick.pick_year} R${pick.pick_round}${orig ? ` (${orig})` : ""}` : `pick#${item.draftpick_id}`,
+      pickYear: pick?.pick_year ?? null,
+      pickRound: pick?.pick_round ?? null,
+    };
+  };
+
+  // Is a feed item already represented on the trade? By asset id when we
+  // have one, else by name/pick-shape against the existing display names.
+  const covered = (ref, ourItems) => {
+    if (ref.assetId && ourItems.some((i) => i.assetId === ref.assetId)) return true;
+    if (ref.assetType === "player") {
+      const n = normalizeName(ref.displayName);
+      return ourItems.some((i) => normalizeName(i.displayName ?? "") === n);
+    }
+    const y = String(ref.pickYear ?? "");
+    const r = String(ref.pickRound ?? "");
+    // Every notation this league has actually used for "round N": the feed's
+    // "R1", the app's "Round 1", the sheet's ordinal "1st", and the sheet's
+    // resolved slot form "1.02" — whose leading digit IS the round. Missing
+    // that last one is how the first armed run appended four duplicate pick
+    // refs onto the two 4/2 trades.
+    const roundRe = new RegExp(`(\\b(R${r}|Round ${r}|${r}(st|nd|rd|th))\\b|\\b${r}\\.\\d{2}\\b)`, "i");
+    return ourItems.some((i) => {
+      const d = String(i.displayName ?? "");
+      return i.assetType !== "player" && d.includes(y) && roundRe.test(d);
+    });
+  };
+
+  for (const ft of league.trades ?? []) {
+    const items = ft.items ?? [];
+    if (!items.length) continue;
+    const senders = items.map((i) => teamName(i.sender_team_id));
+    const receivers = items.map((i) => teamName(i.receiver_team_id));
+    const teams = [...new Set([...senders, ...receivers])].filter(Boolean);
+    if (teams.length !== 2) continue; // guide guarantees two; anything else is not ours to guess
+    const when = new Date(`${ft.trade_date}T12:00:00`);
+
+    let adopted = ourByIfflTradeId.get(ft.id) ?? null;
+    if (!adopted) {
+      adopted = ourDone
+        .filter((t) => !claimed.has(t.id) && t.ifflTradeId == null &&
+          pairKey(t.proposingTeamName, t.receivingTeamName) === pairKey(teams[0], teams[1]) &&
+          asDate(t.date) && Math.abs(asDate(t.date) - when) <= PAIR_WINDOW_MS)
+        .sort((a, b) => Math.abs(asDate(a.date) - when) - Math.abs(asDate(b.date) - when))[0] ?? null;
+      if (adopted) counts.tradesStamped++;
+    }
+
+    if (adopted) {
+      claimed.add(adopted.id);
+      const fields = {};
+      if (adopted.ifflTradeId == null) fields.ifflTradeId = ft.id;
+
+      const proposerItems = [...(adopted.assetsFromProposer ?? [])];
+      const receiverItems = [...(adopted.assetsFromReceiver ?? [])];
+      const all = [...proposerItems, ...receiverItems];
+      let filled = 0;
+      for (const item of items) {
+        const ref = toRef(item);
+        if (covered(ref, all)) continue;
+        const sender = teamName(item.sender_team_id);
+        const { pickYear, pickRound, ...clean } = ref;
+        if (sender === adopted.proposingTeamName) proposerItems.push(clean);
+        else receiverItems.push(clean);
+        all.push(ref);
+        filled++;
+      }
+      if (filled > 0) {
+        fields.assetsFromProposer = proposerItems;
+        fields.assetsFromReceiver = receiverItems;
+        counts.tradesItemFilled += filled;
+      }
+      if (Object.keys(fields).length) {
+        writes.push({ col: "trades", id: adopted.id, op: "update", fields });
+      }
+      continue;
+    }
+
+    // Never seen: create it. The proposer label is the first item's sender —
+    // a display nicety, same convention as the ESPN ingest's pickSides.
+    const proposing = senders.find(Boolean);
+    const receiving = teams.find((t) => t !== proposing);
+    const refs = items.map((i) => ({ item: i, ref: toRef(i) }));
+    const clean = ({ pickYear, pickRound, ...r }) => r;
+    const isOld = nowMs - when.getTime() > WEEK_MS;
+    writes.push({
+      col: "trades",
+      id: `iffl-trade-${ft.id}`,
+      op: "set",
+      fields: {
+        proposingTeamName: proposing,
+        receivingTeamName: receiving,
+        assetsFromProposer: refs.filter((x) => teamName(x.item.sender_team_id) === proposing).map((x) => clean(x.ref)),
+        assetsFromReceiver: refs.filter((x) => teamName(x.item.sender_team_id) !== proposing).map((x) => clean(x.ref)),
+        notes: null,
+        season: ft.trade_season ?? null,
+        status: isOld ? "historical" : "completed",
+        source: "iffl-feed",
+        ifflTradeId: ft.id,
+      },
+      tsFields: { date: when.getTime(), completedAt: when.getTime() },
+    });
+    counts.tradesCreated++;
+  }
 }
 
 module.exports = { planApply, createdId, appPosition };

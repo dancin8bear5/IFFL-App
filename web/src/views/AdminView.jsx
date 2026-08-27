@@ -622,6 +622,12 @@ function KeeperImportSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="iff-card" style={{ padding: '11px 14px', border: '1.5px solid rgba(244,162,97,0.55)', fontSize: 12, lineHeight: 1.6 }}>
+        <b style={{ color: 'var(--iff-gold)' }}>⚠ Superseded by the league feed sync.</b>{' '}
+        Rosters, prices, and contracts now mirror Jason&apos;s league feed automatically, and the
+        sync will overwrite anything changed here within about five minutes. Break-glass only —
+        if something is truly wrong, fix it upstream (tell Jason) and let the sync carry it in.
+      </div>
       <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
         The once-a-year bulk step for the keeper deadline. Paste or upload the Keeper Master CSV
         export (Team, Position, Player, {activeSeason} Price, {activeSeason + 1} Price,
@@ -1705,6 +1711,13 @@ function DropsSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="iff-card" style={{ padding: '11px 14px', border: '1.5px solid rgba(244,162,97,0.55)', fontSize: 12, lineHeight: 1.6 }}>
+        <b style={{ color: 'var(--iff-gold)' }}>⚠ Superseded by the league feed sync.</b>{' '}
+        Rosters, prices, and contracts now mirror Jason&apos;s league feed automatically, and the
+        sync will overwrite anything changed here within about five minutes. Break-glass only —
+        if something is truly wrong, fix it upstream (tell Jason) and let the sync carry it in.
+      </div>
+
       {/* Drop a player */}
       <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 700 }}>Drop a Player</div>

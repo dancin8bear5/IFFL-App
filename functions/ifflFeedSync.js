@@ -52,7 +52,7 @@ function summarize(r) {
  * One sync pass. Returns {status, ...detail}; never throws for expected
  * conditions — a thrown error is a bug, not a bad feed day.
  */
-async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs }) {
+async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs, tsFromMs }) {
   const stateRef = db.doc(STATE_DOC);
   const state = (await stateRef.get()).data() ?? {};
 
@@ -116,20 +116,29 @@ async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs }) {
 
   // ── Phase 4: apply, when armed. config/ifflFeed.armed = {players, picks}.
   // Report-only remains the default for any flag left unset.
-  const armed = { players: !!state.armed?.players, picks: !!state.armed?.picks };
+  const armed = {
+    players: !!state.armed?.players,
+    picks: !!state.armed?.picks,
+    trades: !!state.armed?.trades,
+  };
   let appliedLine = "Report-only — nothing was applied.";
   let applied = null;
 
-  if ((armed.players || armed.picks) && report.problems.length === 0) {
-    const plan = planApply(league, { players, draftPicks }, armed);
+  if ((armed.players || armed.picks || armed.trades) && report.problems.length === 0) {
+    const plan = planApply(league, { players, draftPicks, trades }, armed, { nowMs: Date.parse(nowIso()) });
     if (!plan.ok) {
       appliedLine = `⛔ Apply refused: ${plan.reasons.slice(0, 3).join("; ")}`;
       await stateRef.set({ lastApplyError: plan.reasons.join("; ") }, { merge: true });
     } else {
       for (const w of plan.writes) {
         const ref = db.collection(w.col).doc(w.id);
-        if (w.op === "set") await ref.set(w.fields);
-        else await ref.update(w.fields);
+        const fields = { ...w.fields };
+        // Timestamp-typed fields ride the plan as epoch ms (the plan is
+        // pure); they become real Timestamps here so Firestore's type-aware
+        // ordering keeps feed-created docs sorted with everything else.
+        for (const [k, ms] of Object.entries(w.tsFields ?? {})) fields[k] = tsFromMs(ms);
+        if (w.op === "set") await ref.set(fields);
+        else await ref.update(fields);
       }
       for (const row of plan.ledger) {
         await db.collection("transactions").doc().set({ ...row, createdAt: nowTs() });
@@ -138,7 +147,8 @@ async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs }) {
       const c = plan.counts;
       appliedLine =
         `APPLIED: ${c.teamMoves} moves, ${c.deactivated} to FA, ${c.reactivated} back, ` +
-        `${c.created} created, ${c.priceUpdates} prices, ${c.anchorUpdates} anchors, ${c.pickMoves} pick moves.`;
+        `${c.created} created, ${c.priceUpdates} prices, ${c.anchorUpdates} anchors, ${c.pickMoves} pick moves, ` +
+        `trades ${c.tradesStamped} stamped/${c.tradesCreated} created/${c.tradesItemFilled} items filled.`;
       await stateRef.set({
         lastAppliedAt: nowIso(),
         lastAppliedCounts: c,

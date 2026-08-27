@@ -318,6 +318,14 @@ async function handleTradeWrite(event) {
       await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
       return null;
     }
+    // Backfilled and imported records (keeper sheet, feed adoption) are not
+    // offers — nobody should be told they "received a trade offer" from a
+    // deal that happened months ago. Only a genuinely proposed trade
+    // notifies below. This gating was missing: a created 'historical' doc
+    // used to fall through to the offer DMs, masked only by GroupMe being
+    // paused during every backfill so far.
+    if (after.status !== "proposed" && !after.parentTradeId) return null;
+
     // Counter-offers: the original trade's status→countered already notified
     // the proposer via push; but the DM for a counter should reach the NEW
     // receiver (the original proposer) with the new terms — send it here.
@@ -888,6 +896,7 @@ exports.pollIfflFeed = onSchedule(
       // orders by createdAt, and Firestore sorts mixed types by type, so an
       // ISO string here would strand feed rows at the bottom of the ledger.
       nowTs: () => admin.firestore.Timestamp.now(),
+      tsFromMs: (ms) => admin.firestore.Timestamp.fromMillis(ms),
     });
     console.log("pollIfflFeed:", JSON.stringify(res).slice(0, 400));
   },

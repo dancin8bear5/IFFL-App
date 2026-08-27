@@ -630,3 +630,31 @@ test('A4 — an unusable date falls back to now rather than inventing one', asyn
   const t = db.dump('trades')[0]
   assert.ok(t.date.toMillis() >= before, 'must be a real timestamp, not NaN')
 })
+
+/* ═══════════════ PATH J — created-doc notification gating ═══════════════ */
+// Backfills and feed imports create trade docs directly. Only a genuine
+// offer may send offer notifications — a created 'historical' doc used to
+// fall through to the "sent you a trade offer" DMs, masked only by GroupMe
+// being paused during every backfill so far.
+
+test('J1 — a created historical trade notifies nobody', async () => {
+  const { pipeline, sent } = loadPipeline(baseSeed())
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'historical' }))
+  assert.equal(sent.push.length, 0)
+  assert.equal(sent.groupme.length, 0)
+})
+
+test('J2 — a created completed trade still notifies as completed, not as an offer', async () => {
+  const { pipeline, sent } = loadPipeline(baseSeed())
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'completed' }))
+  assert.equal(sent.push.length, 2, 'both teams hear a completed trade')
+  for (const p of sent.push) assert.match(p.notification.title, /Executed/)
+  assert.ok(!sent.push.some((p) => /Offer/.test(p.notification.title)))
+})
+
+test('J3 — a created proposed trade still sends the offer', async () => {
+  const { pipeline, sent } = loadPipeline(baseSeed())
+  await pipeline.handleTradeWrite(evt(null, { ...proposedTrade(), status: 'proposed' }))
+  assert.equal(sent.push.length, 1)
+  assert.match(sent.push[0].notification.title, /Trade Offer/)
+})

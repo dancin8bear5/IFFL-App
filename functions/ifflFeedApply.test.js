@@ -57,6 +57,7 @@ test("the plan covers move, deactivate, reactivate, prices, anchors, create, and
                         // from the feed is a correction, not a no-op
     created: 1,         // Rams DST
     pickMoves: 1,       // 2027 R1 M. Zurek → Jared
+    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0, // trades unarmed here
   });
 
   const kyren = plan.writes.find((w) => w.id === "pk");
@@ -152,6 +153,7 @@ test("an armed run applies, records counts, DMs the applied line — and reruns 
   assert.equal(res2.status, "reported");
   assert.deepEqual(res2.applied, {
     teamMoves: 0, deactivated: 0, reactivated: 0, priceUpdates: 0, anchorUpdates: 0, created: 0, pickMoves: 0,
+    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0,
   });
   const after = db.writeLog.filter((w) => w.col === "players" || w.col === "draftPicks").length;
   assert.equal(after, before, "second pass over the same snapshot writes zero league docs");
@@ -170,4 +172,105 @@ test("an armed run with ambiguity refuses and says so, applying nothing", async 
   assert.match(dms[0], /Apply refused/);
   assert.equal(db.get("players", "pk").teamName, "M. Zurek", "nothing may move on a refused plan");
   assert.match(db.get("config", "ifflFeed").lastApplyError, /ambiguous/);
+});
+
+/* ═══════════════ Phase 5 — trade adoption ═══════════════ */
+
+const NOW = Date.parse("2026-08-27T04:00:00Z");
+const TRADES_ARMED = { players: false, picks: false, trades: true };
+
+const tradeLeague = (over = {}) => ({
+  ...league(),
+  trades: [
+    { id: 90, trade_date: "2026-08-26", trade_season: 2026, items: [
+      { id: 1, trade_id: 90, sender_team_id: 1, receiver_team_id: 2, player_id: 10, draftpick_id: null },
+      { id: 2, trade_id: 90, sender_team_id: 2, receiver_team_id: 1, player_id: null, draftpick_id: 50 },
+    ] },
+    { id: 91, trade_date: "2025-06-01", trade_season: 2025, items: [
+      { id: 3, trade_id: 91, sender_team_id: 1, receiver_team_id: 2, player_id: 11, draftpick_id: null },
+    ] },
+  ],
+  ...over,
+});
+
+test("an unstamped match is adopted: ifflTradeId stamped, missing pick appended to the right side", () => {
+  const seed = oursSeed();
+  seed.trades = {
+    t1: { status: "completed", date: "2026-08-26T18:00:00Z", proposingTeamName: "Jared", receivingTeamName: "M. Zurek",
+      assetsFromProposer: [{ assetId: "pk", assetType: "player", displayName: "Kyren Williams" }],
+      assetsFromReceiver: [] },
+  };
+  const db = new FakeFirestore(seed);
+  const plan = planApply(tradeLeague(), { ...oursArrays(db), trades: db.dump("trades") }, TRADES_ARMED, { nowMs: NOW });
+
+  assert.equal(plan.counts.tradesStamped, 1);
+  assert.equal(plan.counts.tradesItemFilled, 1, "the pick the trade doc lacked");
+  const w = plan.writes.find((x) => x.col === "trades" && x.id === "t1");
+  assert.equal(w.fields.ifflTradeId, 90);
+  // The pick was SENT by M. Zurek (team 2), the receiver side.
+  assert.equal(w.fields.assetsFromReceiver.length, 1);
+  assert.match(w.fields.assetsFromReceiver[0].displayName, /2027 R1 \(M\. Zurek\)/);
+  assert.equal(w.fields.assetsFromProposer.length, 1, "our existing item is untouched");
+});
+
+test("a stamped trade with matching items plans nothing — idempotence via ifflTradeId", () => {
+  const seed = oursSeed();
+  seed.trades = {
+    t1: { status: "completed", date: "2026-08-26T18:00:00Z", proposingTeamName: "Jared", receivingTeamName: "M. Zurek",
+      ifflTradeId: 90,
+      assetsFromProposer: [{ assetId: "pk", assetType: "player", displayName: "Kyren Williams" }],
+      assetsFromReceiver: [{ assetId: null, assetType: "draftPick", displayName: "2027 R1 (M. Zurek)" }] },
+    t2: { status: "historical", date: "2025-06-01T12:00:00Z", proposingTeamName: "Jared", receivingTeamName: "M. Zurek",
+      ifflTradeId: 91,
+      assetsFromProposer: [{ assetId: null, assetType: "player", displayName: "Travis Kelce" }],
+      assetsFromReceiver: [] },
+  };
+  const db = new FakeFirestore(seed);
+  const plan = planApply(tradeLeague(), { ...oursArrays(db), trades: db.dump("trades") }, TRADES_ARMED, { nowMs: NOW });
+  assert.deepEqual(plan.writes.filter((w) => w.col === "trades"), [], "nothing to do twice");
+  assert.equal(plan.counts.tradesStamped, 0);
+});
+
+test("unseen feed trades are created: old ones historical, recent ones completed", () => {
+  const db = new FakeFirestore(oursSeed());
+  const plan = planApply(tradeLeague(), { ...oursArrays(db), trades: [] }, TRADES_ARMED, { nowMs: NOW });
+
+  assert.equal(plan.counts.tradesCreated, 2);
+  const recent = plan.writes.find((w) => w.id === "iffl-trade-90");
+  assert.equal(recent.fields.status, "completed", "yesterday's trade notifies normally");
+  assert.equal(recent.fields.ifflTradeId, 90);
+  assert.ok(recent.tsFields.date > 0, "date rides as epoch ms for the engine to Timestamp-ify");
+
+  const old = plan.writes.find((w) => w.id === "iffl-trade-91");
+  assert.equal(old.fields.status, "historical", "a 2025 trade is a record, not news");
+  assert.equal(old.fields.season, 2025);
+  // Kelce is ours (ifflId 11) so his ref resolves to a real doc id.
+  assert.equal(old.fields.assetsFromProposer[0].assetId, "kelce");
+});
+
+test("covered items are recognized by pick shape, so displayName variants don't duplicate", () => {
+  const seed = oursSeed();
+  seed.trades = {
+    t1: { status: "historical", date: "2026-08-26T12:00:00Z", proposingTeamName: "Jared", receivingTeamName: "M. Zurek",
+      assetsFromProposer: [{ assetId: null, assetType: "player", displayName: "Kyren Williams" }],
+      // Keeper-sheet spelling of the same pick the feed calls "2027 R1".
+      assetsFromReceiver: [{ assetId: null, assetType: "draftPick", displayName: "2027 1st (M. Zurek)" }] },
+  };
+  const db = new FakeFirestore(seed);
+  const plan = planApply(tradeLeague(), { ...oursArrays(db), trades: db.dump("trades") }, TRADES_ARMED, { nowMs: NOW });
+  assert.equal(plan.counts.tradesItemFilled, 0, "'2027 1st' and '2027 R1' are the same pick");
+});
+
+test("REGRESSION: the sheet's slot notation covers the same pick — no duplicate refs", () => {
+  // First armed run appended "2026 R1 (A. Zurek)" beside "2026 1.02 (A.
+  // Zurek)" because 1.02 didn't read as round 1. Same pick, two spellings.
+  const seed = oursSeed();
+  seed.trades = {
+    t1: { status: "historical", date: "2026-08-26T12:00:00Z", proposingTeamName: "Jared", receivingTeamName: "M. Zurek",
+      assetsFromProposer: [{ assetId: null, assetType: "player", displayName: "Kyren Williams" }],
+      assetsFromReceiver: [{ assetId: null, assetType: "draftPick", displayName: "2027 1.02 (M. Zurek)" }] },
+  };
+  const db = new FakeFirestore(seed);
+  const plan = planApply(tradeLeague(), { ...oursArrays(db), trades: db.dump("trades") }, TRADES_ARMED, { nowMs: NOW });
+  assert.equal(plan.counts.tradesItemFilled, 0, "1.02 IS round 1");
 });

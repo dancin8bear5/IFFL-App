@@ -70,33 +70,48 @@ never the risk. Deleting something by accident is.
 
 `ops/weekly-backup.sh`, scheduled by `ops/com.iffl.weekly-backup.plist`
 (installed to `~/Library/LaunchAgents`, **Sundays 09:00**), runs
-`web/scripts/backup-firestore.mjs` and writes a gzipped snapshot to:
+`web/scripts/backup-firestore.mjs` and writes a gzipped snapshot to the **NAS**:
 
-- `data/backup/` — **gitignored**, see below
-- `~/Library/Mobile Documents/com~apple~CloudDocs/IFFL-Backups/` — iCloud Drive,
-  which is what makes the backup survive this laptop
+    /Volumes/homes/jaredrogtaylor/Backups/IFFL/
 
-Twelve snapshots are kept in each location (~3 months); older ones are pruned.
-Roughly 1,078 documents compress to ~119 KiB, so a year costs a few MB.
+(SMB share on 192.168.1.124.) Not the Mac, not iCloud — deliberately. Twelve
+snapshots are kept (~3 months); older ones are pruned. About 1,078 documents
+compress to ~119 KiB, so a year costs a couple of MB on a 3.6 TiB volume.
 
-**These snapshots are never committed.** The GitHub repo is public, and
-`config/league` contains all 12 members' email addresses (`teamEmailMap`) plus
-their Firebase UIDs. `.gitignore` excludes `data/backup/`; keep it that way.
+**It will not fall back to a local path when the NAS is offline.** Writing to
+`/Volumes/homes/...` while the share is unmounted would silently create an
+ordinary local folder that looks exactly like a successful backup — and would
+disappear under the mount the moment the NAS reconnected. The script checks
+`mount` (not `existsSync`, which can't tell the difference) and exits **2**
+when the destination isn't a live network share, so a missed week is visible
+in the log instead of imaginary.
 
-The snapshot skips the six derived `history*` collections — ~45 of the
-database's ~47 MiB — because they are rebuilt from the CSV in this directory.
-What it captures is the ~1 MiB that exists nowhere else: rosters, trades, the
-transaction ledger, rules and votes, avatars, keeper plans, the big board, and
-`config/league`. The script **aborts rather than write a snapshot missing
+Every write is **read back and verified** before the prune step: the archive is
+decompressed, re-parsed, and its document count compared against what was
+written. A truncated write over SMB is a real possibility, and a corrupt
+archive nobody opens until restore day is worse than no archive at all.
+
+The script also **aborts rather than write a snapshot missing
 `config/league.userTeamMap`** — losing that map doesn't just lose data, it
 locks every member out of their own team.
 
+**Snapshots are never committed.** The GitHub repo is public, and
+`config/league` contains all 12 members' email addresses (`teamEmailMap`) and
+their Firebase UIDs. `data/backup/` stays in `.gitignore` as a guard even
+though nothing writes there any more.
+
+The snapshot skips the six derived `history*` collections — ~45 of the
+database's ~47 MiB — because they rebuild from the CSV in this directory. It
+captures the ~1 MiB that exists nowhere else: rosters, trades, the transaction
+ledger, rules and votes, avatars, keeper plans, the big board, and config.
+
 Check on it: `tail ~/claude-agents/apps/iffl-web-app/out/weekly-backup.log`
 Run it now: `bash ~/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh`
+See snapshots: `ls -la /Volumes/homes/jaredrogtaylor/Backups/IFFL/`
 
-The most likely failure is an expired gcloud token (`gcloud auth login` fixes
-it). The script logs failures explicitly instead of exiting quietly, because a
-backup everyone assumes is running is worse than one known to be broken.
+Two likely failures, both logged explicitly: the NAS share isn't mounted
+(exit 2 — reconnect `smb://192.168.1.124` in Finder), or the gcloud token
+expired (`gcloud auth login`).
 
 ### Restoring from a snapshot
 
@@ -105,5 +120,8 @@ The file is gzipped JSON with Firestore's REST value encoding preserved
 same REST API `import-history.mjs` uses:
 
 ```bash
-python3 -c "import gzip,json;d=json.loads(gzip.open('data/backup/<file>.json.gz').read());print(list(d['collections']))"
+python3 -c "import gzip,json;d=json.loads(gzip.open('/Volumes/homes/jaredrogtaylor/Backups/IFFL/<file>.json.gz').read());print({k:len(v) for k,v in d['collections'].items()})"
 ```
+
+The NAS is the only copy. If it dies, so do these — worth keeping in mind if
+the NAS itself isn't backed up or redundant.

@@ -37,6 +37,15 @@ cd ~/claude-agents/apps/iffl-web-app && git pull --no-rebase origin claude/insan
 - `web/.env` holds Firebase web config (from Console → Project settings → Your apps → Web). Never committed; template in `web/.env.example`.
 - PWA: manifest + icons → Add to Home Screen gives near-native feel. `public/privacy.html` still served at `/privacy.html`.
 
+## Backups (Aug 26, 2026)
+Weekly Firestore snapshot → **the NAS** (`/Volumes/homes/jaredrogtaylor/Backups/IFFL`,
+SMB on 192.168.1.124), Sundays 09:00 via `ops/com.iffl.weekly-backup.plist`.
+Never to the Mac or iCloud, and **never to git — this repo is PUBLIC** and
+`config/league` holds every member's email and Firebase UID. Details and the
+restore procedure: `data/README.md`. Firestore delete protection is ON;
+point-in-time recovery is OFF (paid, declined), so the weekly snapshot is the
+only undo for a bad write.
+
 ## Historical data — full ESPN export imported (Aug 26, 2026)
 The complete ESPN league history 2008–2025 (every team, player, week, and
 draft) lives in Firestore, imported from `iffl_fantasy_history_2008-2025.csv`

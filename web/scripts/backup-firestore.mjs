@@ -16,12 +16,21 @@
 // and the email auto-link map. Losing that doesn't just lose data, it locks
 // the whole league out of their own accounts.
 //
-// WHERE IT WRITES, AND WHY NOT GIT
+// WHERE IT WRITES
 //
-// The GitHub repo is PUBLIC. config/league contains all 11 members' real email
-// addresses and their Firebase UIDs, so these snapshots must never be
-// committed. They go to a local directory (gitignored) and, when available, to
-// iCloud Drive for an off-machine copy that stays private.
+// The NAS only: /Volumes/homes/jaredrogtaylor/Backups/IFFL (SMB share on
+// 192.168.1.124). Not the Mac, not iCloud.
+//
+// It will NOT fall back to a local path when the NAS is unreachable. If
+// /Volumes/homes isn't a live mount, writing to that path would silently
+// create an ordinary local folder that looks exactly like a successful
+// backup and would vanish the moment the share mounted over it. The script
+// verifies the destination is a real network mount and exits non-zero
+// otherwise, so a failed week is visible instead of imaginary.
+//
+// The snapshots must never be committed either way: the GitHub repo is
+// PUBLIC, and config/league holds every member's real email address and
+// Firebase UID.
 //
 // Auth: `gcloud auth print-access-token` — the commissioner's own login. No
 // service-account key exists on this machine.
@@ -30,9 +39,8 @@
 //   node scripts/backup-firestore.mjs            # write a snapshot
 //   node scripts/backup-firestore.mjs --dry-run  # report only
 import { execSync } from 'node:child_process'
-import { gzipSync } from 'node:zlib'
-import { mkdirSync, writeFileSync, readdirSync, unlinkSync, existsSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { gzipSync, gunzipSync } from 'node:zlib'
+import { mkdirSync, writeFileSync, readFileSync, readdirSync, unlinkSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const PROJECT = 'iffl-auth'
@@ -132,25 +140,44 @@ if (dryRun) {
 const stamp = snapshot.takenAt.slice(0, 10)
 const file = `firestore-backup-${stamp}.json.gz`
 
-const targets = [join(process.cwd(), '..', 'data', 'backup')]
-// iCloud Drive gives an off-machine copy that stays private — the repo is
-// public, so these snapshots can never live in git.
-const icloud = join(homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'IFFL-Backups')
-if (existsSync(join(homedir(), 'Library', 'Mobile Documents', 'com~apple~CloudDocs'))) targets.push(icloud)
+// The NAS share must be genuinely mounted. `mount` is the authority here —
+// existsSync() would happily return true for a local directory sitting at the
+// mountpoint, which is the exact failure this guards against.
+const NAS_MOUNT = '/Volumes/homes'
+const dir = `${NAS_MOUNT}/jaredrogtaylor/Backups/IFFL`
 
-for (const dir of targets) {
-  try {
-    mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, file), gz)
-    // Prune oldest, keeping the most recent KEEP snapshots.
-    const old = readdirSync(dir)
-      .filter((f) => /^firestore-backup-.*\.json\.gz$/.test(f))
-      .sort()
-      .slice(0, -KEEP)
-    for (const f of old) unlinkSync(join(dir, f))
-    const kept = readdirSync(dir).filter((f) => /^firestore-backup-.*\.json\.gz$/.test(f)).length
-    console.log(`✓ ${join(dir, file)} (${(statSync(join(dir, file)).size / 1024).toFixed(0)} KiB, ${kept} kept${old.length ? `, ${old.length} pruned` : ''})`)
-  } catch (e) {
-    console.error(`  ! could not write to ${dir}: ${e.message}`)
-  }
+const mounts = execSync('/sbin/mount', { encoding: 'utf8' })
+const mountLine = mounts.split('\n').find((l) => l.includes(` on ${NAS_MOUNT} `))
+if (!mountLine || !/smbfs|afpfs|nfs/.test(mountLine)) {
+  console.error(`ABORT: ${NAS_MOUNT} is not a mounted network share — no backup written.`)
+  console.error('  Mount it in Finder (Go → Connect to Server → smb://192.168.1.124) and re-run:')
+  console.error('  bash ~/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh')
+  process.exit(2)
+}
+
+try {
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, file), gz)
+
+  // Read the file back and verify it decompresses to the same document count.
+  // A truncated write over SMB is a real possibility, and a corrupt archive
+  // that nobody opens until restore day is worse than no archive at all.
+  const readBack = gunzipSync(readFileSync(join(dir, file)))
+  const parsed = JSON.parse(readBack.toString())
+  const back = Object.values(parsed.collections).reduce((a, v) => a + v.length, 0)
+  if (back !== docCount) throw new Error(`verify failed: wrote ${docCount} docs, read back ${back}`)
+
+  // Prune oldest, keeping the most recent KEEP snapshots.
+  const old = readdirSync(dir)
+    .filter((f) => /^firestore-backup-.*\.json\.gz$/.test(f))
+    .sort()
+    .slice(0, -KEEP)
+  for (const f of old) unlinkSync(join(dir, f))
+  const kept = readdirSync(dir).filter((f) => /^firestore-backup-.*\.json\.gz$/.test(f)).length
+
+  console.log(`✓ ${join(dir, file)} (${(statSync(join(dir, file)).size / 1024).toFixed(0)} KiB)`)
+  console.log(`  verified: ${back} docs read back · ${kept} snapshots kept${old.length ? `, ${old.length} pruned` : ''}`)
+} catch (e) {
+  console.error(`ABORT: write to NAS failed: ${e.message}`)
+  process.exit(1)
 }

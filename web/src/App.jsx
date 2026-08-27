@@ -14,15 +14,21 @@ export default function App() {
   const { user, authReady, didLoadSettings, userSettings } = useApp()
   const [tab, setTab] = useState(0)
   const appliedDefaultTab = useRef(false)
+  // Captured ONCE, at first render. TabLayout now writes the current tab
+  // back into the hash, so by the time settings finish loading there is
+  // always a hash — reading window.location.hash inside the effect below
+  // would see that self-written value and permanently disable the saved
+  // default-tab preference. What matters is whether the user ARRIVED on a
+  // link, and only this first read can answer that.
+  const arrivedOnDeepLink = useRef(
+    typeof window !== 'undefined' && Boolean(window.location.hash),
+  )
 
   // Apply the saved default tab once after settings load (mirrors iOS onChange).
-  //
-  // A deep link has to outrank it. This effect fires when settings finish
-  // loading, which is AFTER TabLayout has already acted on the URL hash — so
-  // without the guard, opening /#board flashes the Big Board and then snaps
-  // back to whatever default tab is saved.
+  // A deep link outranks it: someone opening /#board wants the Big Board,
+  // not whatever tab they normally start on.
   useEffect(() => {
-    if (window.location.hash) { appliedDefaultTab.current = true; return }
+    if (arrivedOnDeepLink.current) { appliedDefaultTab.current = true; return }
     if (didLoadSettings && !appliedDefaultTab.current) {
       appliedDefaultTab.current = true
       const t = userSettings.defaultTab ?? 0

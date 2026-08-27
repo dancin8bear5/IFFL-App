@@ -134,6 +134,30 @@ service cloud.firestore {
       allow write: if isCommissioner();
     }
 
+    // Full ESPN history import (2008–2025) — team seasons, weekly matchups,
+    // player season/week lines, and drafts. Seeded once by
+    // web/scripts/import-history.mjs; read-only league data thereafter.
+    match /historyTeamSeasons/{year} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+    match /historyMatchups/{year} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+    match /historyPlayerSeasons/{year} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+    match /historyPlayerWeeks/{yearWeek} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+    match /historyDrafts/{year} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
     match /messages/{messageId} {
       allow read: if isMember();
       allow write: if isCommissioner();

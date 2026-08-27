@@ -72,6 +72,8 @@ export function AppProvider({ children }) {
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS)
   const [didLoadSettings, setDidLoadSettings] = useState(false)
   const [leagueHistory, setLeagueHistory] = useState([])
+  const [historyMatchups, setHistoryMatchups] = useState([]) // historyMatchups/{year} docs, lazy
+  const [historyAggregates, setHistoryAggregates] = useState(null) // {scoring, draft}, lazy
   const [leagueRecords, setLeagueRecords] = useState([])
   const [rules, setRules] = useState([])
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
@@ -136,6 +138,8 @@ export function AppProvider({ children }) {
       setMessages(d.previewMessages)
       setAllLeagueFMK(d.previewFMK)
       setLeagueHistory(d.previewHistory)
+      setHistoryMatchups(d.previewHistoryMatchups ?? [])
+      setHistoryAggregates(d.previewHistoryAggregates ? { ...d.previewHistoryAggregates, lineups: d.previewHistoryLineups ?? null } : null)
       setRules(d.previewRules ?? [])
       setTransactions(d.previewTransactions ?? [])
       setParlayConfig(d.previewParlayConfig ?? null)
@@ -477,6 +481,25 @@ export function AppProvider({ children }) {
     fs.fetchLeagueHistory().then(setLeagueHistory).catch(() => {})
   }, [])
 
+  // Full ESPN game history (2008–2025) — ~450KB across 18 docs, so it loads
+  // once, lazily, when the Trophy Room first opens, and is kept for the session.
+  const loadHistoryMatchups = useCallback(() => {
+    if (DEV_PREVIEW) return
+    setHistoryMatchups((prev) => {
+      if (prev.length === 0) fs.fetchHistoryMatchups().then(setHistoryMatchups).catch(() => {})
+      return prev
+    })
+  }, [])
+
+  // Precomputed scoring/draft chart feeds — two small docs, same lazy pattern.
+  const loadHistoryAggregates = useCallback(() => {
+    if (DEV_PREVIEW) return
+    setHistoryAggregates((prev) => {
+      if (prev === null) fs.fetchHistoryAggregates().then(setHistoryAggregates).catch(() => {})
+      return prev
+    })
+  }, [])
+
   const loadLeagueRecords = useCallback(() => {
     if (DEV_PREVIEW) return
     fs.fetchLeagueRecords().then(setLeagueRecords).catch(() => {})
@@ -667,6 +690,8 @@ export function AppProvider({ children }) {
     // settings + history
     userSettings, didLoadSettings, saveUserSettings,
     leagueHistory, loadLeagueHistory,
+    historyMatchups, loadHistoryMatchups,
+    historyAggregates, loadHistoryAggregates,
     leagueRecords, loadLeagueRecords, setLeagueRecords,
     // rules + voting
     rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,

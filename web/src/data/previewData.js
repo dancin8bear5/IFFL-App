@@ -341,3 +341,122 @@ export const previewIngests = [
     receivedAt: new Date(),
   },
 ]
+
+// ── historyMatchups fixture — deterministic fake game history ──
+// Three seasons of full schedules for the 12 current franchises, generated
+// with a seeded LCG so every preview session renders the same charts.
+// Shape matches historyMatchups/{year} docs from the ESPN import exactly.
+export const previewHistoryMatchups = (() => {
+  const teams = ['Jared', 'Bill', 'Ryan', 'Abad', 'Cantone', 'Faybik', 'M. Zurek', 'Wayne', 'A. Zurek', 'Dugan', 'Foley', 'Jason']
+  let seed = 42
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+  // Per-team strength so luck/clutch charts show a real spread
+  const base = Object.fromEntries(teams.map((t, i) => [t, 108 + (i % 5) * 8]))
+
+  return [2023, 2024, 2025].map((season) => {
+    const rows = []
+    for (let week = 1; week <= 17; week++) {
+      // Circle-method round robin: rotate all but the first team
+      const rot = [teams[0], ...teams.slice(1 + ((week - 1) % 11)), ...teams.slice(1, 1 + ((week - 1) % 11))]
+      for (let i = 0; i < 6; i++) {
+        const a = rot[i]
+        const b = rot[11 - i]
+        const pa = Math.round((base[a] + rand() * 60 - 20) * 100) / 100
+        const pb = Math.round((base[b] + rand() * 60 - 20) * 100) / 100
+        const res = (x, y) => (x > y ? 'W' : x < y ? 'L' : 'T')
+        rows.push(
+          { week, team: a, opponent: b, points: pa, oppPoints: pb, margin: Math.round((pa - pb) * 100) / 100, result: res(pa, pb), benchPoints: Math.round(rand() * 90 * 100) / 100 },
+          { week, team: b, opponent: a, points: pb, oppPoints: pa, margin: Math.round((pb - pa) * 100) / 100, result: res(pb, pa), benchPoints: Math.round(rand() * 90 * 100) / 100 },
+        )
+      }
+    }
+    return { id: String(season), season, rows }
+  })
+})()
+
+// ── historyAggregates fixture — precomputed scoring & draft feeds ──
+// Mirrors historyAggregates/{scoring,draft} written by the ESPN import.
+export const previewHistoryAggregates = (() => {
+  const teams = ['Jared', 'Bill', 'Ryan', 'Abad', 'Cantone', 'Faybik', 'M. Zurek', 'Wayne', 'A. Zurek', 'Dugan', 'Foley', 'Jason']
+  let seed = 7
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+  const round = (n) => Math.round(n * 100) / 100
+  const seasons = []
+  const roi = []
+  const positionSpend = []
+
+  for (const season of [2021, 2022, 2023, 2024, 2025]) {
+    // League scoring drifts down over the window, as it really has.
+    const era = 140 - (season - 2021) * 4
+    const rows = teams.map((t, i) => {
+      const ppg = round(era + ((i % 6) - 2.5) * 6 + rand() * 8 - 4)
+      return { team: t, ppg, games: 14, pointsFor: round(ppg * 14) }
+    })
+    seasons.push({
+      season,
+      leagueAvgPPG: round(rows.reduce((a, r) => a + r.ppg, 0) / rows.length),
+      teams: rows,
+    })
+
+    for (const t of teams) {
+      const spend = 180 + Math.round(rand() * 40)
+      const points = round(spend * (9 + rand() * 7))
+      roi.push({ season, team: t, picks: 12, spend, points, ptsPerDollar: round(points / spend) })
+    }
+
+    // QB share climbs and RB share falls across the window; kickers vanish.
+    const qb = 0.14 + (season - 2021) * 0.025
+    const rb = 0.44 - (season - 2021) * 0.03
+    const k = season >= 2023 ? 0 : 0.01
+    const te = 0.09, dst = 0.02
+    const wr = 1 - qb - rb - te - dst - k
+    const total = 2400
+    positionSpend.push({
+      season, total,
+      byPosition: {
+        QB: round(qb * total), RB: round(rb * total), WR: round(wr * total),
+        TE: round(te * total), 'D/ST': round(dst * total), K: round(k * total),
+      },
+    })
+  }
+  return { scoring: { seasons }, draft: { positionSpend, roi } }
+})()
+
+// ── historyAggregates/lineups fixture — bench regret & roster DNA ──
+export const previewHistoryLineups = (() => {
+  const teams = ['Jared', 'Bill', 'Ryan', 'Abad', 'Cantone', 'Faybik', 'M. Zurek', 'Wayne', 'A. Zurek', 'Dugan', 'Foley', 'Jason']
+  let seed = 99
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+  const round = (n) => Math.round(n * 100) / 100
+  const rows = []
+  for (const season of [2023, 2024, 2025]) {
+    for (let week = 1; week <= 17; week++) {
+      for (const team of teams) {
+        const started = round(90 + rand() * 70)
+        const regret = round(rand() * rand() * 70) // right-skewed: most weeks are small
+        rows.push({
+          season, week, team, started, optimal: round(started + regret), regret,
+          flipped: regret > 25 && rand() > 0.72,
+        })
+      }
+    }
+  }
+  const positionShare = teams.map((team, i) => {
+    // Normalised so the parts always add up to the whole, the way real
+    // starter-point totals do.
+    const raw = {
+      WR: 26 + ((i * 7) % 11),
+      RB: 24 + ((i * 5) % 9),
+      QB: 20 + ((i * 3) % 6),
+      TE: 9,
+      'D/ST': 5,
+    }
+    const sum = Object.values(raw).reduce((a, b) => a + b, 0)
+    const total = 12000 + i * 250
+    const byPosition = Object.fromEntries(
+      Object.entries(raw).map(([pos, v]) => [pos, round((v / sum) * total)]),
+    )
+    return { team, total: round(total), byPosition }
+  })
+  return { sinceSeason: 2023, rows, positionShare }
+})()

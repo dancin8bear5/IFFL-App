@@ -157,6 +157,13 @@ service cloud.firestore {
       allow read: if isMember();
       allow write: if isCommissioner();
     }
+    // Precomputed chart feeds (scoring by season, draft spend + ROI). These
+    // exist so the Trophy Room doesn't have to pull every draft and player
+    // season into the browser to draw three charts.
+    match /historyAggregates/{docId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
 
     match /messages/{messageId} {
       allow read: if isMember();

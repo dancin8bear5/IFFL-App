@@ -46,6 +46,7 @@ const COL = {
   weeklyScores: 'weeklyScores',
   playoffs: 'playoffs',
   tradeVotes: 'tradeVotes',
+  historyMatchups: 'historyMatchups',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -1403,6 +1404,34 @@ export async function fetchLeagueHistory() {
 
 export function addSeasonHistory(history) {
   return setDoc(doc(db, COL.leagueHistory, String(history.season)), history)
+}
+
+// ── ESPN game history — historyMatchups/{year} ─────────────────
+// Every game 2008–2025, one row per team per game, seeded once by
+// web/scripts/import-history.mjs. ~25KB per season doc, fetched only when
+// the Trophy Room opens (see AppContext.loadHistoryMatchups).
+
+export async function fetchHistoryMatchups() {
+  const q = query(collection(db, COL.historyMatchups), orderBy('season'))
+  return snapToDocs(await getDocs(q))
+}
+
+/**
+ * Precomputed chart feeds — historyAggregates/{scoring,draft}. Two small docs
+ * standing in for a join across every draft and player season.
+ * @returns { scoring, draft } — either may be null if never seeded.
+ */
+export async function fetchHistoryAggregates() {
+  const [scoring, draft, lineups] = await Promise.all([
+    getDoc(doc(db, 'historyAggregates', 'scoring')),
+    getDoc(doc(db, 'historyAggregates', 'draft')),
+    getDoc(doc(db, 'historyAggregates', 'lineups')),
+  ])
+  return {
+    scoring: scoring.exists() ? scoring.data() : null,
+    draft: draft.exists() ? draft.data() : null,
+    lineups: lineups.exists() ? lineups.data() : null,
+  }
 }
 
 // ── Team profile pictures — teamAvatars/{teamName} ─────────────

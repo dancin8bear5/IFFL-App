@@ -169,3 +169,22 @@ test("free agents unknown to us are counted, never created", () => {
   assert.equal(r.players.feedFreeAgentsIgnored, 1);
   assert.ok(!r.players.toCreate.some((c) => c.name === "Some Streamer"));
 });
+
+test("REGRESSION: Admin-SDK Timestamp dates still adopt trades", () => {
+  // The first live run reported 0 adopted / 42 new because trade dates
+  // arrived as Firestore Timestamps, not strings. This pins the fix.
+  const feed = tinyFeed();
+  const ours = tinyOurs();
+  ours.trades[0].date = { toDate: () => new Date("2026-08-26T18:00:00Z") }; // Timestamp-shaped
+  const r = diffSnapshot(feed, ours);
+  assert.equal(r.trades.newFromFeed.length, 0, "the trade must adopt, not duplicate");
+  assert.equal(r.trades.adoptedNeedingItems.length, 1);
+});
+
+test("a used pick's stale holder row is not reported — apply refuses it anyway", () => {
+  const feed = tinyFeed();
+  const ours = tinyOurs();
+  ours.draftPicks[0].status = "used";
+  const r = diffSnapshot(feed, ours);
+  assert.equal(r.picks.ownershipChanges.length, 0);
+});

@@ -7,6 +7,9 @@ import { fantasyTeams, teamByName, isActiveTeam } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
 import TeamLink from './TeamLink'
 import TrophyAnalytics from './TrophyAnalytics'
+import TrophyHistoryCharts from './TrophyHistoryCharts'
+import TrophyDraftCharts from './TrophyDraftCharts'
+import TrophyLineupCharts from './TrophyLineupCharts'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts, ownerName,
@@ -92,12 +95,14 @@ function DroughtBadge({ drought, seasons, activeLabel }) {
 }
 
 export default function TrophyRoomView({ onClose }) {
-  const { leagueHistory, leagueRecords, loadLeagueRecords, isAdmin } = useApp()
+  const { leagueHistory, leagueRecords, loadLeagueRecords, loadHistoryMatchups, loadHistoryAggregates, isAdmin } = useApp()
   const [showFormer, setShowFormer] = useState(false)
 
   useEffect(() => {
     loadLeagueRecords()
-  }, [loadLeagueRecords])
+    loadHistoryMatchups()
+    loadHistoryAggregates()
+  }, [loadLeagueRecords, loadHistoryMatchups, loadHistoryAggregates])
 
   const { rows, records, banners, formerCount, superlatives, droughts } = useMemo(() => {
     const all = defaultSort(computeAllTimeStats(leagueHistory))
@@ -248,6 +253,15 @@ export default function TrophyRoomView({ onClose }) {
 
             {/* ── Distributions: the spread behind the single numbers ── */}
             <TrophyAnalytics showFormer={showFormer} />
+
+            {/* ── Game-history analytics: rivalries, luck, clutch ── */}
+            <TrophyHistoryCharts showFormer={showFormer} />
+
+            {/* ── Draft & scoring analytics: eras, spend, ROI ── */}
+            <TrophyDraftCharts showFormer={showFormer} />
+
+            {/* ── Lineup analytics: bench regret, roster DNA (2018+) ── */}
+            <TrophyLineupCharts showFormer={showFormer} />
 
             {/* ── Drought table ── */}
             {droughts.length > 0 && (

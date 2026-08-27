@@ -258,6 +258,10 @@ function diffSnapshot(feed, ours) {
       report.picks.feedUnmatched.push({ ifflPickId: fp.id, key, currentTeam: teamName(fp.current_team_id) });
       continue;
     }
+    // Spent picks are history — their holder rows can be stale upstream
+    // without meaning anything (the 1.02-that-became-Mendoza case), and the
+    // armed apply refuses them. Reporting them forever would just nag.
+    if (op.status !== "available") continue;
     const feedCurrent = teamName(fp.current_team_id);
     if (feedCurrent !== op.currentTeamName) {
       report.picks.ownershipChanges.push({ id: op.id, key, ours: op.currentTeamName, feed: feedCurrent });
@@ -268,6 +272,13 @@ function diffSnapshot(feed, ours) {
     .map((p) => ({ id: p.id, key: `${p.season}|${p.round}|${p.originalTeamName}` }));
 
   // ── Trades ── adopt-don't-duplicate: same team pair within ±3 days.
+  //
+  // Dates arrive in three shapes depending on who loaded them: Admin SDK
+  // Timestamps ({toDate}), REST-decoded ISO strings, or Dates. The first
+  // live run proved this the hard way — Timestamps made new Date(t.date)
+  // Invalid, every window check failed, and all 42 feed trades reported as
+  // "new" instead of 9 adopted + 33 new. Normalize before comparing.
+  const asDate = (v) => (v && typeof v.toDate === "function" ? v.toDate() : v ? new Date(v) : null);
   const WINDOW = 3 * 24 * 60 * 60 * 1000;
   const pairKey = (a, b) => [a, b].sort().join("::");
   const ourDone = (ours.trades ?? []).filter((t) => t.status === "completed" || t.status === "historical");
@@ -287,8 +298,8 @@ function diffSnapshot(feed, ours) {
     const candidates = ourDone.filter(
       (t) => !claimed.has(t.id) &&
         pairKey(t.proposingTeamName, t.receivingTeamName) === pairKey(teamsInvolved[0], teamsInvolved[1]) &&
-        t.date && Math.abs(new Date(t.date) - when) <= WINDOW,
-    ).sort((a, b) => Math.abs(new Date(a.date) - when) - Math.abs(new Date(b.date) - when));
+        asDate(t.date) && Math.abs(asDate(t.date) - when) <= WINDOW,
+    ).sort((a, b) => Math.abs(asDate(a.date) - when) - Math.abs(asDate(b.date) - when));
 
     if (candidates.length === 0) {
       report.trades.newFromFeed.push({ ifflTradeId: ft.id, date: ft.trade_date, teams: teamsInvolved, items: itemNames });
@@ -310,7 +321,7 @@ function diffSnapshot(feed, ours) {
   }
   report.trades.oursUnmatched = ourDone
     .filter((t) => !claimed.has(t.id))
-    .map((t) => ({ id: t.id, date: t.date, teams: [t.proposingTeamName, t.receivingTeamName], status: t.status }));
+    .map((t) => ({ id: t.id, date: asDate(t.date)?.toISOString() ?? null, teams: [t.proposingTeamName, t.receivingTeamName], status: t.status }));
 
   return report;
 }

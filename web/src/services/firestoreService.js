@@ -1422,13 +1422,15 @@ export async function fetchHistoryMatchups() {
  * @returns { scoring, draft } — either may be null if never seeded.
  */
 export async function fetchHistoryAggregates() {
-  const [scoring, draft] = await Promise.all([
+  const [scoring, draft, lineups] = await Promise.all([
     getDoc(doc(db, 'historyAggregates', 'scoring')),
     getDoc(doc(db, 'historyAggregates', 'draft')),
+    getDoc(doc(db, 'historyAggregates', 'lineups')),
   ])
   return {
     scoring: scoring.exists() ? scoring.data() : null,
     draft: draft.exists() ? draft.data() : null,
+    lineups: lineups.exists() ? lineups.data() : null,
   }
 }
 

@@ -8,6 +8,7 @@ import { DetailOverlay, TeamAvatar } from './shared'
 import TrophyAnalytics from './TrophyAnalytics'
 import TrophyHistoryCharts from './TrophyHistoryCharts'
 import TrophyDraftCharts from './TrophyDraftCharts'
+import TrophyLineupCharts from './TrophyLineupCharts'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts, ownerName,
@@ -257,6 +258,9 @@ export default function TrophyRoomView({ onClose }) {
 
             {/* ── Draft & scoring analytics: eras, spend, ROI ── */}
             <TrophyDraftCharts showFormer={showFormer} />
+
+            {/* ── Lineup analytics: bench regret, roster DNA (2018+) ── */}
+            <TrophyLineupCharts showFormer={showFormer} />
 
             {/* ── Drought table ── */}
             {droughts.length > 0 && (

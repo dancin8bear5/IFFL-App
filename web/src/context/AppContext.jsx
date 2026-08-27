@@ -129,7 +129,7 @@ export function AppProvider({ children }) {
       setAllLeagueFMK(d.previewFMK)
       setLeagueHistory(d.previewHistory)
       setHistoryMatchups(d.previewHistoryMatchups ?? [])
-      setHistoryAggregates(d.previewHistoryAggregates ?? null)
+      setHistoryAggregates(d.previewHistoryAggregates ? { ...d.previewHistoryAggregates, lineups: d.previewHistoryLineups ?? null } : null)
       setRules(d.previewRules ?? [])
       setTransactions(d.previewTransactions ?? [])
       setParlayConfig(d.previewParlayConfig ?? null)

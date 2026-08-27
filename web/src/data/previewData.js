@@ -421,3 +421,42 @@ export const previewHistoryAggregates = (() => {
   }
   return { scoring: { seasons }, draft: { positionSpend, roi } }
 })()
+
+// ── historyAggregates/lineups fixture — bench regret & roster DNA ──
+export const previewHistoryLineups = (() => {
+  const teams = ['Jared', 'Bill', 'Ryan', 'Abad', 'Cantone', 'Faybik', 'M. Zurek', 'Wayne', 'A. Zurek', 'Dugan', 'Foley', 'Jason']
+  let seed = 99
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+  const round = (n) => Math.round(n * 100) / 100
+  const rows = []
+  for (const season of [2023, 2024, 2025]) {
+    for (let week = 1; week <= 17; week++) {
+      for (const team of teams) {
+        const started = round(90 + rand() * 70)
+        const regret = round(rand() * rand() * 70) // right-skewed: most weeks are small
+        rows.push({
+          season, week, team, started, optimal: round(started + regret), regret,
+          flipped: regret > 25 && rand() > 0.72,
+        })
+      }
+    }
+  }
+  const positionShare = teams.map((team, i) => {
+    // Normalised so the parts always add up to the whole, the way real
+    // starter-point totals do.
+    const raw = {
+      WR: 26 + ((i * 7) % 11),
+      RB: 24 + ((i * 5) % 9),
+      QB: 20 + ((i * 3) % 6),
+      TE: 9,
+      'D/ST': 5,
+    }
+    const sum = Object.values(raw).reduce((a, b) => a + b, 0)
+    const total = 12000 + i * 250
+    const byPosition = Object.fromEntries(
+      Object.entries(raw).map(([pos, v]) => [pos, round((v / sum) * total)]),
+    )
+    return { team, total: round(total), byPosition }
+  })
+  return { sinceSeason: 2023, rows, positionShare }
+})()

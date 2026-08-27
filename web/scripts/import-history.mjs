@@ -38,6 +38,7 @@
 //   node scripts/import-history.mjs ~/Downloads/iffl_fantasy_history_2008-2025.csv
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
+import { weekRegret } from '../src/services/lineupOptimizer.js'
 
 const PROJECT = 'iffl-auth'
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`
@@ -427,6 +428,95 @@ for (const season of [...draftSeasons].sort()) {
     }
   }
   setDoc('historyAggregates/draft', { source: 'espn-history-import', positionSpend, roi })
+
+  // ── Lineups: bench regret + roster DNA (2018+) ──────────────
+  // Solving the best-possible lineup is an assignment problem per team-week,
+  // so it runs here once rather than in every browser that opens the room.
+  const pwByTeamWeek = new Map()
+  for (const r of playerWeeks) {
+    const season = Number(get(r, 'Season'))
+    const key = `${season}|${get(r, 'Week')}|${get(r, 'TeamId')}`
+    if (!pwByTeamWeek.has(key)) pwByTeamWeek.set(key, [])
+    pwByTeamWeek.get(key).push({
+      player: get(r, 'Player'),
+      position: get(r, 'Position'),
+      slot: get(r, 'LineupSlot'),
+      status: get(r, 'Status'),
+      points: num(get(r, 'WeeklyPoints')),
+    })
+  }
+
+  // Official score and result for the same team-week, to say whether a perfect
+  // lineup would have flipped the game.
+  const officialByKey = new Map()
+  for (const r of teamWeeks) {
+    officialByKey.set(`${Number(get(r, 'Season'))}|${get(r, 'Week')}|${get(r, 'TeamId')}`, {
+      pts: num(get(r, 'TeamScore')), opp: num(get(r, 'OpponentScore')),
+    })
+  }
+
+  const lineupRows = []
+  const dna = new Map()
+  for (const [key, rows] of pwByTeamWeek) {
+    const [seasonStr, weekStr, teamId] = key.split('|')
+    const season = Number(seasonStr)
+    const team = owner(season, teamId)
+    const r = weekRegret(rows)
+    if (!r) continue
+
+    const official = officialByKey.get(key)
+    // A loss "flips" when the points left on the bench cover the deficit.
+    const lost = official?.pts != null && official?.opp != null && official.pts < official.opp
+    const flipped = lost && official.pts + r.regret > official.opp
+
+    lineupRows.push({
+      season, week: Number(weekStr), team,
+      started: r.started, optimal: r.optimal, regret: r.regret,
+      flipped: Boolean(flipped),
+    })
+
+    // Roster DNA counts STARTER points only — what a team leaned on.
+    for (const row of rows) {
+      if (row.status !== 'Starter' || row.points == null) continue
+      const d = dna.get(team) ?? { team, total: 0, byPosition: {} }
+      d.byPosition[row.position] = (d.byPosition[row.position] ?? 0) + row.points
+      d.total += row.points
+      dna.set(team, d)
+    }
+  }
+
+  lineupRows.sort((a, b) => a.season - b.season || a.week - b.week || a.team.localeCompare(b.team))
+  const positionShare = [...dna.values()].map((d) => ({
+    team: d.team,
+    total: Math.round(d.total * 100) / 100,
+    byPosition: Object.fromEntries(Object.entries(d.byPosition).map(([k, v]) => [k, Math.round(v * 100) / 100])),
+  }))
+  const firstLineupSeason = lineupRows.length ? Math.min(...lineupRows.map((r) => r.season)) : null
+  setDoc('historyAggregates/lineups', {
+    source: 'espn-history-import',
+    sinceSeason: firstLineupSeason,
+    rows: lineupRows,
+    positionShare,
+  })
+
+  // Worst lineup decision ever — the single week a perfect lineup would have
+  // changed the most. Deferred to Phase 3 because it needs the solver above.
+  if (lineupRows.length) {
+    const activeOwners2 = new Set([...mapping.get(2025).values()].map((t) => t.team))
+    const pool = lineupRows.filter((r) => activeOwners2.has(r.team))
+    const worst = (pool.length ? pool : lineupRows).reduce((a, b) => (b.regret > a.regret ? b : a))
+    const off = officialByKey.get(`${worst.season}|${worst.week}|${
+      [...(mapping.get(worst.season) ?? new Map()).entries()].find(([, v]) => v.team === worst.team)?.[0] ?? ''}`)
+    const lostIt = off?.pts != null && off?.opp != null && off.pts < off.opp
+    setDoc('leagueRecords/auto-worst-lineup-decision', {
+      source: 'espn-history-import',
+      scope: 'player', label: 'Worst Lineup Decision', tone: 'low',
+      team: worst.team, player: null,
+      value: `${Math.round(worst.regret * 100) / 100} pts left behind`,
+      detail: `started ${worst.started}, best lineup was ${worst.optimal}${lostIt ? ` — and lost ${off.pts}–${off.opp}` : ''} · tracked since ${firstLineupSeason}`,
+      season: worst.season, week: worst.week, order: 7,
+    })
+  }
 }
 
 // ── 7. leagueRecords — computed record-book cards (fixed ids) ──

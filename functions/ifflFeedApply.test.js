@@ -52,7 +52,9 @@ test("the plan covers move, deactivate, reactivate, prices, anchors, create, and
     deactivated: 1,     // Kelce → FA
     reactivated: 1,     // Comeback Kid back onto M. Zurek
     priceUpdates: 2,    // Kyren 29→31(+2027), Comeback {}→{2026:8}
-    anchorUpdates: 2,   // Kyren purchaseYear + originalPrice
+    anchorUpdates: 4,   // Kyren's two, plus Comeback Kid's two — his doc had
+                        // no anchors at all, and filling a missing anchor
+                        // from the feed is a correction, not a no-op
     created: 1,         // Rams DST
     pickMoves: 1,       // 2027 R1 M. Zurek → Jared
   });
@@ -62,6 +64,10 @@ test("the plan covers move, deactivate, reactivate, prices, anchors, create, and
   assert.deepEqual(kyren.fields.prices, { 2026: 31, 2027: 51 });
   assert.equal(kyren.fields.purchaseYear, 2024);
   assert.equal(kyren.fields.originalPrice, 12);
+
+  const cb = plan.writes.find((w) => w.id === "cb");
+  assert.equal(cb.fields.purchaseYear, 2025, "missing anchors fill from the feed");
+  assert.equal(cb.fields.originalPrice, 3);
 
   const kelce = plan.writes.find((w) => w.id === "kelce");
   assert.deepEqual(kelce.fields, { isActive: false }, "deactivation touches nothing else");

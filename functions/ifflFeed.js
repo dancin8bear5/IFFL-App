@@ -258,6 +258,10 @@ function diffSnapshot(feed, ours) {
       report.picks.feedUnmatched.push({ ifflPickId: fp.id, key, currentTeam: teamName(fp.current_team_id) });
       continue;
     }
+    // Spent picks are history — their holder rows can be stale upstream
+    // without meaning anything (the 1.02-that-became-Mendoza case), and the
+    // armed apply refuses them. Reporting them forever would just nag.
+    if (op.status !== "available") continue;
     const feedCurrent = teamName(fp.current_team_id);
     if (feedCurrent !== op.currentTeamName) {
       report.picks.ownershipChanges.push({ id: op.id, key, ours: op.currentTeamName, feed: feedCurrent });

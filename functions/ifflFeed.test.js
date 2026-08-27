@@ -180,3 +180,11 @@ test("REGRESSION: Admin-SDK Timestamp dates still adopt trades", () => {
   assert.equal(r.trades.newFromFeed.length, 0, "the trade must adopt, not duplicate");
   assert.equal(r.trades.adoptedNeedingItems.length, 1);
 });
+
+test("a used pick's stale holder row is not reported — apply refuses it anyway", () => {
+  const feed = tinyFeed();
+  const ours = tinyOurs();
+  ours.draftPicks[0].status = "used";
+  const r = diffSnapshot(feed, ours);
+  assert.equal(r.picks.ownershipChanges.length, 0);
+});

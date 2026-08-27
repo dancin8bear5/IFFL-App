@@ -18,6 +18,7 @@
 //     true in report mode, and load-bearing once armed.
 
 const { diffSnapshot } = require("./ifflFeed");
+const { planApply } = require("./ifflFeedApply");
 
 const STATE_DOC = "config/ifflFeed";
 const REPORT_DOC = "config/ifflFeedReport";
@@ -51,7 +52,7 @@ function summarize(r) {
  * One sync pass. Returns {status, ...detail}; never throws for expected
  * conditions — a thrown error is a bug, not a bad feed day.
  */
-async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso }) {
+async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs }) {
   const stateRef = db.doc(STATE_DOC);
   const state = (await stateRef.get()).data() ?? {};
 
@@ -113,13 +114,46 @@ async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso }) {
     lastSummary: summarize(report),
   }, { merge: true });
 
+  // ── Phase 4: apply, when armed. config/ifflFeed.armed = {players, picks}.
+  // Report-only remains the default for any flag left unset.
+  const armed = { players: !!state.armed?.players, picks: !!state.armed?.picks };
+  let appliedLine = "Report-only — nothing was applied.";
+  let applied = null;
+
+  if ((armed.players || armed.picks) && report.problems.length === 0) {
+    const plan = planApply(league, { players, draftPicks }, armed);
+    if (!plan.ok) {
+      appliedLine = `⛔ Apply refused: ${plan.reasons.slice(0, 3).join("; ")}`;
+      await stateRef.set({ lastApplyError: plan.reasons.join("; ") }, { merge: true });
+    } else {
+      for (const w of plan.writes) {
+        const ref = db.collection(w.col).doc(w.id);
+        if (w.op === "set") await ref.set(w.fields);
+        else await ref.update(w.fields);
+      }
+      for (const row of plan.ledger) {
+        await db.collection("transactions").doc().set({ ...row, createdAt: nowTs() });
+      }
+      applied = plan.counts;
+      const c = plan.counts;
+      appliedLine =
+        `APPLIED: ${c.teamMoves} moves, ${c.deactivated} to FA, ${c.reactivated} back, ` +
+        `${c.created} created, ${c.priceUpdates} prices, ${c.anchorUpdates} anchors, ${c.pickMoves} pick moves.`;
+      await stateRef.set({
+        lastAppliedAt: nowIso(),
+        lastAppliedCounts: c,
+        lastApplyError: null,
+      }, { merge: true });
+    }
+  }
+
   if (report.problems.length > 0) {
     await dm(`⛔ Feed sync hit problems:\n${report.problems.join("\n")}`);
   } else {
-    await dm(`📥 League feed changed (${meta.last_changed_at}).\n${summarize(report)}\nReport-only — nothing was applied.`);
+    await dm(`📥 League feed changed (${meta.last_changed_at}).\n${summarize(report)}\n${appliedLine}`);
   }
 
-  return { status: "reported", summary: summarize(report) };
+  return { status: "reported", summary: summarize(report), applied };
 }
 
 module.exports = { runFeedSync, STATE_DOC, REPORT_DOC };

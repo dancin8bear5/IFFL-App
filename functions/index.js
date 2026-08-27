@@ -884,6 +884,10 @@ exports.pollIfflFeed = onSchedule(
       feedBase: feedBase.replace(/\/+$/, ""),
       dm: (text) => sendGroupMeDM(COMMISSIONER_TEAM_NAME, text),
       nowIso: () => new Date().toISOString(),
+      // Ledger rows must carry a real Timestamp — the transactions query
+      // orders by createdAt, and Firestore sorts mixed types by type, so an
+      // ISO string here would strand feed rows at the bottom of the ledger.
+      nowTs: () => admin.firestore.Timestamp.now(),
     });
     console.log("pollIfflFeed:", JSON.stringify(res).slice(0, 400));
   },

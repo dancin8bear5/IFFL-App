@@ -373,3 +373,51 @@ export const previewHistoryMatchups = (() => {
     return { id: String(season), season, rows }
   })
 })()
+
+// ── historyAggregates fixture — precomputed scoring & draft feeds ──
+// Mirrors historyAggregates/{scoring,draft} written by the ESPN import.
+export const previewHistoryAggregates = (() => {
+  const teams = ['Jared', 'Bill', 'Ryan', 'Abad', 'Cantone', 'Faybik', 'M. Zurek', 'Wayne', 'A. Zurek', 'Dugan', 'Foley', 'Jason']
+  let seed = 7
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+  const round = (n) => Math.round(n * 100) / 100
+  const seasons = []
+  const roi = []
+  const positionSpend = []
+
+  for (const season of [2021, 2022, 2023, 2024, 2025]) {
+    // League scoring drifts down over the window, as it really has.
+    const era = 140 - (season - 2021) * 4
+    const rows = teams.map((t, i) => {
+      const ppg = round(era + ((i % 6) - 2.5) * 6 + rand() * 8 - 4)
+      return { team: t, ppg, games: 14, pointsFor: round(ppg * 14) }
+    })
+    seasons.push({
+      season,
+      leagueAvgPPG: round(rows.reduce((a, r) => a + r.ppg, 0) / rows.length),
+      teams: rows,
+    })
+
+    for (const t of teams) {
+      const spend = 180 + Math.round(rand() * 40)
+      const points = round(spend * (9 + rand() * 7))
+      roi.push({ season, team: t, picks: 12, spend, points, ptsPerDollar: round(points / spend) })
+    }
+
+    // QB share climbs and RB share falls across the window; kickers vanish.
+    const qb = 0.14 + (season - 2021) * 0.025
+    const rb = 0.44 - (season - 2021) * 0.03
+    const k = season >= 2023 ? 0 : 0.01
+    const te = 0.09, dst = 0.02
+    const wr = 1 - qb - rb - te - dst - k
+    const total = 2400
+    positionSpend.push({
+      season, total,
+      byPosition: {
+        QB: round(qb * total), RB: round(rb * total), WR: round(wr * total),
+        TE: round(te * total), 'D/ST': round(dst * total), K: round(k * total),
+      },
+    })
+  }
+  return { scoring: { seasons }, draft: { positionSpend, roi } }
+})()

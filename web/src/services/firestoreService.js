@@ -1416,6 +1416,22 @@ export async function fetchHistoryMatchups() {
   return snapToDocs(await getDocs(q))
 }
 
+/**
+ * Precomputed chart feeds — historyAggregates/{scoring,draft}. Two small docs
+ * standing in for a join across every draft and player season.
+ * @returns { scoring, draft } — either may be null if never seeded.
+ */
+export async function fetchHistoryAggregates() {
+  const [scoring, draft] = await Promise.all([
+    getDoc(doc(db, 'historyAggregates', 'scoring')),
+    getDoc(doc(db, 'historyAggregates', 'draft')),
+  ])
+  return {
+    scoring: scoring.exists() ? scoring.data() : null,
+    draft: draft.exists() ? draft.data() : null,
+  }
+}
+
 // ── Team profile pictures — teamAvatars/{teamName} ─────────────
 // One doc per team: either {dataUrl} for an uploaded picture or
 // {presetId} for a built-in. Everyone in the league reads every team's

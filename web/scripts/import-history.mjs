@@ -345,6 +345,90 @@ for (const season of [...draftSeasons].sort()) {
   setDoc(`historyDrafts/${season}`, { season, source: 'espn-history-import', picks, keeperRoundPicks })
 }
 
+// ── 6b. historyAggregates — precomputed chart feeds ───────────
+// The scoring, draft-spend and draft-ROI charts each need a join across
+// every season's drafts AND player seasons. Doing that in the browser would
+// mean pulling ~1MB across 36 documents to render three charts. These two
+// small docs (a few KB each) carry the finished numbers instead.
+{
+  // Scoring by season: per-team PPG plus the league average that year, so a
+  // franchise can be read against the era it played in.
+  const scoringSeasons = []
+  for (const season of seasonsOf(teamSeasons)) {
+    const teams = teamSeasons
+      .filter((r) => Number(get(r, 'Season')) === season)
+      .map((r) => {
+        const w = num(get(r, 'Wins')) ?? 0, l = num(get(r, 'Losses')) ?? 0, t = num(get(r, 'Ties')) ?? 0
+        const pf = num(get(r, 'PointsFor'))
+        const games = w + l + t
+        return {
+          team: owner(season, get(r, 'TeamId')),
+          pointsFor: pf != null ? Math.round(pf * 100) / 100 : null,
+          games,
+          ppg: pf != null && games > 0 ? Math.round((pf / games) * 100) / 100 : null,
+        }
+      })
+      .filter((x) => x.ppg != null)
+    if (!teams.length) continue
+    const avg = teams.reduce((a, x) => a + x.ppg, 0) / teams.length
+    scoringSeasons.push({ season, leagueAvgPPG: Math.round(avg * 100) / 100, teams })
+  }
+  setDoc('historyAggregates/scoring', { source: 'espn-history-import', seasons: scoringSeasons })
+
+  // Draft economics. Position labels in the export carry a little junk:
+  // PK is ESPN's older name for K, and '-' / 'FB' are a handful of rows that
+  // aren't real fantasy positions.
+  const POS_FIX = { PK: 'K' }
+  const POS_DROP = new Set(['-', 'FB', ''])
+  const normPos = (p) => POS_FIX[p] ?? p
+
+  // ROI needs each pick's season points ON THE TEAM THAT DRAFTED HIM.
+  const ptsByKey = new Map()
+  for (const r of byType.PlayerSeason ?? []) {
+    const pts = num(get(r, 'SeasonTotalPoints'))
+    if (pts != null) ptsByKey.set(`${get(r, 'Season')}|${get(r, 'TeamId')}|${get(r, 'PlayerId')}`, pts)
+  }
+
+  const positionSpend = []
+  const roi = []
+  for (const season of seasonsOf(byType.DraftPick ?? [])) {
+    const picks = (byType.DraftPick ?? []).filter((r) => Number(get(r, 'Season')) === season)
+
+    const byPosition = {}
+    let total = 0
+    for (const r of picks) {
+      const pos = normPos(get(r, 'Position'))
+      const price = num(get(r, 'AuctionPrice'))
+      if (POS_DROP.has(pos) || price == null) continue
+      byPosition[pos] = (byPosition[pos] ?? 0) + price
+      total += price
+    }
+    if (total > 0) positionSpend.push({ season, total, byPosition })
+
+    const byTeam = new Map()
+    for (const r of picks) {
+      const price = num(get(r, 'AuctionPrice'))
+      if (price == null || price <= 0) continue
+      const team = owner(season, get(r, 'TeamId'))
+      const pts = ptsByKey.get(`${get(r, 'Season')}|${get(r, 'TeamId')}|${get(r, 'PlayerId')}`) ?? 0
+      const t = byTeam.get(team) ?? { team, spend: 0, points: 0, picks: 0 }
+      t.spend += price
+      t.points += pts
+      t.picks += 1
+      byTeam.set(team, t)
+    }
+    for (const t of byTeam.values()) {
+      roi.push({
+        season, team: t.team, picks: t.picks,
+        spend: Math.round(t.spend * 100) / 100,
+        points: Math.round(t.points * 100) / 100,
+        ptsPerDollar: t.spend > 0 ? Math.round((t.points / t.spend) * 100) / 100 : null,
+      })
+    }
+  }
+  setDoc('historyAggregates/draft', { source: 'espn-history-import', positionSpend, roi })
+}
+
 // ── 7. leagueRecords — computed record-book cards (fixed ids) ──
 {
   const games = teamWeeks.map((r) => {

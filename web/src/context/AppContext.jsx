@@ -63,6 +63,7 @@ export function AppProvider({ children }) {
   const [didLoadSettings, setDidLoadSettings] = useState(false)
   const [leagueHistory, setLeagueHistory] = useState([])
   const [historyMatchups, setHistoryMatchups] = useState([]) // historyMatchups/{year} docs, lazy
+  const [historyAggregates, setHistoryAggregates] = useState(null) // {scoring, draft}, lazy
   const [leagueRecords, setLeagueRecords] = useState([])
   const [rules, setRules] = useState([])
   const [rulesVotingOpen, setRulesVotingOpen] = useState(false)
@@ -128,6 +129,7 @@ export function AppProvider({ children }) {
       setAllLeagueFMK(d.previewFMK)
       setLeagueHistory(d.previewHistory)
       setHistoryMatchups(d.previewHistoryMatchups ?? [])
+      setHistoryAggregates(d.previewHistoryAggregates ?? null)
       setRules(d.previewRules ?? [])
       setTransactions(d.previewTransactions ?? [])
       setParlayConfig(d.previewParlayConfig ?? null)
@@ -479,6 +481,15 @@ export function AppProvider({ children }) {
     })
   }, [])
 
+  // Precomputed scoring/draft chart feeds — two small docs, same lazy pattern.
+  const loadHistoryAggregates = useCallback(() => {
+    if (DEV_PREVIEW) return
+    setHistoryAggregates((prev) => {
+      if (prev === null) fs.fetchHistoryAggregates().then(setHistoryAggregates).catch(() => {})
+      return prev
+    })
+  }, [])
+
   const loadLeagueRecords = useCallback(() => {
     if (DEV_PREVIEW) return
     fs.fetchLeagueRecords().then(setLeagueRecords).catch(() => {})
@@ -670,6 +681,7 @@ export function AppProvider({ children }) {
     userSettings, didLoadSettings, saveUserSettings,
     leagueHistory, loadLeagueHistory,
     historyMatchups, loadHistoryMatchups,
+    historyAggregates, loadHistoryAggregates,
     leagueRecords, loadLeagueRecords, setLeagueRecords,
     // rules + voting
     rules, rulesVotingOpen, proposeRule, voteOnRule, setVotingOpen, finalizeRuleVotes,

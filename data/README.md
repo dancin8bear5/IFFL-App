@@ -51,14 +51,18 @@ restore into an empty Firestore, seed `leagueHistory` first (from
 `Services/DataSeeder.swift`'s `historySeeds`, still in the repo) or use this
 file to supply the mapping directly.
 
-## What is NOT backed up
+## Firestore's own protections (as of Aug 26, 2026)
 
-Firestore itself has no point-in-time recovery, no scheduled backups, and no
-delete protection enabled on this project as of Aug 2026. Google replicates the
-data across regions (`nam5`), so hardware failure is not the risk — an
-accidental deletion or a bad script run is. This directory is the recovery
-plan for the *history* data specifically; league data that has no source file
-(trades, rosters, rules, votes, avatars) is not covered by it.
+- **Delete protection: ENABLED.** The database can't be deleted without turning
+  that flag off first. This is free.
+- **Point-in-time recovery: DISABLED.** Deliberate — it's a paid feature and
+  was declined. There is therefore no rollback for a bad write or a mistaken
+  bulk delete; the weekly snapshot below is the only undo, and it's weekly, not
+  continuous.
+- **Google-managed backup schedules: none.** Also paid.
+
+Google replicates the data across regions (`nam5`), so hardware failure was
+never the risk. Deleting something by accident is.
 
 ---
 

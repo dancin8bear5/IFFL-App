@@ -59,3 +59,47 @@ data across regions (`nam5`), so hardware failure is not the risk — an
 accidental deletion or a bad script run is. This directory is the recovery
 plan for the *history* data specifically; league data that has no source file
 (trades, rosters, rules, votes, avatars) is not covered by it.
+
+---
+
+## Weekly backups (added Aug 26, 2026)
+
+`ops/weekly-backup.sh`, scheduled by `ops/com.iffl.weekly-backup.plist`
+(installed to `~/Library/LaunchAgents`, **Sundays 09:00**), runs
+`web/scripts/backup-firestore.mjs` and writes a gzipped snapshot to:
+
+- `data/backup/` — **gitignored**, see below
+- `~/Library/Mobile Documents/com~apple~CloudDocs/IFFL-Backups/` — iCloud Drive,
+  which is what makes the backup survive this laptop
+
+Twelve snapshots are kept in each location (~3 months); older ones are pruned.
+Roughly 1,078 documents compress to ~119 KiB, so a year costs a few MB.
+
+**These snapshots are never committed.** The GitHub repo is public, and
+`config/league` contains all 12 members' email addresses (`teamEmailMap`) plus
+their Firebase UIDs. `.gitignore` excludes `data/backup/`; keep it that way.
+
+The snapshot skips the six derived `history*` collections — ~45 of the
+database's ~47 MiB — because they are rebuilt from the CSV in this directory.
+What it captures is the ~1 MiB that exists nowhere else: rosters, trades, the
+transaction ledger, rules and votes, avatars, keeper plans, the big board, and
+`config/league`. The script **aborts rather than write a snapshot missing
+`config/league.userTeamMap`** — losing that map doesn't just lose data, it
+locks every member out of their own team.
+
+Check on it: `tail ~/claude-agents/apps/iffl-web-app/out/weekly-backup.log`
+Run it now: `bash ~/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh`
+
+The most likely failure is an expired gcloud token (`gcloud auth login` fixes
+it). The script logs failures explicitly instead of exiting quietly, because a
+backup everyone assumes is running is worse than one known to be broken.
+
+### Restoring from a snapshot
+
+The file is gzipped JSON with Firestore's REST value encoding preserved
+(`{"stringValue": …}`), so documents can be written straight back through the
+same REST API `import-history.mjs` uses:
+
+```bash
+python3 -c "import gzip,json;d=json.loads(gzip.open('data/backup/<file>.json.gz').read());print(list(d['collections']))"
+```

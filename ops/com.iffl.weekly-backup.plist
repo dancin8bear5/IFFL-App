@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.iffl.weekly-backup</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jaredtaylor/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh</string>
+    </array>
+    <!-- Sundays at 09:00. RunAtLoad is false so installing it doesn't fire a
+         run immediately; StartCalendarInterval catches up if the Mac was
+         asleep at the scheduled time. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key><integer>0</integer>
+        <key>Hour</key><integer>9</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/jaredtaylor/claude-agents/apps/iffl-web-app/out/weekly-backup.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jaredtaylor/claude-agents/apps/iffl-web-app/out/weekly-backup.stderr.log</string>
+</dict>
+</plist>

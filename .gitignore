@@ -56,3 +56,7 @@ CodeRed.xcodeproj/project.xcworkspace/xcshareddata/
 firebase-debug.log
 firebase-debug.*.log
 out/
+
+# Firestore snapshots — contain member emails and UIDs (config/league).
+# This repo is PUBLIC; these must never be committed. See data/README.md.
+data/backup/

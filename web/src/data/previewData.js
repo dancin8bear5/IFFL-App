@@ -341,3 +341,35 @@ export const previewIngests = [
     receivedAt: new Date(),
   },
 ]
+
+// ── historyMatchups fixture — deterministic fake game history ──
+// Three seasons of full schedules for the 12 current franchises, generated
+// with a seeded LCG so every preview session renders the same charts.
+// Shape matches historyMatchups/{year} docs from the ESPN import exactly.
+export const previewHistoryMatchups = (() => {
+  const teams = ['Jared', 'Bill', 'Ryan', 'Abad', 'Cantone', 'Faybik', 'M. Zurek', 'Wayne', 'A. Zurek', 'Dugan', 'Foley', 'Jason']
+  let seed = 42
+  const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+  // Per-team strength so luck/clutch charts show a real spread
+  const base = Object.fromEntries(teams.map((t, i) => [t, 108 + (i % 5) * 8]))
+
+  return [2023, 2024, 2025].map((season) => {
+    const rows = []
+    for (let week = 1; week <= 17; week++) {
+      // Circle-method round robin: rotate all but the first team
+      const rot = [teams[0], ...teams.slice(1 + ((week - 1) % 11)), ...teams.slice(1, 1 + ((week - 1) % 11))]
+      for (let i = 0; i < 6; i++) {
+        const a = rot[i]
+        const b = rot[11 - i]
+        const pa = Math.round((base[a] + rand() * 60 - 20) * 100) / 100
+        const pb = Math.round((base[b] + rand() * 60 - 20) * 100) / 100
+        const res = (x, y) => (x > y ? 'W' : x < y ? 'L' : 'T')
+        rows.push(
+          { week, team: a, opponent: b, points: pa, oppPoints: pb, margin: Math.round((pa - pb) * 100) / 100, result: res(pa, pb), benchPoints: Math.round(rand() * 90 * 100) / 100 },
+          { week, team: b, opponent: a, points: pb, oppPoints: pa, margin: Math.round((pb - pa) * 100) / 100, result: res(pb, pa), benchPoints: Math.round(rand() * 90 * 100) / 100 },
+        )
+      }
+    }
+    return { id: String(season), season, rows }
+  })
+})()

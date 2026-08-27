@@ -9,6 +9,7 @@ const {buildSignalGroups} = require("./groupmeParser");
 const {reconcile} = require("./tradeReconcile");
 const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
+const {runFeedSync} = require("./ifflFeedSync");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -31,6 +32,9 @@ const TRADE_INGEST_SECRET = defineSecret("TRADE_INGEST_SECRET");
 const GMAIL_OAUTH_CLIENT_ID = defineSecret("GMAIL_OAUTH_CLIENT_ID");
 const GMAIL_OAUTH_CLIENT_SECRET = defineSecret("GMAIL_OAUTH_CLIENT_SECRET");
 const GMAIL_REFRESH_TOKEN = defineSecret("GMAIL_REFRESH_TOKEN");
+// Jason's league data feed base URL — unguessable path is the only guard,
+// so it lives as a secret, never in git.
+const IFFL_FEED_URL = defineSecret("IFFL_FEED_URL");
 const ESPN_TRADE_LABEL = "espn-trade";
 
 const APP_URL = "https://iffl-auth.web.app";
@@ -854,6 +858,36 @@ async function fetchGroupMeMessagesSince(token, afterId) {
   }
   return collected;
 }
+
+/**
+ * Jason's league feed — the upstream source of truth for rosters, contract
+ * prices, picks, and trades. Phase 3: REPORT ONLY — every changed snapshot
+ * becomes a diff report (config/ifflFeedReport) and a commissioner DM;
+ * nothing is applied. The engine and its tests live in ifflFeedSync.js.
+ */
+exports.pollIfflFeed = onSchedule(
+  {
+    schedule: "every 5 minutes",
+    timeZone: "America/Chicago",
+    secrets: [IFFL_FEED_URL, GROUPME_TOKEN],
+    retryCount: 0,
+  },
+  async () => {
+    const feedBase = IFFL_FEED_URL.value();
+    if (!feedBase) {
+      console.log("pollIfflFeed: IFFL_FEED_URL not set — skipping.");
+      return;
+    }
+    const res = await runFeedSync({
+      db,
+      fetchImpl: fetch,
+      feedBase: feedBase.replace(/\/+$/, ""),
+      dm: (text) => sendGroupMeDM(COMMISSIONER_TEAM_NAME, text),
+      nowIso: () => new Date().toISOString(),
+    });
+    console.log("pollIfflFeed:", JSON.stringify(res).slice(0, 400));
+  },
+);
 
 exports.pollGroupMeTrades = onSchedule(
   {

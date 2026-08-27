@@ -46,6 +46,7 @@ const COL = {
   weeklyScores: 'weeklyScores',
   playoffs: 'playoffs',
   tradeVotes: 'tradeVotes',
+  historyMatchups: 'historyMatchups',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -1403,6 +1404,16 @@ export async function fetchLeagueHistory() {
 
 export function addSeasonHistory(history) {
   return setDoc(doc(db, COL.leagueHistory, String(history.season)), history)
+}
+
+// ── ESPN game history — historyMatchups/{year} ─────────────────
+// Every game 2008–2025, one row per team per game, seeded once by
+// web/scripts/import-history.mjs. ~25KB per season doc, fetched only when
+// the Trophy Room opens (see AppContext.loadHistoryMatchups).
+
+export async function fetchHistoryMatchups() {
+  const q = query(collection(db, COL.historyMatchups), orderBy('season'))
+  return snapToDocs(await getDocs(q))
 }
 
 // ── Team profile pictures — teamAvatars/{teamName} ─────────────

@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName, isActiveTeam } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
 import TrophyAnalytics from './TrophyAnalytics'
+import TrophyHistoryCharts from './TrophyHistoryCharts'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts, ownerName,
@@ -91,12 +92,13 @@ function DroughtBadge({ drought, seasons, activeLabel }) {
 }
 
 export default function TrophyRoomView({ onClose }) {
-  const { leagueHistory, leagueRecords, loadLeagueRecords, isAdmin } = useApp()
+  const { leagueHistory, leagueRecords, loadLeagueRecords, loadHistoryMatchups, isAdmin } = useApp()
   const [showFormer, setShowFormer] = useState(false)
 
   useEffect(() => {
     loadLeagueRecords()
-  }, [loadLeagueRecords])
+    loadHistoryMatchups()
+  }, [loadLeagueRecords, loadHistoryMatchups])
 
   const { rows, records, banners, formerCount, superlatives, droughts } = useMemo(() => {
     const all = defaultSort(computeAllTimeStats(leagueHistory))
@@ -247,6 +249,9 @@ export default function TrophyRoomView({ onClose }) {
 
             {/* ── Distributions: the spread behind the single numbers ── */}
             <TrophyAnalytics showFormer={showFormer} />
+
+            {/* ── Game-history analytics: rivalries, luck, clutch ── */}
+            <TrophyHistoryCharts showFormer={showFormer} />
 
             {/* ── Drought table ── */}
             {droughts.length > 0 && (

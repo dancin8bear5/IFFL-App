@@ -57,7 +57,7 @@ test("the plan covers move, deactivate, reactivate, prices, anchors, create, and
                         // from the feed is a correction, not a no-op
     created: 1,         // Rams DST
     pickMoves: 1,       // 2027 R1 M. Zurek → Jared
-    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0, // trades unarmed here
+    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0, nflTeamFixes: 0, // trades unarmed here
   });
 
   const kyren = plan.writes.find((w) => w.id === "pk");
@@ -153,7 +153,7 @@ test("an armed run applies, records counts, DMs the applied line — and reruns 
   assert.equal(res2.status, "reported");
   assert.deepEqual(res2.applied, {
     teamMoves: 0, deactivated: 0, reactivated: 0, priceUpdates: 0, anchorUpdates: 0, created: 0, pickMoves: 0,
-    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0,
+    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0, nflTeamFixes: 0,
   });
   const after = db.writeLog.filter((w) => w.col === "players" || w.col === "draftPicks").length;
   assert.equal(after, before, "second pass over the same snapshot writes zero league docs");
@@ -273,4 +273,54 @@ test("REGRESSION: the sheet's slot notation covers the same pick — no duplicat
   const db = new FakeFirestore(seed);
   const plan = planApply(tradeLeague(), { ...oursArrays(db), trades: db.dump("trades") }, TRADES_ARMED, { nowMs: NOW });
   assert.equal(plan.counts.tradesItemFilled, 0, "1.02 IS round 1");
+});
+
+/* ═══════════ NFL team sync ═══════════ */
+
+const nflLeague = () => {
+  const l = league();
+  l.players = [
+    { id: 10, espn_id: 100, name: "Kyren Williams", position: "RB", team_id: 1, pro_team_id: 14, draft_year: 2024, draft_price: 12, prices: { 2026: 29 } },
+    { id: 20, espn_id: 200, name: "Full Name Rookie", position: "WR", team_id: 1, pro_team_id: 12, draft_year: 2026, draft_price: 5, prices: { 2026: 5 } },
+    { id: 21, espn_id: 201, name: "Blank Guy", position: "TE", team_id: 1, pro_team_id: 23, draft_year: 2025, draft_price: 2, prices: { 2026: 2 } },
+    { id: 22, espn_id: 202, name: "Unsigned Guy", position: "RB", team_id: 1, pro_team_id: 0, draft_year: 2025, draft_price: 2, prices: { 2026: 2 } },
+    { id: 23, espn_id: 203, name: "Brand New", position: "WR", team_id: 2, pro_team_id: 6, draft_year: 2026, draft_price: 1, prices: { 2026: 1 } },
+  ];
+  return l;
+};
+const nflOurs = () => ({
+  players: {
+    a: { name: "Kyren Williams", position: "RB", teamName: "Jared", isActive: true, ifflId: 10, prices: { 2026: 29 }, purchaseYear: 2024, originalPrice: 12, nflTeam: "LAR" },
+    b: { name: "Full Name Rookie", position: "WR", teamName: "Jared", isActive: true, ifflId: 20, prices: { 2026: 5 }, purchaseYear: 2026, originalPrice: 5, nflTeam: "Kansas City Chiefs" },
+    c: { name: "Blank Guy", position: "TE", teamName: "Jared", isActive: true, ifflId: 21, prices: { 2026: 2 }, purchaseYear: 2025, originalPrice: 2, nflTeam: null },
+    d: { name: "Unsigned Guy", position: "RB", teamName: "Jared", isActive: true, ifflId: 22, prices: { 2026: 2 }, purchaseYear: 2025, originalPrice: 2, nflTeam: "FA" },
+  },
+  draftPicks: {}, trades: {}, config: {},
+});
+
+test("the sync fixes full names and blanks, and leaves correct abbreviations alone", () => {
+  const db = new FakeFirestore(nflOurs());
+  const plan = planApply(nflLeague(), oursArrays(db), { players: true }, { nowMs: NOW });
+
+  // Creations count under `created`, not here — a new player isn't a "fix",
+  // and double-counting him would overstate how much repair work happened.
+  assert.equal(plan.counts.nflTeamFixes, 2, "the full name and the blank");
+  assert.equal(plan.counts.created, 1);
+  const byId = Object.fromEntries(plan.writes.map((w) => [w.id, w.fields]));
+
+  assert.equal(byId.a, undefined, "an already-correct LAR is not rewritten");
+  assert.equal(byId.b.nflTeam, "KC", '"Kansas City Chiefs" becomes KC');
+  assert.equal(byId.c.nflTeam, "PIT", "a blank is filled");
+  assert.equal(byId.d, undefined, 'pro_team_id 0 leaves the stray "FA" alone rather than guessing');
+  assert.equal(byId[createdId(23)].nflTeam, "DAL", "created players get their NFL team, not null");
+});
+
+test("a second pass finds nothing — the fix is permanent, not per-poll churn", () => {
+  const seed = nflOurs();
+  seed.players.b.nflTeam = "KC";
+  seed.players.c.nflTeam = "PIT";
+  const db = new FakeFirestore(seed);
+  const plan = planApply(nflLeague(), oursArrays(db), { players: true }, { nowMs: NOW });
+  assert.equal(plan.counts.nflTeamFixes, 0, "nothing left to repair");
+  assert.ok(!plan.writes.some((w) => ["a", "b", "c"].includes(w.id)));
 });

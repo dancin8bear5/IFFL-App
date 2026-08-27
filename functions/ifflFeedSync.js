@@ -148,7 +148,8 @@ async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs, tsFromM
       appliedLine =
         `APPLIED: ${c.teamMoves} moves, ${c.deactivated} to FA, ${c.reactivated} back, ` +
         `${c.created} created, ${c.priceUpdates} prices, ${c.anchorUpdates} anchors, ${c.pickMoves} pick moves, ` +
-        `trades ${c.tradesStamped} stamped/${c.tradesCreated} created/${c.tradesItemFilled} items filled.`;
+        `trades ${c.tradesStamped} stamped/${c.tradesCreated} created/${c.tradesItemFilled} items filled, ` +
+        `${c.nflTeamFixes} NFL teams.`;
       await stateRef.set({
         lastAppliedAt: nowIso(),
         lastAppliedCounts: c,

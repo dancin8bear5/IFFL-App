@@ -18,6 +18,7 @@
 // than one that stops and says why.
 
 const { matchTeams, matchPlayers, normalizeName } = require("./ifflFeed");
+const { abbrevFromProTeamId, normalizeNflTeam } = require("./nflTeams");
 
 /** Deterministic doc id for a feed-created player. */
 const createdId = (ifflId) => `iffl-${ifflId}`;
@@ -49,7 +50,7 @@ function planApply(league, ours, armed = { players: false, picks: false, trades:
   const ledger = [];
   const counts = {
     teamMoves: 0, deactivated: 0, reactivated: 0, priceUpdates: 0, anchorUpdates: 0, created: 0, pickMoves: 0,
-    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0,
+    tradesStamped: 0, tradesItemFilled: 0, tradesCreated: 0, nflTeamFixes: 0,
   };
 
   const teams = matchTeams(league.teams);
@@ -113,6 +114,16 @@ function planApply(league, ours, armed = { players: false, picks: false, trades:
           fields.originalPrice = Number(feed.draft_price);
           counts.anchorUpdates++;
         }
+        // NFL team, from the feed's pro_team_id — the one authority that is
+        // complete and can't drift. Comparing against the RAW stored value
+        // (not the normalized one) is what makes this fix formatting too:
+        // "Kansas City Chiefs" differs from "KC", so it gets rewritten once
+        // and then matches forever.
+        const nfl = abbrevFromProTeamId(feed.pro_team_id);
+        if (nfl && op.nflTeam !== nfl) {
+          fields.nflTeam = nfl;
+          counts.nflTeamFixes++;
+        }
       }
 
       if (Object.keys(fields).length) {
@@ -131,7 +142,7 @@ function planApply(league, ours, armed = { players: false, picks: false, trades:
           name: fp.name,
           position: appPosition(fp.position),
           teamName: team,
-          nflTeam: null,
+          nflTeam: abbrevFromProTeamId(fp.pro_team_id),
           prices: stringifyPrices(fp.prices),
           originalPrice: fp.draft_price ?? 0,
           purchaseYear: fp.draft_year ?? league.season ?? null,

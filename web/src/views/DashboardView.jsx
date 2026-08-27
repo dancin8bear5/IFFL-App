@@ -8,6 +8,7 @@ import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
+import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
 import TrophyRoomView from '../components/TrophyRoomView'
@@ -605,7 +606,7 @@ export default function DashboardView({ setTab }) {
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
               <TeamAvatar name={s.teamName} size={20} />
-              <span style={{ fontWeight: s.teamName === userTeam ? 700 : 400 }}>{s.teamName}</span>
+              <span style={{ fontWeight: s.teamName === userTeam ? 700 : 400 }}><TeamLink name={s.teamName} /></span>
               <BeltRow count={teamByName[s.teamName]?.beltWins ?? 0} size={8} />
             </span>
             <span className="tnum" style={{ textAlign: 'center', color: 'var(--iff-subtext)', fontSize: 12 }}>{s.record ?? '—'}</span>

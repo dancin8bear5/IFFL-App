@@ -13,6 +13,7 @@ import { useApp } from '../context/AppContext'
 import { fantasyTeams, ROSTER_CAP } from '../data/staticData'
 import { computePowerRankings, leagueCapSummary } from '../services/powerRankings'
 import { DetailOverlay, Segmented, TeamAvatar } from './shared'
+import TeamLink from './TeamLink'
 
 const money = (n) => `$${Math.round(n)}`
 
@@ -66,7 +67,7 @@ export default function PowerRankingsView({ onClose }) {
                       <TeamAvatar name={r.teamName} size={30} />
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{ display: 'block', fontSize: 14, fontWeight: 800 }}>
-                          {r.teamName}
+                          <TeamLink name={r.teamName} />
                           {isMine && <span style={{ fontSize: 10, color: 'var(--iff-accent)', marginLeft: 6 }}>YOU</span>}
                         </span>
                         <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)' }}>
@@ -139,7 +140,7 @@ export default function PowerRankingsView({ onClose }) {
                   <TeamAvatar name={r.teamName} size={22} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {r.teamName}
+                      <TeamLink name={r.teamName} />
                     </span>
                     <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {r.owner ?? '—'}

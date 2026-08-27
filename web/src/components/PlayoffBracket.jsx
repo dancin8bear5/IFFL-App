@@ -22,6 +22,7 @@ import {
 import { weeksFromMap, teamAverages } from '../services/weeklyStats'
 import { PLAYOFF_TEAMS } from '../data/staticData'
 import { TeamAvatar } from './shared'
+import TeamLink from './TeamLink'
 
 const rec = (t) => `${t.wins}-${t.losses}${t.ties ? `-${t.ties}` : ''}`
 
@@ -98,7 +99,7 @@ export default function PlayoffBracket() {
           <TeamAvatar name={onTheClock.teamName} size={30} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 800 }}>
-              {onTheClock.teamName} is on the clock
+              <TeamLink name={onTheClock.teamName} /> is on the clock
               {onTheClock.teamName === userTeam && (
                 <span style={{ color: 'var(--iff-gold)', marginLeft: 6 }}>— that&apos;s you</span>
               )}
@@ -159,7 +160,7 @@ function Side({ team, userTeam, bonus, advanced }) {
       <span style={{ width: 15, fontSize: 10, color: 'var(--iff-subtext)', flexShrink: 0 }}>{team.seed}</span>
       <TeamAvatar name={team.teamName} size={20} />
       <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: isMine || advanced ? 800 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {team.teamName}
+        <TeamLink name={team.teamName} />
         {advanced && <span style={{ color: '#22C55E', marginLeft: 6, fontSize: 11 }}>✓</span>}
       </span>
       {gets > 0 && (
@@ -193,7 +194,7 @@ function SeedList({ seeds, userTeam }) {
             <span style={{ width: 15, fontSize: 10, color: 'var(--iff-subtext)', flexShrink: 0 }}>{s.seed}</span>
             <TeamAvatar name={s.teamName} size={20} />
             <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: s.teamName === userTeam ? 800 : 600 }}>
-              {s.teamName}
+              <TeamLink name={s.teamName} />
             </span>
             <span style={{ fontSize: 11.5, fontWeight: 700, width: 48, textAlign: 'right' }}>{rec(s)}</span>
             <span style={{ fontSize: 10.5, color: 'var(--iff-subtext)', width: 56, textAlign: 'right' }}>

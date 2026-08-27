@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { teamByName } from '../data/staticData'
 import { DetailOverlay, BeltRow, TeamAvatar } from './shared'
+import TeamLink from './TeamLink'
 import { computeAllTimeStats, defaultSort, PLAYOFF_CUTOFF } from '../services/leagueStats'
 
 /* ═══════════ Last Season ═══════════ */
@@ -30,10 +31,10 @@ export function LastSeasonView({ onClose }) {
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 1 }}>
                   {latest.season} Champion
                 </span>
-                <span style={{ display: 'block', fontSize: 22, fontWeight: 900, letterSpacing: -0.5 }}>{latest.champion}</span>
+                <span style={{ display: 'block', fontSize: 22, fontWeight: 900, letterSpacing: -0.5 }}><TeamLink name={latest.champion} /></span>
                 {latest.runnerUp && (
                   <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
-                    def. {latest.runnerUp} in the final
+                    def. <TeamLink name={latest.runnerUp} /> in the final
                   </span>
                 )}
               </span>
@@ -49,7 +50,7 @@ export function LastSeasonView({ onClose }) {
                     {s.place}
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {s.teamName} <BeltRow count={teamByName[s.teamName]?.beltWins ?? 0} size={8} />
+                    <TeamLink name={s.teamName} /> <BeltRow count={teamByName[s.teamName]?.beltWins ?? 0} size={8} />
                   </span>
                   <span className="tnum" style={{ textAlign: 'center', color: 'var(--iff-subtext)', fontSize: 12 }}>{s.record ?? '—'}</span>
                   <span className="tnum" style={{ textAlign: 'right', color: s.place <= PLAYOFF_CUTOFF ? 'var(--iff-green)' : 'var(--iff-subtext)', fontSize: 12 }}>
@@ -171,7 +172,7 @@ export function LeagueHistoryTable({ onClose }) {
                           {c.key === 'team' ? (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
                               <TeamAvatar name={r.team} size={22} />
-                              {r.team}
+                              <TeamLink name={r.team} />
                             </span>
                           ) : c.key === 'championships' && raw > 0 ? (
                             <span style={{ color: 'var(--iff-gold)', fontWeight: 700 }}>{raw}</span>

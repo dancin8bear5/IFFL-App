@@ -37,6 +37,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { weeksFromMap, computeSeasonScoring, latestWeek } from '../services/weeklyStats'
 import { TeamAvatar } from './shared'
+import TeamLink from './TeamLink'
 
 const NEUTRAL_BAR = '#5A6688'   // lowest step clearing 3:1 on #141827
 
@@ -322,7 +323,7 @@ function LatestWeekBars({ week, userTeam }) {
                 width: 68, fontSize: 11, fontWeight: isMine ? 800 : 600, flexShrink: 0,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {r.teamName}
+                <TeamLink name={r.teamName} />
               </span>
               <span style={{ flex: 1, minWidth: 0, height: 13, position: 'relative' }}>
                 <span style={{

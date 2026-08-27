@@ -422,6 +422,9 @@ function TradeRow({ trade, last, onOpen }) {
     >
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
+          {/* Not TeamLinks: the whole row is a button that opens the trade,
+              and an anchor inside a button is invalid HTML that would fire
+              both actions. The detail view it opens links both teams. */}
           {trade.proposingTeamName} ↔ {trade.receivingTeamName}
         </span>
         {[

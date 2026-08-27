@@ -8,7 +8,8 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { FMK_ENABLED } from '../data/staticData'
-import { normalizeHash, slugForTab, tabForSlug } from '../services/routing'
+import { normalizeHash, slugForTab, tabForSlug, parseRoute, teamFromSlug, teamSlug } from '../services/routing'
+import { fantasyTeams } from '../data/staticData'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import Sidebar from '../components/Sidebar'
 import ErrorBoundary from '../components/ErrorBoundary'
@@ -44,7 +45,10 @@ const TABS = [
 ]
 
 export default function TabLayout({ tab, setTab }) {
-  const { incomingTradeCount, areaEnabled, isPodMember, isAdmin, bigBoardInNav, isInitialLoadComplete } = useApp()
+  const {
+    incomingTradeCount, areaEnabled, isPodMember, isAdmin, bigBoardInNav,
+    isInitialLoadComplete, selectedTeam, setSelectedTeam,
+  } = useApp()
   const isDesktop = useIsDesktop()
 
   // Indices stay stable (setTab(3) is always Market); hidden tabs just
@@ -94,6 +98,8 @@ export default function TabLayout({ tab, setTab }) {
   // the current one through a ref instead of going stale.
   const canSeeRef = useRef(canSee)
   canSeeRef.current = canSee
+  const setSelectedTeamRef = useRef(setSelectedTeam)
+  setSelectedTeamRef.current = setSelectedTeam
   // The tab the reader has asked for but React hasn't rendered yet. Both
   // effects run in the SAME commit, so the writer would otherwise see the
   // pre-update activeTab — on a cold /#board load it read 0, decided the
@@ -114,8 +120,16 @@ export default function TabLayout({ tab, setTab }) {
   // keeps the hash equal to the current tab, so applying it again is a no-op.
   useEffect(() => {
     const open = () => {
+      const { param } = parseRoute(window.location.hash)
       const i = tabForSlug(TABS, window.location.hash)
       if (i >= 0 && canSeeRef.current(TABS[i])) {
+        // #rosters/bill also picks the team. Done before setTab so the
+        // Rosters tab renders with the right roster already selected
+        // rather than flashing the previous one.
+        if (TABS[i].slug === 'rosters' && param) {
+          const team = teamFromSlug(param, fantasyTeams)
+          if (team) setSelectedTeamRef.current(team)
+        }
         pendingSlug.current = null
         syncedSlug.current = TABS[i].slug  // the URL already says this — don't echo it back
         // Only a genuine change is "in flight". The writer sets the hash
@@ -150,8 +164,14 @@ export default function TabLayout({ tab, setTab }) {
       if (requestedTab.current !== activeTab) return
       requestedTab.current = null
     }
-    const slug = slugForTab(TABS, activeTab)
-    if (!slug || syncedSlug.current === slug) { stamped.current = true; return }
+    const base = slugForTab(TABS, activeTab)
+    if (!base) return
+    // On Rosters the URL names the team too, so whatever is on screen can
+    // be copied out of the address bar and sent to someone.
+    const slug = base === 'rosters' && selectedTeam
+      ? `${base}/${teamSlug(selectedTeam)}`
+      : base
+    if (syncedSlug.current === slug) { stamped.current = true; return }
     syncedSlug.current = slug
     if (stamped.current) {
       window.location.hash = slug            // a real navigation — keep it in history
@@ -163,7 +183,7 @@ export default function TabLayout({ tab, setTab }) {
       window.history.replaceState(null, '', `#${slug}`)
       stamped.current = true
     }
-  }, [activeTab, isInitialLoadComplete])
+  }, [activeTab, selectedTeam, isInitialLoadComplete])
 
   // Each tab gets its own boundary: a crash in one leaves the others
   // usable and the nav intact, and "Try again" re-mounts only that tab.

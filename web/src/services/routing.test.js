@@ -1,6 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizeHash, slugForTab, tabForSlug, allSlugs, SLUG_ALIASES } from './routing.js'
+import {
+  normalizeHash, slugForTab, tabForSlug, allSlugs, SLUG_ALIASES,
+  parseRoute, teamSlug, teamFromSlug, rosterHash,
+} from './routing.js'
 
 // Mirrors the real TABS shape closely enough to exercise the mapping.
 const TABS = [
@@ -106,4 +109,69 @@ test('every tab round-trips index → slug → index', () => {
 test('slugs are unique — two tabs sharing one would make a link ambiguous', () => {
   const slugs = allSlugs(TABS)
   assert.equal(new Set(slugs).size, slugs.length)
+})
+
+// ── team roster routes ─────────────────────────────────────────
+
+const TEAMS = [
+  { name: 'A. Zurek' }, { name: 'M. Zurek' }, { name: 'Abad' },
+  { name: 'Bill' }, { name: "Ja'Marr" },
+]
+
+test('parseRoute splits the tab from its parameter', () => {
+  assert.deepEqual(parseRoute('#rosters/a-zurek'), { slug: 'rosters', param: 'a-zurek' })
+  assert.deepEqual(parseRoute('#rosters'), { slug: 'rosters', param: '' })
+})
+
+test('parseRoute survives the forms links arrive in', () => {
+  assert.deepEqual(parseRoute('#/rosters/bill'), { slug: 'rosters', param: 'bill' })
+  assert.deepEqual(parseRoute('#ROSTERS/BILL'), { slug: 'rosters', param: 'bill' })
+  assert.deepEqual(parseRoute('#rosters/bill?x=1'), { slug: 'rosters', param: 'bill' })
+})
+
+test('a tab slug still parses when the hash carries no parameter', () => {
+  assert.equal(parseRoute('#board').slug, 'board')
+  assert.equal(parseRoute('#board').param, '')
+})
+
+test('normalizeHash keeps working now that it delegates to parseRoute', () => {
+  assert.equal(normalizeHash('#rosters/bill'), 'rosters')
+  assert.equal(normalizeHash('#market'), 'trades')
+  assert.equal(normalizeHash(''), '')
+})
+
+test('teamSlug makes a readable, punctuation-free segment', () => {
+  assert.equal(teamSlug('A. Zurek'), 'a-zurek')
+  assert.equal(teamSlug('M. Zurek'), 'm-zurek')
+  assert.equal(teamSlug("Ja'Marr"), 'ja-marr')
+  assert.equal(teamSlug('Bill'), 'bill')
+})
+
+test('the two Zureks do not collide', () => {
+  // Same surname, different teams — the one case where a sloppy slug
+  // would silently open the wrong roster.
+  assert.notEqual(teamSlug('A. Zurek'), teamSlug('M. Zurek'))
+})
+
+test('teamFromSlug round-trips every real team', () => {
+  for (const t of TEAMS) {
+    assert.equal(teamFromSlug(teamSlug(t.name), TEAMS), t.name)
+  }
+})
+
+test('an unknown team slug resolves to empty, not a wrong team', () => {
+  assert.equal(teamFromSlug('nobody', TEAMS), '')
+  assert.equal(teamFromSlug('', TEAMS), '')
+  assert.equal(teamFromSlug('bill', []), '')
+})
+
+test('rosterHash builds the shareable link', () => {
+  assert.equal(rosterHash('A. Zurek'), '#rosters/a-zurek')
+  assert.equal(rosterHash(''), '#rosters')
+  assert.equal(rosterHash(null), '#rosters')
+})
+
+test('a rosterHash parses back to the team it names', () => {
+  const name = 'M. Zurek'
+  assert.equal(teamFromSlug(parseRoute(rosterHash(name)).param, TEAMS), name)
 })

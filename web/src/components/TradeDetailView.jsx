@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { formatTradeDate } from '../services/models'
 import { DetailOverlay } from './shared'
+import TeamLink from './TeamLink'
 import TradeProposalView from './TradeProposalView'
 import { tradeCapImpact } from '../services/contracts'
 import { ROSTER_CAP, LUXURY_TAX_TOTAL } from '../data/staticData'
@@ -152,7 +153,7 @@ export default function TradeDetailView({ trade, onClose }) {
         <div className="iff-card" style={{ padding: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ fontSize: 17, fontWeight: 800 }}>
-              {trade.proposingTeamName} ↔ {trade.receivingTeamName}
+              <TeamLink name={trade.proposingTeamName} /> ↔ <TeamLink name={trade.receivingTeamName} />
             </div>
             <span style={{ fontSize: 10, fontWeight: 700, color: style.color, background: style.bg, padding: '3px 9px', borderRadius: 6 }}>
               {style.label}

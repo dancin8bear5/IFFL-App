@@ -33,14 +33,61 @@ export const SLUG_ALIASES = {
  * @returns the canonical slug, or '' when there's nothing usable
  */
 export function normalizeHash(hash) {
-  const raw = String(hash ?? '')
+  return parseRoute(hash).slug
+}
+
+/**
+ * Split a hash into its tab slug and optional parameter.
+ * `#rosters/a-zurek` → { slug: 'rosters', param: 'a-zurek' }
+ *
+ * Only Rosters uses the parameter today — it names the team whose roster
+ * to open, which is what makes "here's Bill's roster" a real link rather
+ * than an instruction to go and click something.
+ */
+export function parseRoute(hash) {
+  const parts = String(hash ?? '')
     .replace(/^#/, '')
     .replace(/^\/+/, '')
-    .split(/[/?&]/)[0]
-    .trim()
+    .split('?')[0]
+    .split('&')[0]
+    .split('/')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean)
+  const raw = parts[0] ?? ''
+  return {
+    slug: raw ? (SLUG_ALIASES[raw] ?? raw) : '',
+    param: parts[1] ?? '',
+  }
+}
+
+/**
+ * A team name as a URL segment. "A. Zurek" → "a-zurek".
+ *
+ * Punctuation is dropped rather than encoded so links stay readable and
+ * survive being pasted through chat apps, which love to mangle %-escapes.
+ */
+export function teamSlug(name) {
+  return String(name ?? '')
     .toLowerCase()
-  if (!raw) return ''
-  return SLUG_ALIASES[raw] ?? raw
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/**
+ * Resolve a URL segment back to a real team name.
+ * Returns '' when nothing matches — the caller shows the roster it already
+ * had rather than a blank team.
+ */
+export function teamFromSlug(slug, teams) {
+  const wanted = teamSlug(slug)
+  if (!wanted) return ''
+  return (teams ?? []).find((t) => teamSlug(t.name) === wanted)?.name ?? ''
+}
+
+/** The shareable hash for one team's roster. */
+export function rosterHash(teamName) {
+  const t = teamSlug(teamName)
+  return t ? `#rosters/${t}` : '#rosters'
 }
 
 /**

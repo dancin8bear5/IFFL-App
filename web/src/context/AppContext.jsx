@@ -4,7 +4,8 @@
 // listeners, and load the user's interests, FMK signals, and settings.
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { listenToAuth } from '../services/authService'
-import { FMK_ENABLED } from '../data/staticData'
+import { FMK_ENABLED, fantasyTeams } from '../data/staticData'
+import { parseRoute, teamFromSlug } from '../services/routing'
 import * as fs from '../services/firestoreService'
 import { canVote } from '../services/tradeVotes'
 import { playerToDisplayAsset, pickToDisplayAsset } from '../services/models'
@@ -44,7 +45,16 @@ export function AppProvider({ children }) {
 
   // Mirrors of AppState @Published
   const [userTeam, setUserTeam] = useState('')
-  const [selectedTeam, setSelectedTeam] = useState('')
+  // A roster deep link names the team to show, and it has to outrank the
+  // "your own team" default applied once league data loads — otherwise
+  // opening #rosters/a-zurek lands on your roster instead of theirs.
+  // Read once, at module init, before any of that runs.
+  const deepLinkedTeam = (() => {
+    if (typeof window === 'undefined') return ''
+    const { slug, param } = parseRoute(window.location.hash)
+    return slug === 'rosters' ? teamFromSlug(param, fantasyTeams) : ''
+  })()
+  const [selectedTeam, setSelectedTeam] = useState(deepLinkedTeam)
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [activeSeason, setActiveSeason] = useState(2026)
   const [isOffSeason, setIsOffSeason] = useState(false)
@@ -117,7 +127,7 @@ export function AppProvider({ children }) {
     if (!DEV_PREVIEW) return
     import('../data/previewData').then((d) => {
       setUserTeam('Jared')
-      setSelectedTeam('Jared')
+      if (!deepLinkedTeam) setSelectedTeam('Jared')
       setIsOffSeason(!DEV_INSEASON)
       setPlayers(d.previewPlayers)
       setDraftPicks(d.previewPicks)
@@ -175,7 +185,7 @@ export function AppProvider({ children }) {
           const team = config.userTeamMap?.[uid]
           if (team) {
             setUserTeam(team)
-            setSelectedTeam(team)
+            if (!deepLinkedTeam) setSelectedTeam(team)
           } else if (user.email) {
             // First sign-in: try auto-linking by verified Google email
             // (server-side match against config/league.teamEmailMap)
@@ -187,7 +197,7 @@ export function AppProvider({ children }) {
               const claimed = res.data?.team
               if (!cancelled && claimed) {
                 setUserTeam(claimed)
-                setSelectedTeam(claimed)
+                if (!deepLinkedTeam) setSelectedTeam(claimed)
               }
             } catch (err) {
               console.warn('claimTeam failed (falling back to manual assignment):', err.message)

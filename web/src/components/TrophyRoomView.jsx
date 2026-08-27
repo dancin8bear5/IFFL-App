@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName, isActiveTeam } from '../data/staticData'
 import { DetailOverlay, TeamAvatar } from './shared'
+import TeamLink from './TeamLink'
 import TrophyAnalytics from './TrophyAnalytics'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
@@ -161,7 +162,7 @@ export default function TrophyRoomView({ onClose }) {
                     return (
                       <div key={r.team} className={`troom-step troom-step-${spot}`}>
                         <TeamAvatar name={r.team} size={spot === 1 ? 52 : 42} />
-                        <div className="troom-step-team">{r.team}</div>
+                        <div className="troom-step-team"><TeamLink name={r.team} /></div>
                         <div className="troom-step-belts">{'🏆'.repeat(Math.min(r.championships, 5)) || '—'}</div>
                         <div className="troom-step-block">
                           <span>{spot === 1 ? '1ST' : spot === 2 ? '2ND' : '3RD'}</span>
@@ -181,7 +182,7 @@ export default function TrophyRoomView({ onClose }) {
                   {records.map((r) => (
                     <div key={r.label} className="troom-plaque">
                       <div className="troom-plaque-label">{r.label}</div>
-                      <div className="troom-plaque-team">{r.team}</div>
+                      <div className="troom-plaque-team"><TeamLink name={r.team} /></div>
                       <div className="troom-plaque-value">{r.value}</div>
                     </div>
                   ))}

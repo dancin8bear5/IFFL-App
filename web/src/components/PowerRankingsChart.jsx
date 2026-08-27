@@ -17,6 +17,11 @@
 // spending the identity channel to re-encode it would be redundant. The
 // viewer's own team is marked with a ring and a label instead of a hue.
 //
+// Team names here are deliberately NOT TeamLinks: each row is already a
+// button that opens the full rankings, and an anchor inside a button is
+// invalid HTML whose click would fire both actions. The roster is one more
+// tap away from the view this opens.
+//
 // Values are direct-labeled at each bar tip, which is what lets the chart
 // drop gridlines entirely (direct labels before gridlines). Label text
 // wears text tokens, never the data color.

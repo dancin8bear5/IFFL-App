@@ -69,6 +69,45 @@ rules deployed):
   and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
   champion/runnerUp/notableTrades preserved from the seeds.
 
+### Trophy Room analytics built on it (Aug 26, 2026)
+Eight new sections, all fed by the collections above. Services are unit-tested
+(`npm test`); components live beside the existing `TrophyAnalytics`:
+- `services/historyAnalytics.js` + `TrophyHistoryCharts.jsx` — **Rivalry
+  Dominance** (12×12 head-to-head grid), **Schedule Luck** (real wins minus
+  all-play expected wins), **Clutch Factor** (postseason PPG − regular PPG).
+- `services/draftAnalytics.js` + `TrophyDraftCharts.jsx` — **Scoring Eras**
+  (per-team PPG vs that season's league average, sparklines), **Where the
+  Money Goes** (auction spend share by position), **Draft Return** (career
+  points per auction dollar).
+- `services/lineupOptimizer.js` + `TrophyLineupCharts.jsx` — **Bench Regret**
+  and **Roster DNA** (2018+ only).
+- `leagueRecords` now holds **23 computed cards** (16 game, 7 player), written
+  by the import script with fixed `auto-*` ids so re-running replaces them.
+
+Three things worth knowing before touching this code:
+1. **`historyAggregates/{scoring,draft,lineups}` are precomputed on purpose.**
+   Those three charts each need a join across all 36 draft/player-season docs
+   (~1MB). The import script does the join once; the browser reads 3 small docs.
+   Re-run the import after any change to that math.
+2. **The optimal-lineup solver is greedy and that is exact here.** Slot
+   eligibility forms a laminar family ({RB} ⊂ {RB,WR} ⊂ {RB,WR,TE} ⊂
+   {QB,RB,WR,TE}), so most-restrictive-slot-first is optimal. The test suite
+   proves it against brute force on 300 randomized rosters — keep that test.
+   IR players are never candidates; required slots are read from what was
+   actually started that week, since the lineup shape changed across eras.
+3. **ESPN's `Winner` column disagrees with its own scores on 7 playoff rows**
+   (bracket bookkeeping). Margin records derive W/L from the scores; streaks
+   and the rivalry grid use ESPN's official verdict, which is what the
+   standings were built from. Similarly, starter points sum ≠ `TeamScore` on
+   211 team-weeks, so bench regret is measured entirely within the player
+   lines, and only the "would this loss have flipped" check uses the official
+   score.
+
+Every record card names the best CURRENT member and notes the all-time mark in
+its detail line when a departed one did better — the Trophy Room hides cards
+whose holder has left, so a former member's record would otherwise erase the
+whole card rather than read as history.
+
 Team identity across eras: ESPN team ids are stable franchise slots. The
 import joined ESPN FinalRank against the seeded `leagueHistory` standings
 per season to name each slot's owner per year (former members: Eric, Jim,

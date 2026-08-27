@@ -55,3 +55,4 @@ CodeRed.xcodeproj/project.xcworkspace/xcshareddata/
 # Firebase CLI debug output
 firebase-debug.log
 firebase-debug.*.log
+out/

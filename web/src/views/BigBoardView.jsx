@@ -16,6 +16,7 @@ import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams } from '../data/staticData'
 import { ChipScroller, LoadingList } from '../components/shared'
 import * as fs from '../services/firestoreService'
+import { filterBoard, callCounts } from '../services/bigBoardFilter'
 import SettingsView from './SettingsView'
 
 // Best → worst. Order is the board's spine, so it's declared once here.
@@ -28,6 +29,13 @@ const KDM = {
   M: { label: 'Maybe', color: 'var(--iff-gold)' },
   D: { label: 'Drop',  color: 'var(--iff-accent)' },
 }
+// Ordered to match the order tapping a badge cycles through: K → M → D.
+const KDM_FILTERS = [
+  { key: 'ALL', label: 'All calls' },
+  { key: 'K',   label: 'Keep' },
+  { key: 'M',   label: 'Maybe' },
+  { key: 'D',   label: 'Drop' },
+]
 const POS_COLOR = { QB: '#D9A84E', RB: '#4FAE8B', WR: '#5F93D6', TE: '#C96B3C' }
 
 export default function BigBoardView() {
@@ -36,6 +44,7 @@ export default function BigBoardView() {
   const [rows, setRows] = useState(null) // null = loading
   const [pos, setPos] = useState('ALL')
   const [team, setTeam] = useState('ALL')
+  const [kdm, setKdm] = useState('ALL')
   const [search, setSearch] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [savingId, setSavingId] = useState(null)
@@ -58,16 +67,17 @@ export default function BigBoardView() {
     [],
   )
 
-  const filtered = useMemo(() => {
-    if (!rows) return []
-    const q = search.trim().toLowerCase()
-    return rows.filter((r) => {
-      if (pos !== 'ALL' && r.pos !== pos) return false
-      if (team !== 'ALL' && String(r.team).toUpperCase() !== team) return false
-      if (q && !String(r.player).toLowerCase().includes(q)) return false
-      return true
-    })
-  }, [rows, pos, team, search])
+  const filtered = useMemo(
+    () => filterBoard(rows, { pos, team, kdm, search }),
+    [rows, pos, team, kdm, search],
+  )
+
+  // Counts for the call chips, computed as if no call were selected — so
+  // picking Keep doesn't make every other chip read 0.
+  const counts = useMemo(
+    () => callCounts(rows, { pos, team, search }),
+    [rows, pos, team, search],
+  )
 
   const byTier = useMemo(() => {
     const map = Object.fromEntries(TIERS.map((t) => [t, []]))
@@ -162,6 +172,34 @@ export default function BigBoardView() {
               {p}
             </button>
           ))}
+        </div>
+      </ChipScroller>
+      <ChipScroller>
+        <div style={{ display: 'flex', gap: 6, width: 'max-content' }}>
+          {KDM_FILTERS.map((k) => {
+            const on = kdm === k.key
+            return (
+              <button
+                key={k.key}
+                onClick={() => setKdm(k.key)}
+                aria-pressed={on}
+                style={{
+                  padding: '5px 13px', borderRadius: 18, fontSize: 11.5, fontWeight: 700,
+                  // Active chip wears the same colour as that call's badge,
+                  // so the filter and the rows it selects read as one thing.
+                  background: on ? (KDM[k.key]?.color ?? 'var(--iff-accent)') : 'var(--iff-elevated)',
+                  color: on ? '#0B0F17' : 'var(--iff-subtext)',
+                }}
+              >
+                {k.label}
+                {counts[k.key] !== undefined && (
+                  <span className="tnum" style={{ marginLeft: 6, opacity: 0.75, fontWeight: 600 }}>
+                    {counts[k.key]}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       </ChipScroller>
       <select value={team} onChange={(e) => setTeam(e.target.value)} aria-label="Filter by team"

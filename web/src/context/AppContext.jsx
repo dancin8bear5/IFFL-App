@@ -89,6 +89,7 @@ export function AppProvider({ children }) {
   // Off unless the config says otherwise — the Big Board stays out of
   // the nav by default and is reached by its #board URL.
   const [bigBoardInNav, setBigBoardInNav] = useState(false)
+  const [rookieDraft, setRookieDraft] = useState(null)
   const [liveScoresMode, setLiveScoresMode] = useState('off')
 
   // Trade-proposal cross-tab trigger (AssetDetail → Market)
@@ -149,6 +150,7 @@ export function AppProvider({ children }) {
       setWeeklyScores(d.previewWeeklyScores ?? {})
       setWeeklyRecords(d.previewTeamRecords ?? {})
       setPlayoffs(d.previewPlayoffs ?? null)
+      setRookieDraft(d.previewRookieDraft ?? null)
       setIsInitialLoadComplete(true)
       setDidLoadSettings(true)
     })
@@ -164,6 +166,7 @@ export function AppProvider({ children }) {
       setPlayers([]); setDraftPicks([]); setTrades([]); setMessages([]); setTransactions([])
       setFmkSignals([]); setAllLeagueFMK([]); setInterestedAssetIds(new Set())
       setUserTeam(''); setSelectedTeam(''); setIsCommissioner(false)
+      setRookieDraft(null)
       setIsInitialLoadComplete(false); setDidLoadSettings(false)
       setUserSettings(DEFAULT_SETTINGS)
       return
@@ -289,6 +292,17 @@ export function AppProvider({ children }) {
     return fs.listenToPlayoffs(activeSeason, setPlayoffs)
   }, [user, activeSeason])
 
+  // Rookie draft room — one small control doc, subscribed for everyone.
+  //
+  // It can't wait for the room to mount, because it is what decides
+  // whether the room's tab exists at all: members see the tab only once
+  // the commissioner opens the draft. The selections themselves are
+  // loaded by the room itself, which is the only place they're rendered.
+  useEffect(() => {
+    if (DEV_PREVIEW || !user) return
+    return fs.listenToRookieDraftConfig(setRookieDraft)
+  }, [user])
+
   // Parlay entries follow the commissioner's active week
   useEffect(() => {
     if (DEV_PREVIEW || !user || !parlayConfig?.season || !parlayConfig?.week) return
@@ -324,6 +338,16 @@ export function AppProvider({ children }) {
     setBigBoardInNav(next)
     await fs.setBigBoardInNav(next).catch(() => setBigBoardInNav(!next))
   }, [bigBoardInNav])
+
+  /** Commissioner: set the draft order, publish the board, open the room. */
+  const saveRookieDraft = useCallback(
+    async (patch) => {
+      setRookieDraft((prev) => ({ ...(prev ?? {}), ...patch }))
+      if (DEV_PREVIEW) return
+      await fs.saveRookieDraftConfig(patch)
+    },
+    [],
+  )
 
   const areaEnabled = useCallback(
     (key) => isAdmin || !disabledAreas.has(key),
@@ -707,6 +731,8 @@ export function AppProvider({ children }) {
     // area kill-switches
     disabledAreas, areaEnabled, toggleArea,
     bigBoardInNav, toggleBigBoardInNav,
+    // rookie draft room (config only — the room loads its own picks)
+    rookieDraft, rookieDraftLive: rookieDraft?.live === true, saveRookieDraft,
     rolloverArmed, armRollover,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,

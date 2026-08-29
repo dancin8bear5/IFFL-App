@@ -25,6 +25,7 @@ const MarketView = lazy(() => import('./MarketView'))
 const BuilderView = lazy(() => import('./BuilderView'))
 const PodView = lazy(() => import('./PodView'))
 const BigBoardView = lazy(() => import('./BigBoardView'))
+const RookieDraftRoomView = lazy(() => import('./RookieDraftRoomView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see; `adminOnly`
@@ -42,12 +43,13 @@ const TABS = [
   { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', slug: 'worksheet', area: 'builder' },
   { label: 'The POD',          short: 'POD',       glyph: '🎙️', slug: 'pod',       podOnly: true },
   { label: 'Big Board',        short: 'Board',     glyph: '📋', slug: 'board',     adminOnly: true, urlOnly: true },
+  { label: 'Rookie Draft',     short: 'Rookie',    glyph: '🎓', slug: 'rookie',    liveOnly: true },
 ]
 
 export default function TabLayout({ tab, setTab }) {
   const {
     incomingTradeCount, areaEnabled, isPodMember, isAdmin, bigBoardInNav,
-    isInitialLoadComplete, selectedTeam, setSelectedTeam,
+    rookieDraftLive, isInitialLoadComplete, selectedTeam, setSelectedTeam,
   } = useApp()
   const isDesktop = useIsDesktop()
 
@@ -56,9 +58,15 @@ export default function TabLayout({ tab, setTab }) {
   // canSee gates the SCREEN — reaching a tab at all. inNav gates whether it
   // also gets a button. The Big Board is the one tab where those differ: it
   // stays reachable at its #board URL while sitting out of the navigation.
+  // `liveOnly` is the rookie draft room: it exists all year, but the
+  // league only sees it once the commissioner opens the draft. Unlike an
+  // `area`, this one is NOT admin-exempt for the league — it's a schedule,
+  // not a kill switch — but the commissioner still needs in beforehand to
+  // set the order, so he sees it either way.
   const canSee = (t) =>
     t.podOnly ? isPodMember
       : t.adminOnly ? isAdmin
+      : t.liveOnly ? (isAdmin || rookieDraftLive)
       : !t.area || areaEnabled(t.area)
   const inNav = (t) => canSee(t) && (!t.urlOnly || bigBoardInNav)
   // With F.M.K. switched off this tab is only the trade portal, so calling
@@ -150,7 +158,7 @@ export default function TabLayout({ tab, setTab }) {
     open()
     window.addEventListener('hashchange', open)
     return () => window.removeEventListener('hashchange', open)
-  }, [setTab, isAdmin, isPodMember, areaEnabled, isInitialLoadComplete])
+  }, [setTab, isAdmin, isPodMember, areaEnabled, rookieDraftLive, isInitialLoadComplete])
 
   // Write: the address bar follows the tab, so every screen is shareable.
   // A typo'd or forbidden slug falls through to here and gets corrected,
@@ -197,6 +205,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 4 && <BuilderView />}
         {activeTab === 5 && <PodView />}
         {activeTab === 6 && <BigBoardView />}
+        {activeTab === 7 && <RookieDraftRoomView />}
       </Suspense>
     </ErrorBoundary>
   )

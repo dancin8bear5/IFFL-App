@@ -23,7 +23,15 @@ const proShort = (name) => {
   return parts.length > 1 ? parts[parts.length - 1] : parts[0]
 }
 
-export default function RookieDraftBoard({ picks, season, seasons = [], onSeason }) {
+/**
+ * @param picks        made picks, and (in the live room) unmade slots — a
+ *                     cell with no `name` renders as a slot still waiting.
+ * @param onClockSlot  the slot currently up, ringed in the accent colour
+ * @param highlightTeam a team whose slots get a subtle outline — "yours"
+ */
+export default function RookieDraftBoard({
+  picks, season, seasons = [], onSeason, onClockSlot = null, highlightTeam = '',
+}) {
   const isDesktop = useIsDesktop()
   // Four across is the shape of the class, but at phone width four cells
   // leaves ~85px each and every player name truncates to "Jeremiya…",
@@ -99,9 +107,53 @@ export default function RookieDraftBoard({ picks, season, seasons = [], onSeason
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
                 {row.map((pick, ci) => {
                   if (!pick) return <div key={ci} />
+                  const key = `${ri}-${ci}`
+                  const onClock = pick.slot && pick.slot === onClockSlot
+                  const mine = highlightTeam && pick.team === highlightTeam
+                  // A slot with no selection yet — the live room's empty
+                  // squares. It keeps the cell's footprint so the board
+                  // doesn't reflow as picks come in, and shows the two
+                  // things that matter before a pick exists: whose it is
+                  // and where it sits.
+                  if (!pick.name) {
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          background: onClock ? 'rgba(230,57,70,0.10)' : 'var(--iff-elevated)',
+                          border: onClock
+                            ? '1.5px solid var(--iff-accent)'
+                            : `1px dashed ${mine ? 'var(--iff-gold)' : 'var(--iff-border, rgba(255,255,255,0.10))'}`,
+                          borderRadius: 8, padding: '8px 10px', minWidth: 0,
+                          display: 'flex', flexDirection: 'column', gap: 2,
+                          color: 'var(--iff-subtext)',
+                        }}
+                      >
+                        {/* The team, not the round: the round is already
+                            the heading above, and whose pick it is is the
+                            only thing an empty square has to say. */}
+                        <div style={{
+                          fontSize: 12.5, fontWeight: 800, lineHeight: 1.2, color: 'var(--iff-text)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {pick.team ?? '—'}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, fontSize: 10, opacity: 0.9 }}>
+                          <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {pick.via ? `from ${pick.via}` : ''}
+                          </span>
+                          <span className="tnum" style={{ fontWeight: 800, flexShrink: 0 }}>{pick.slot}</span>
+                        </div>
+                        {onClock && (
+                          <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--iff-accent)', marginTop: 1 }}>
+                            On the clock
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
                   const fill = POSITION_COLORS[pick.position] ?? 'var(--iff-elevated)'
                   const known = Boolean(POSITION_COLORS[pick.position])
-                  const key = `${ri}-${ci}`
                   return (
                     <div
                       key={key}
@@ -110,6 +162,7 @@ export default function RookieDraftBoard({ picks, season, seasons = [], onSeason
                       title={pick.via ? `${pick.team} — ${pick.via}` : pick.team}
                       style={{
                         background: fill,
+                        outline: mine ? '1.5px solid var(--iff-gold)' : 'none',
                         // A position we don't have a colour for keeps app text
                         // tokens; dark ink on an unknown fill could vanish.
                         color: known ? POSITION_INK : 'var(--iff-text)',

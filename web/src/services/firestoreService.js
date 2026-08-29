@@ -47,6 +47,7 @@ const COL = {
   playoffs: 'playoffs',
   tradeVotes: 'tradeVotes',
   historyMatchups: 'historyMatchups',
+  rookieDraftPicks: 'rookieDraftPicks',
 }
 
 const snapToDocs = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }))
@@ -1579,4 +1580,82 @@ export async function importBigBoardFromSupabase() {
     await batch.commit()
   }
   return { imported: rows.length }
+}
+
+// ── Rookie draft room — config/rookieDraft + rookieDraftPicks ─────
+//
+// The room is two documents' worth of state and one doc per selection:
+//
+//   config/rookieDraft   { season, live, order, slotOwners, champion }
+//   rookieDraftPicks/{season}_{slot}   one selection, id fixed by its slot
+//
+// `slotOwners` is a published { "1.01": "Bill" } map rather than something
+// derived on read. It exists because the security rules need to answer
+// "is this slot yours?" and resolving the lottery order against the pick
+// ledger inside a rule isn't practical — comparing to a published map is
+// a single lookup. Publish it again after any pick changes hands.
+//
+// The doc id being the slot is the other half of the safety: two people
+// submitting the same pick collide on one document rather than both
+// landing, and members are create-only, so a made pick can't be rewritten.
+
+export function listenToRookieDraftConfig(callback) {
+  return onSnapshot(
+    doc(db, COL.config, 'rookieDraft'),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    () => callback(null),
+  )
+}
+
+/** Commissioner: set the order, publish the board, open or close the room. */
+export function saveRookieDraftConfig(patch) {
+  return setDoc(
+    doc(db, COL.config, 'rookieDraft'),
+    { ...patch, updatedAt: Timestamp.now() },
+    { merge: true },
+  )
+}
+
+export function listenToRookieDraftPicks(season, callback, onError) {
+  return onSnapshot(
+    query(collection(db, COL.rookieDraftPicks), where('season', '==', Number(season))),
+    (snap) => callback(snapToDocs(snap)),
+    (err) => (onError ? onError(err) : callback([])),
+  )
+}
+
+/**
+ * Record a selection.
+ *
+ * Reads the slot first and refuses if it's taken. That check is a courtesy
+ * to whoever lost the race — it turns a rules rejection into "Dugan just
+ * took that pick" — and it is NOT the guarantee. The guarantee is that the
+ * id is the slot and members hold create-only rights, so the second write
+ * fails in the database whether or not this read saw it.
+ */
+export async function submitRookiePick({ season, slot, round, pickNumber, teamName, name, position, nflTeam, uid }) {
+  const id = `${season}_${slot}`
+  const ref = doc(db, COL.rookieDraftPicks, id)
+  const existing = await getDoc(ref)
+  if (existing.exists()) {
+    throw new Error(`${slot} has already been used — ${existing.data().name} went there.`)
+  }
+  await setDoc(ref, {
+    season: Number(season),
+    slot,
+    round: Number(round),
+    pickNumber: Number(pickNumber),
+    teamName,
+    name: String(name).trim(),
+    position,
+    nflTeam: nflTeam?.trim() || null,
+    madeBy: uid ?? null,
+    madeAt: Timestamp.now(),
+  })
+  return id
+}
+
+/** Commissioner: take a pick back off the board (a typo, a wrong slot). */
+export function undoRookiePick(season, slot) {
+  return deleteDoc(doc(db, COL.rookieDraftPicks, `${season}_${slot}`))
 }

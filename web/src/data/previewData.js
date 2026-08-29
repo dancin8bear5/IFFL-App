@@ -473,3 +473,42 @@ export const previewLiveScores = {
     { matchupId: 6, away: 'Ryan', home: 'Bill', awayScore: 61.4, homeScore: 133.9, final: true },
   ],
 }
+
+// Rookie draft room — a 2027 board mid-draft, so the preview shows the
+// live state (some picks in, one team on the clock) rather than an empty
+// grid. Preview signs in as Jared, who owns 1.01 here via Wayne.
+const previewRookieOrder = {
+  lottery: ['Wayne', 'Foley', 'Jason', 'Faybik'],
+  firstRoundLosers: ['Cantone', 'Abad', 'Dugan', 'Ryan'],
+  advanced: ['M. Zurek', 'A. Zurek', 'Jared', 'Bill'],
+}
+
+const previewRookieOwners = (() => {
+  const order = [
+    ...previewRookieOrder.lottery,
+    ...previewRookieOrder.firstRoundLosers,
+    ...previewRookieOrder.advanced,
+  ]
+  const out = {}
+  for (const round of [1, 2]) {
+    order.forEach((team, i) => {
+      out[`${round}.${String(i + 1).padStart(2, '0')}`] = team
+    })
+  }
+  out['1.01'] = 'Jared'   // Wayne's first, traded
+  return out
+})()
+
+export const previewRookieDraft = {
+  season: 2027,
+  live: true,
+  champion: 'Bill',
+  order: previewRookieOrder,
+  slotOwners: previewRookieOwners,
+}
+
+export const previewRookieDraftPicks = [
+  { id: '2027_1.01', season: 2027, slot: '1.01', round: 1, pickNumber: 1, teamName: 'Jared',   name: 'Ryan Williams',    position: 'WR', nflTeam: 'Chicago Bears' },
+  { id: '2027_1.02', season: 2027, slot: '1.02', round: 1, pickNumber: 2, teamName: 'Foley',   name: 'Nicholas Singleton', position: 'RB', nflTeam: 'Green Bay Packers' },
+  { id: '2027_1.03', season: 2027, slot: '1.03', round: 1, pickNumber: 3, teamName: 'Jason',   name: 'Arch Manning',     position: 'QB', nflTeam: 'New York Giants' },
+]

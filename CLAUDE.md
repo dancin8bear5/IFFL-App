@@ -221,6 +221,21 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/claude-agents/apps/iffl-web-app` (verified Aug 26 — earlier notes had two wrong paths). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
 - [x] **EMAIL AUTO-LINK ONBOARDING** — ✅ LIVE Aug 13, 2026. `claimTeam` callable matches verified Google email against `config/league.teamEmailMap` → auto-assigns team on first sign-in. All 11 member emails entered via web Admin → Teams → Auto-Link by Email. League onboarding = just share iffl-auth.web.app. NOTE: one legacy @icloud.com auth account exists (Sign in with Apple era) — can't be used on web; that member auto-links via their Gmail instead.
 - [x] **TRADE PORTAL v2 + GROUPME NOTIFICATIONS** — ✅ SHIPPED & VERIFIED LIVE Aug 13, 2026 (web). Incoming-offer badges + Dashboard banners, offer notes, counter-offer loop w/ chain history, ESPN execution checklist (players swap in ESPN / picks app-only), GroupMe DMs on propose/accept/decline/counter/execute via onTradeWrite (GROUPME_TOKEN secret in Secret Manager; team→GroupMe mapping in `config/groupme`, managed from web Admin → GroupMe). Jared confirmed end-to-end GroupMe test successful.
+- [x] **ROOKIE DRAFT ROOM** — ✅ BUILT Aug 29, 2026 (hidden until opened).
+  New `Rookie Draft` tab (`#rookie`), visible to the league only when
+  `config/rookieDraft.live == true`; the commissioner always sees it.
+  Order rules live in `web/src/services/draftOrder.js` (28 tests): 1.01–1.04
+  lottery among the bottom four, 1.05–1.08 first-round playoff losers by
+  inverse finish, 1.09–1.12 those who advanced with the champion at 1.12;
+  round two repeats. Before the order exists the page shows who holds which
+  generic 1sts/2nds, which is how the league trades them all year.
+  **Only the slot's owner can pick**, enforced in `firestore.rules` against
+  the published `config/rookieDraft.slotOwners` map (doc id is the slot, so
+  two people can't take the same pick and a made pick can't be rewritten) —
+  republish the board after any pick trade or the database still believes
+  the old owner. Commissioner panel lives in the room: enter the order,
+  publish, open/close, undo a pick, and "Push N to rosters" at the end
+  (reuses `seedRookieClass`; R1 $2, R2 $1 on the +$5×years curve).
 - [ ] **Trade Portal UX review** — superseded by web Trade Portal v2 (above); iOS flow unchanged
 - [ ] **Retire legacy `PlayerInterest` collection** — old star-flag interest system superseded by FMK; remove once FMK is fully adopted
 - [ ] **Firestore security rules** — add composite indexes for `playerFMK` (userId, assetId) and `leagueHistory` (year desc)

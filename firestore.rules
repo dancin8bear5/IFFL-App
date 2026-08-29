@@ -33,6 +33,10 @@ service cloud.firestore {
         : '';
     }
 
+    function rookieDraftRoom() {
+      return get(/databases/$(database)/documents/config/rookieDraft).data;
+    }
+
     function tradeTeams(tradeId) {
       let t = get(/databases/$(database)/documents/trades/$(tradeId)).data;
       return [t.proposingTeamName, t.receivingTeamName];
@@ -125,6 +129,43 @@ service cloud.firestore {
     }
 
     match /draftPicks/{pickId} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+    }
+
+    // Rookie draft room.
+    //
+    // config/rookieDraft holds the order, the published slot -> owner board
+    // and the `live` switch; it is commissioner-written. Selections are one
+    // document per slot, and the doc id IS the slot ("2027_1.01").
+    //
+    // A member may create exactly one document: the one whose id matches a
+    // slot they own on the published board, stamped with their own team,
+    // and only while the room is open. Slot ownership is checked here and
+    // not merely in the UI — it is the rule that stops someone sniping a
+    // pick that isn't theirs on draft night, and comparing against the
+    // published board is the only practical way to ask it (resolving the
+    // lottery order against the pick ledger inside a rule is not).
+    //
+    // Update and delete are commissioner-only, so a selection can't be
+    // rewritten afterwards by the person who made it. Correcting a pick is
+    // a commissioner action, on purpose.
+    match /rookieDraftPicks/{pickId} {
+      allow read: if isMember();
+      allow create: if isCommissioner() || (
+        isMember() &&
+        rookieDraftRoom().live == true &&
+        pickId == string(request.resource.data.season) + '_' + request.resource.data.slot &&
+        request.resource.data.teamName == myTeam() &&
+        rookieDraftRoom().slotOwners[request.resource.data.slot] == myTeam()
+      );
+      allow update, delete: if isCommissioner();
+    }
+
+    // The room's control doc — every member reads it (it decides whether
+    // the tab appears at all); only the commissioner sets the order or
+    // opens the room.
+    match /config/rookieDraft {
       allow read: if isMember();
       allow write: if isCommissioner();
     }

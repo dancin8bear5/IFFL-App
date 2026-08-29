@@ -71,6 +71,13 @@ export const STARTING_LINEUP = [
   { slot: 'D/ST', count: 1 },
 ]
 
+// Position colours, shared by the Big Board and the rookie draft board so
+// a WR is the same blue in both. All four clear 5:1 against dark ink
+// (#0B0F17), which is why cells that use them as a fill take dark text —
+// white fails on every one of them.
+export const POSITION_COLORS = { QB: '#D9A84E', RB: '#4FAE8B', WR: '#5F93D6', TE: '#C96B3C' }
+export const POSITION_INK = '#0B0F17'
+
 // ── Feature flags ─────────────────────────────────────────────
 /**
  * F.M.K. — the swipe deck, the mutual-interest matching, the per-player

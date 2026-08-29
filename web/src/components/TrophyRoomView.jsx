@@ -10,6 +10,8 @@ import TrophyAnalytics from './TrophyAnalytics'
 import TrophyHistoryCharts from './TrophyHistoryCharts'
 import TrophyDraftCharts from './TrophyDraftCharts'
 import TrophyLineupCharts from './TrophyLineupCharts'
+import RookieDraftBoard from './RookieDraftBoard'
+import { rookieClass2026 } from '../data/rookieDraft2026'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts, ownerName,
@@ -94,7 +96,14 @@ function DroughtBadge({ drought, seasons, activeLabel }) {
   )
 }
 
+// Every rookie class we hold. 2026 is bundled from the Keeper Master;
+// earlier classes will land here as they're recovered — Jason's feed
+// carries the player taken with each historical pick.
+const ROOKIE_CLASSES = { 2026: rookieClass2026 }
+const ROOKIE_SEASONS = Object.keys(ROOKIE_CLASSES).map(Number).sort((a, b) => b - a)
+
 export default function TrophyRoomView({ onClose }) {
+  const [rookieSeason, setRookieSeason] = useState(ROOKIE_SEASONS[0])
   const { leagueHistory, leagueRecords, loadLeagueRecords, loadHistoryMatchups, loadHistoryAggregates, isAdmin } = useApp()
   const [showFormer, setShowFormer] = useState(false)
 
@@ -304,6 +313,17 @@ export default function TrophyRoomView({ onClose }) {
                 </div>
               </section>
             )}
+
+            {/* ── Rookie draft history ── */}
+            <section>
+              <div className="troom-section-label">ROOKIE DRAFT HISTORY</div>
+              <RookieDraftBoard
+                picks={ROOKIE_CLASSES[rookieSeason] ?? []}
+                season={rookieSeason}
+                seasons={ROOKIE_SEASONS}
+                onSeason={setRookieSeason}
+              />
+            </section>
 
             {/* ── Display cases ── */}
             <section>

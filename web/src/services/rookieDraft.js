@@ -85,3 +85,33 @@ export function draftSummary(picks) {
     traded,
   }
 }
+
+/**
+ * The class laid out one round at a time.
+ *
+ * A recovered class isn't always twelve and twelve — 2017 came back 8 and
+ * 10, because year one's picks weren't all kept. Gridding the whole class
+ * at once would then start round two halfway along a row and the board
+ * would read as one continuous draft. Each round gets its own grid, so a
+ * round always starts on a new line whatever shape the class is.
+ *
+ * @returns [{ round, rows }] in round order
+ */
+export function toRoundGrids(picks, cols = 4) {
+  const ordered = orderPicks(picks)
+  const rounds = []
+  for (const p of ordered) {
+    const r = roundOf(p)
+    const last = rounds[rounds.length - 1]
+    if (last && last.round === r) last.picks.push(p)
+    else rounds.push({ round: r, picks: [p] })
+  }
+  return rounds.map(({ round, picks: ps }) => ({ round, rows: toGrid(ps, cols) }))
+}
+
+/** What to print in a cell's corner when the slot was never recoverable. */
+export function slotLabelOf(pick) {
+  if (pick?.slot) return pick.slot
+  const r = roundOf(pick)
+  return r ? `R${r}` : ''
+}

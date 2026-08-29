@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { slotOrder, orderPicks, toGrid, roundOf, draftSummary } from './rookieDraft.js'
+import { slotOrder, orderPicks, toGrid, roundOf, draftSummary, toRoundGrids, slotLabelOf } from './rookieDraft.js'
 import { rookieClass2026 } from '../data/rookieDraft2026.js'
 
 const mk = (slot, extra = {}) => ({ slot, round: Number(slot.split('.')[0]), name: `P${slot}`, position: 'WR', team: 'Jared', ...extra })
@@ -108,4 +108,40 @@ test('summary of nothing is zeroes, not a crash', () => {
   assert.equal(s.total, 0)
   assert.equal(s.traded, 0)
   assert.deepEqual(s.topTeams, [])
+})
+
+// ── per-round grids ────────────────────────────────────────────
+
+test('each round gets its own grid, so a round never starts mid-row', () => {
+  const grids = toRoundGrids(rookieClass2026, 4)
+  assert.deepEqual(grids.map((g) => g.round), [1, 2])
+  assert.equal(grids[0].rows.length, 3)
+  assert.equal(grids[1].rows.length, 3)
+})
+
+test('a lopsided class still breaks cleanly between rounds', () => {
+  // 2017 came back 8 and 10. Gridded as one class that would put round two
+  // halfway along a row; per round it can't.
+  const lopsided = [
+    ...Array.from({ length: 8 }, (_, i) => ({ round: 1, slot: null, name: `a${i}` })),
+    ...Array.from({ length: 10 }, (_, i) => ({ round: 2, slot: null, name: `b${i}` })),
+  ]
+  const grids = toRoundGrids(lopsided, 4)
+  assert.deepEqual(grids.map((g) => g.round), [1, 2])
+  assert.equal(grids[0].rows.flat().filter(Boolean).length, 8)
+  assert.equal(grids[1].rows.flat().filter(Boolean).length, 10)
+  for (const g of grids) {
+    const rounds = new Set(g.rows.flat().filter(Boolean).map(roundOf))
+    assert.equal(rounds.size, 1)
+  }
+})
+
+test('an empty class has no rounds rather than one empty one', () => {
+  assert.deepEqual(toRoundGrids([], 4), [])
+})
+
+test('a slot with no recoverable number falls back to its round', () => {
+  assert.equal(slotLabelOf({ slot: '1.01', round: 1 }), '1.01')
+  assert.equal(slotLabelOf({ slot: null, round: 2 }), 'R2')
+  assert.equal(slotLabelOf({}), '')
 })

@@ -12,7 +12,7 @@
 // white would have been the intuitive choice and the unreadable one.
 import { useMemo, useState } from 'react'
 import { useIsDesktop } from '../hooks/useBreakpoint'
-import { toGrid, draftSummary, roundOf, DRAFT_POSITIONS } from '../services/rookieDraft'
+import { toRoundGrids, draftSummary, slotLabelOf, DRAFT_POSITIONS } from '../services/rookieDraft'
 import { POSITION_COLORS, POSITION_INK } from '../data/staticData'
 import TeamLink from './TeamLink'
 
@@ -38,11 +38,11 @@ export default function RookieDraftBoard({
   // which defeats the whole point of a board. Two across still breaks the
   // rounds on a row boundary, because 12 divides by 2 as cleanly as by 4.
   const cols = isDesktop ? 4 : 2
-  const grid = useMemo(() => toGrid(picks, cols), [picks, cols])
+  const grids = useMemo(() => toRoundGrids(picks, cols), [picks, cols])
   const summary = useMemo(() => draftSummary(picks), [picks])
   const [hovered, setHovered] = useState(null)
 
-  if (grid.length === 0) {
+  if (grids.length === 0) {
     return (
       <div className="iff-card empty-state" style={{ padding: 24 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, marginBottom: 4 }}>No draft on file</div>
@@ -89,25 +89,23 @@ export default function RookieDraftBoard({
         </div>
       </div>
 
-      {/* The board */}
+      {/* The board, a round at a time */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {grid.map((row, ri) => {
-          const round = roundOf(row.find(Boolean))
-          const startsRound = ri === 0 || round !== roundOf(grid[ri - 1].find(Boolean))
-          return (
-            <div key={ri} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {startsRound && round != null && (
-                <div style={{
-                  fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase',
-                  color: 'var(--iff-subtext)', marginTop: ri === 0 ? 0 : 8,
-                }}>
-                  Round {round}
-                </div>
-              )}
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
+        {grids.map(({ round, rows }, gi) => (
+          <div key={round ?? gi} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {round != null && (
+              <div style={{
+                fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase',
+                color: 'var(--iff-subtext)', marginTop: gi === 0 ? 0 : 8,
+              }}>
+                Round {round}
+              </div>
+            )}
+            {rows.map((row, ri) => (
+              <div key={ri} style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 6 }}>
                 {row.map((pick, ci) => {
                   if (!pick) return <div key={ci} />
-                  const key = `${ri}-${ci}`
+                  const key = `${round}-${ri}-${ci}`
                   const onClock = pick.slot && pick.slot === onClockSlot
                   const mine = highlightTeam && pick.team === highlightTeam
                   // A slot with no selection yet — the live room's empty
@@ -142,7 +140,7 @@ export default function RookieDraftBoard({
                           <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {pick.via ? `from ${pick.via}` : ''}
                           </span>
-                          <span className="tnum" style={{ fontWeight: 800, flexShrink: 0 }}>{pick.slot}</span>
+                          <span className="tnum" style={{ fontWeight: 800, flexShrink: 0 }}>{slotLabelOf(pick)}</span>
                         </div>
                         {onClock && (
                           <div style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--iff-accent)', marginTop: 1 }}>
@@ -183,7 +181,7 @@ export default function RookieDraftBoard({
                         <span style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {pick.position}{pick.nflTeam ? ` · ${proShort(pick.nflTeam)}` : ''}
                         </span>
-                        <span className="tnum" style={{ fontWeight: 800, flexShrink: 0 }}>{pick.slot}</span>
+                        <span className="tnum" style={{ fontWeight: 800, flexShrink: 0 }}>{slotLabelOf(pick)}</span>
                       </div>
                       <div style={{
                         fontSize: 10.5, fontWeight: 700, marginTop: 1,
@@ -201,9 +199,9 @@ export default function RookieDraftBoard({
                   )
                 })}
               </div>
-            </div>
-          )
-        })}
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   )

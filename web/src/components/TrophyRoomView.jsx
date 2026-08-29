@@ -12,6 +12,7 @@ import TrophyDraftCharts from './TrophyDraftCharts'
 import TrophyLineupCharts from './TrophyLineupCharts'
 import RookieDraftBoard from './RookieDraftBoard'
 import { rookieClass2026 } from '../data/rookieDraft2026'
+import { rookieDraftHistory } from '../data/rookieDraftHistory'
 import {
   computeAllTimeStats, computeRecords, defaultSort,
   computeSuperlatives, computeDroughts, ownerName,
@@ -96,10 +97,18 @@ function DroughtBadge({ drought, seasons, activeLabel }) {
   )
 }
 
-// Every rookie class we hold. 2026 is bundled from the Keeper Master;
-// earlier classes will land here as they're recovered — Jason's feed
-// carries the player taken with each historical pick.
-const ROOKIE_CLASSES = { 2026: rookieClass2026 }
+// Every rookie class we hold. 2026 comes from the Keeper Master with real
+// slots; 2017-2025 were recovered from the ESPN export by
+// scripts/extract-rookie-history.mjs. The rookie draft began in 2017, so
+// this is the complete history — there is nothing earlier to find.
+//
+// Recovered classes often can't name a slot. Rookie contracts were a
+// sliding scale through 2021 ($12 = 1.01 down to $4 = 1.05), so the top
+// five of each of those drafts is exact, but $2 covers all of 1.06-1.12
+// and $1 the whole second round; from 2022 the scale went flat and every
+// first-rounder cost $2. Those picks carry the round and no slot, which is
+// the honest answer rather than a guessed one.
+const ROOKIE_CLASSES = { ...rookieDraftHistory, 2026: rookieClass2026 }
 const ROOKIE_SEASONS = Object.keys(ROOKIE_CLASSES).map(Number).sort((a, b) => b - a)
 
 export default function TrophyRoomView({ onClose }) {

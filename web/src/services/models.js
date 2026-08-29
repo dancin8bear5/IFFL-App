@@ -48,6 +48,10 @@ export function pickToDisplayAsset(pick, activeSeason) {
     rookieRound: pick.round,
     rookieDraftYear: pick.season,
     tradeHistory: pick.tradeHistory ?? [],
+    // Who the pick was ORIGINALLY issued to. Shown in place of the word
+    // "Original", which told you nothing you couldn't already see — on
+    // someone else's roster, or in All Assets, the name is the useful part.
+    originalTeamName: pick.originalTeamName ?? null,
     assetType: 'draftPick',
     nflTeam: null,
     isPick: true,

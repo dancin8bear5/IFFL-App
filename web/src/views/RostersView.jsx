@@ -178,7 +178,7 @@ function RostersDesktop({ setTab }) {
                     <span style={{ minWidth: 0 }}>
                       <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>{a.name}</span>
                       <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)' }}>
-                        {a.isPick ? (a.tradeHistory.at(-1) ?? 'Original') : (a.nflTeam ?? '—')}
+                        {a.isPick ? (a.tradeHistory.at(-1) ?? a.originalTeamName ?? 'Original') : (a.nflTeam ?? '—')}
                       </span>
                     </span>
                     {allMode && <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>{a.teamName}</span>}
@@ -399,7 +399,7 @@ function RostersMobile({ setTab }) {
                       {a.name}
                     </span>
                     <span style={{ display: 'block', fontSize: 10, color: 'var(--iff-subtext)', marginTop: 1 }}>
-                      {mode === 'All Assets' ? a.teamName : a.isPick ? (a.tradeHistory.at(-1) ?? 'Original') : (a.nflTeam ?? '')}
+                      {mode === 'All Assets' ? a.teamName : a.isPick ? (a.tradeHistory.at(-1) ?? a.originalTeamName ?? 'Original') : (a.nflTeam ?? '')}
                     </span>
                   </span>
                   <span className="tnum green" style={{ fontSize: 14, fontWeight: 700 }}>${a.currentPrice}</span>

@@ -40,6 +40,10 @@ export default function Sidebar({ tabs, tab, setTab, matchCount, labelFor = (t) 
             onClick={() => setTab(i)}
             title={labelFor(t)}
             aria-label={labelFor(t)}
+            // The flyout label the rail shows on hover. Read by CSS from
+            // here because the .sidebar-label text node is hidden when
+            // collapsed, so there's nothing left to read it from.
+            data-label={labelFor(t)}
           >
             <span className="sidebar-glyph">{t.glyph}</span>
             <span className="sidebar-label">{labelFor(t)}</span>
@@ -60,7 +64,13 @@ export default function Sidebar({ tabs, tab, setTab, matchCount, labelFor = (t) 
       </button>
 
       <div className="sidebar-foot">
-        <button className="sidebar-team" onClick={() => setShowSettings(true)} title="Settings" aria-label="Settings">
+        <button
+          className="sidebar-team"
+          onClick={() => setShowSettings(true)}
+          title="Settings"
+          aria-label="Settings"
+          data-label={userTeam ? `${userTeam} · Settings` : 'Settings'}
+        >
           <TeamAvatar name={userTeam || '?'} size={32} />
           <span className="sidebar-team-detail" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
             <span style={{ display: 'block', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

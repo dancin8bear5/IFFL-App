@@ -376,6 +376,56 @@ a { color: inherit; text-decoration: none; }
   .sidebar .sidebar-team { justify-content: center; padding: 8px 0; }
 }
 
+/* Flyout labels for the collapsed rail.
+   The native `title` tooltip still exists as a fallback, but it takes a
+   second or two to appear and is styled by the OS — on a glyph-only rail
+   the label IS the navigation, so it has to be instant and look like the
+   app. Driven by data-label rather than the button's text because the
+   text node is display:none in this state. */
+.sidebar-item, .sidebar-team { position: relative; }
+.sidebar-item::after,
+.sidebar-team::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: var(--iff-elevated);
+  border: 1px solid var(--iff-divider);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  color: var(--iff-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;   /* never eats the click meant for the button */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.1s ease;
+  z-index: 60;            /* above the main content it overhangs */
+}
+/* Only on the rail — with labels visible a flyout would just repeat them. */
+.sidebar.collapsed .sidebar-item:hover::after,
+.sidebar.collapsed .sidebar-item:focus-visible::after,
+.sidebar.collapsed .sidebar-team:hover::after,
+.sidebar.collapsed .sidebar-team:focus-visible::after {
+  opacity: 1;
+  visibility: visible;
+}
+@media (min-width: 900px) and (max-width: 1099px) {
+  .sidebar .sidebar-item:hover::after,
+  .sidebar .sidebar-item:focus-visible::after,
+  .sidebar .sidebar-team:hover::after,
+  .sidebar .sidebar-team:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-item::after, .sidebar-team::after { transition: none; }
+}
+
 .sidebar-collapse-btn {
   display: flex;
   align-items: center;

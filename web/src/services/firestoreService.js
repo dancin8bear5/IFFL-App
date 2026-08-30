@@ -1438,6 +1438,43 @@ export async function fetchHistoryMatchups() {
 }
 
 /**
+ * Every auction draft — historyDrafts/{year}, 2008–2025, one doc per season
+ * holding all 228 picks. Loaded on demand by the History Query page, which
+ * is the only screen that needs all of them at once (~1MB across 18 docs),
+ * and never at startup.
+ *
+ * Returns [] rather than throwing when nothing is seeded yet: the query page
+ * is being built ahead of the data, and an unseeded source there has to read
+ * as "nothing here yet", not as a broken screen.
+ */
+export async function fetchHistoryDrafts() {
+  try {
+    const q = query(collection(db, 'historyDrafts'), orderBy('season', 'desc'))
+    return snapToDocs(await getDocs(q))
+  } catch (err) {
+    console.warn('fetchHistoryDrafts failed — auction history will be empty:', err.message)
+    return []
+  }
+}
+
+/**
+ * Every trade the league has on record, across all seasons.
+ *
+ * listenToTrades is season-scoped because the Trades tab only ever shows the
+ * current one. History search is the opposite question, so this is a
+ * one-shot read of the whole collection rather than a second listener.
+ */
+export async function fetchAllTrades() {
+  try {
+    const snap = await getDocs(collection(db, COL.trades))
+    return snapToDocs(snap).map((t) => ({ ...t, date: tsToDate(t.date) }))
+  } catch (err) {
+    console.warn('fetchAllTrades failed — trade history will be empty:', err.message)
+    return []
+  }
+}
+
+/**
  * Precomputed chart feeds — historyAggregates/{scoring,draft}. Two small docs
  * standing in for a join across every draft and player season.
  * @returns { scoring, draft } — either may be null if never seeded.

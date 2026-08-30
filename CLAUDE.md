@@ -78,6 +78,29 @@ rules deployed):
   and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
   champion/runnerUp/notableTrades preserved from the seeds.
 
+### History Query page (`#history`) — framework built, data seeding later
+One search box over the whole paper trail: rookie picks, auction picks and
+trades. `web/src/services/historySearch.js` (22 tests) normalises all three
+shapes into ONE record at index time — adding a fourth source later means
+writing one adapter and touching nothing else. `HistoryQueryView.jsx` is the
+screen; the tab is switchable from Admin → Areas under key **`historyQuery`**
+(NOT `history` — that key already switches the Trophy Room tiles).
+
+Sources and their state:
+- **Rookie** — bundled with the app (`rookieDraftHistory` + `rookieClass2026`),
+  230 records, live now.
+- **Auction** — `fs.fetchHistoryDrafts()` reads `historyDrafts/{year}`.
+  **Seeded in Firestore by import-history.mjs but not yet verified from the
+  app** — the page shows "0 · historyDrafts — seed to fill" until it is.
+- **Trades** — `fs.fetchAllTrades()` reads the whole `trades` collection
+  (listenToTrades is season-scoped; history needs every season). Proposed,
+  cancelled and rejected offers are deliberately NOT indexed — a deal nobody
+  agreed to isn't history.
+
+Both fetches are one-shot and swallow their errors into `[]` on purpose: the
+page is being built ahead of its data, and each source reports its own count
+so an empty screen says WHY rather than looking broken.
+
 ### Rookie draft history — recovered by fingerprint (Aug 30, 2026)
 **The rookie draft began in 2017.** Corey Davis at 1.01 was the first rookie
 pick in league history, so `rookieDraftHistory` (2017–2025) plus

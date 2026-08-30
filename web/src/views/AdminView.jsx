@@ -1130,6 +1130,8 @@ const APP_AREAS = [
     { key: 'players', label: 'Players tab', glyph: '🔎' },
     { key: 'market',  label: 'Market tab (FMK, matches, trades)', glyph: '⇄' },
     { key: 'builder', label: 'Team Builder tab', glyph: '🧪' },
+    // Not 'history' — that key already switches the Trophy Room tiles.
+    { key: 'historyQuery', label: 'History search tab', glyph: '📚' },
   ]},
   { group: 'Dashboard sections', items: [
     { key: 'rules',    label: 'Rules & proposals', glyph: '📜' },

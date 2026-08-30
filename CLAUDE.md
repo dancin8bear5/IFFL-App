@@ -78,6 +78,50 @@ rules deployed):
   and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
   champion/runnerUp/notableTrades preserved from the seeds.
 
+### Rookie draft history — recovered by fingerprint (Aug 30, 2026)
+**The rookie draft began in 2017.** Corey Davis at 1.01 was the first rookie
+pick in league history, so `rookieDraftHistory` (2017–2025) plus
+`rookieDraft2026` is the COMPLETE record — there is nothing earlier to find,
+and ladder-priced players in 2013–2016 are auction buys, not picks.
+
+ESPN never recorded the rookie draft as its own event: there is one draft per
+season in the export (228 rows = 19 rounds x 12) and the rookie picks hide
+inside it, because a rookie taken in July is simply on the roster when the
+August auction happens. `web/scripts/extract-rookie-history.mjs` recovers each
+class from a three-part fingerprint. Re-run it (`--write`) after any ruling:
+
+1. **A real NFL rookie that season**, checked against `data/nfl-rookie-seasons.csv`
+   (nflverse's player table trimmed to espn_id → rookie_season, committed so the
+   extraction stays re-runnable; 93.5% of draft rows join, the misses are D/ST
+   and kickers). NOT "first time we've seen him" — that's wrong for anyone who
+   spent a year in the NFL before the league rostered him.
+2. **The price is the slot.** Rookie contracts were a sliding scale through
+   2021 — **$12=1.01, $10=1.02, $8=1.03, $6=1.04, $4=1.05**, with $2 covering
+   1.06–1.12 and $1 the whole second round. **From 2022 the scale went flat:
+   $2 = any first-rounder, $1 = any second-rounder.** So slots are exact only
+   for the top five of 2017–2021; everything else carries a round and a null
+   slot, which is the honest answer rather than a guessed one.
+3. **Kept, not bought.** $1 and $2 are also ordinary auction prices. From 2020
+   ESPN flags the picks as keepers and that settles it. Before 2020 it flags
+   the returning keepers but NOT the rookies, so position stands in: ESPN
+   writes the keeper block first, the league entered its rookie class
+   immediately after it, and the auction follows — so the picks sit in one
+   run before the first live bid. Walking that run is what separates a
+   second-rounder from a dollar flyer (Mahomes, $1, overall 188 of 228 in
+   2017) and it settled two ties the prices couldn't: **Joe Mixon (2017,
+   overall 134) and Tony Pollard (2019, overall 172) were auction buys**, so
+   Haskins holds 2019's 1.05.
+
+Commissioner rulings live in the script's `RULINGS` table — 2018 1.05 is
+Ronald Jones (not John Kelly Jr.), 2020 1.05 is D'Andre Swift (not Darrynton
+Evans), and 2018 1.03 was made but the owner dropped the player before the
+auction, so the slot is recorded with no name.
+
+**Still open** (see the review artifact / `--json` dump): 2017 came back 18 of
+24 with no 1.05 at all — was year one a full two rounds? 2022 has thirteen at
+$1 for twelve second-round slots; 2023 has thirteen at $2 for twelve firsts.
+2018/2020/2021 land 1–2 short, which is just what a dropped rookie looks like.
+
 ### Trophy Room analytics built on it (Aug 26, 2026)
 Eight new sections, all fed by the collections above. Services are unit-tested
 (`npm test`); components live beside the existing `TrophyAnalytics`:

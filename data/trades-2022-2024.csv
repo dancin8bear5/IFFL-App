@@ -1,0 +1,410 @@
+trade_id,season,date,to_team,from_team,asset,asset_type,pick_season,pick_slot,pick_round,pick_original_team
+2022-000,2022,2022-05-14,Abad,Wayne,2022 1.01,pick,2022,1.01,1,
+2022-000,2022,2022-05-14,Wayne,Abad,Trevor Lawrence,player,,,,
+2022-000,2022,2022-05-14,Wayne,Abad,Devonta Smith,player,,,,
+2022-000,2022,2022-05-14,Wayne,Abad,2022 1.08,pick,2022,1.08,1,
+2022-001,2022,2022-05-21,Jared,Wayne,2022 1.11,pick,2022,1.11,1,
+2022-001,2022,2022-05-21,Wayne,Jared,2022 2.02,pick,2022,2.02,2,
+2022-001,2022,2022-05-21,Wayne,Jared,2022 2.08,pick,2022,2.08,2,
+2022-002,2022,2022-05-21,Abad,Cantone,Nick Chubb,player,,,,
+2022-002,2022,2022-05-21,Abad,Cantone,Derrick Henry,player,,,,
+2022-002,2022,2022-05-21,Cantone,Abad,Clyde Edwards-Helaire,player,,,,
+2022-002,2022,2022-05-21,Cantone,Abad,2022 1.09,pick,2022,1.09,1,
+2022-002,2022,2022-05-21,Cantone,Abad,2022 1.10,pick,2022,1.10,1,
+2022-002,2022,2022-05-21,Cantone,Abad,2022 1.12,pick,2022,1.12,1,
+2022-003,2022,2022-06-06,Wayne,Dugan,Cam Akers,player,,,,
+2022-003,2022,2022-06-06,Wayne,Dugan,Allen Lazard,player,,,,
+2022-003,2022,2022-06-06,Dugan,Wayne,2022 1.06,pick,2022,1.06,1,
+2022-003,2022,2022-06-06,Dugan,Wayne,2022 1.08,pick,2022,1.08,1,
+2022-004,2022,2022-07-25,Jared,Abad,2023 1st Rd,player,,,,
+2022-004,2022,2022-07-25,Abad,Jared,2022 1.11,pick,2022,1.11,1,
+2022-005,2022,2022-08-01,Bill,Jared,Antonio Gibson,player,,,,
+2022-005,2022,2022-08-01,Bill,Jared,TJ Hockenson,player,,,,
+2022-005,2022,2022-08-01,Jared,Bill,Mark Andrews,player,,,,
+2022-005,2022,2022-08-01,Jared,Bill,2023 2nd (Bill),pick,2023,,2,Bill
+2022-006,2022,2022-08-09,Bill,Ryan,AJ Brown,player,,,,
+2022-006,2022,2022-08-09,Ryan,Bill,Brandin Cooks,player,,,,
+2022-006,2022,2022-08-09,Ryan,Bill,Marquise Brown,player,,,,
+2022-007,2022,2022-08-09,Faybik,Jared,Kenneth Walker,player,,,,
+2022-007,2022,2022-08-09,Faybik,Jared,Christian Kirk,player,,,,
+2022-007,2022,2022-08-09,Faybik,Jared,Mark Andrews,player,,,,
+2022-007,2022,2022-08-09,Faybik,Jared,Zach Wilson,player,,,,
+2022-007,2022,2022-08-09,Jared,Faybik,Javonte Williams,player,,,,
+2022-008,2022,2022-08-11,Bill,Abad,Tua Tagovailoa,player,,,,
+2022-008,2022,2022-08-11,Abad,Bill,Michael Carter,player,,,,
+2022-009,2022,2022-08-18,Bill,A. Zurek,Robert Woods,player,,,,
+2022-009,2022,2022-08-18,A. Zurek,Bill,Antonio Gibson,player,,,,
+2022-010,2022,2022-08-24,Jason,Jared,Elijah Mitchell,player,,,,
+2022-010,2022,2022-08-24,Jason,Jared,Darnell Mooney,player,,,,
+2022-010,2022,2022-08-24,Jared,Jason,2023 1st (Jason),pick,2023,,1,Jason
+2022-011,2022,2022-08-25,Wayne,Cantone,Keenan Allen,player,,,,
+2022-011,2022,2022-08-25,Cantone,Wayne,2023 2nd (Wayne),pick,2023,,2,Wayne
+2022-011,2022,2022-08-25,Cantone,Wayne,Devin Singletary,player,,,,
+2022-012,2022,2022-09-04,Bill,Ryan,Aaron Jones,player,,,,
+2022-012,2022,2022-09-04,Bill,Ryan,2023 2nd (Ryan),pick,2023,,2,Ryan
+2022-012,2022,2022-09-04,Ryan,Bill,2023 1st (Bill),pick,2023,,1,Bill
+2022-013,2022,2022-09-13,Cantone,Foley,Ryan Tannehill,player,,,,
+2022-013,2022,2022-09-13,Foley,Cantone,2023 2nd (Wayne),pick,2023,,2,Wayne
+2022-014,2022,2022-09-18,M. Zurek,Jason,Elijah Mitchell,player,,,,
+2022-014,2022,2022-09-18,M. Zurek,Jason,Jeff Wilson Jr,player,,,,
+2022-014,2022,2022-09-18,M. Zurek,Jason,Tyreek Hill,player,,,,
+2022-014,2022,2022-09-18,M. Zurek,Jason,Cordarrelle Patterson,player,,,,
+2022-014,2022,2022-09-18,Jason,M. Zurek,Boston Scott,player,,,,
+2022-014,2022,2022-09-18,Jason,M. Zurek,Alvin Kamara,player,,,,
+2022-014,2022,2022-09-18,Jason,M. Zurek,Chris Godwin,player,,,,
+2022-015,2022,2022-09-20,Ryan,A. Zurek,Michael Thomas,player,,,,
+2022-015,2022,2022-09-20,A. Zurek,Ryan,D'Ernest Johnson,player,,,,
+2022-015,2022,2022-09-20,A. Zurek,Ryan,2023 1st (Ryan),pick,2023,,1,Ryan
+2022-016,2022,2022-09-21,Wayne,Jared,Dallas Goedert,player,,,,
+2022-016,2022,2022-09-21,Wayne,Jared,2023 2nd (Bill),pick,2023,,2,Bill
+2022-016,2022,2022-09-21,Jared,Wayne,David Njoku,player,,,,
+2022-016,2022,2022-09-21,Jared,Wayne,2023 1st (Wayne),pick,2023,,1,Wayne
+2022-017,2022,2022-09-27,Wayne,Abad,2023 2nd (Abad),pick,2023,,2,Abad
+2022-017,2022,2022-09-27,Abad,Wayne,Cooper Rush,player,,,,
+2022-018,2022,2022-09-29,Dugan,Jared,Jameson Williams,player,,,,
+2022-018,2022,2022-09-29,Dugan,Jared,Khalil Herbert,player,,,,
+2022-018,2022,2022-09-29,Dugan,Jared,2023 1st (Wayne),pick,2023,,1,Wayne
+2022-018,2022,2022-09-29,Jared,Dugan,Jonathan Taylor,player,,,,
+2022-019,2022,2022-09-29,Dugan,Cantone,Taysom Hill,player,,,,
+2022-019,2022,2022-09-29,Dugan,Cantone,2023 1st (Cantone),pick,2023,,1,Cantone
+2022-019,2022,2022-09-29,Cantone,Dugan,Courtland Sutton,player,,,,
+2022-020,2022,2022-09-30,Dugan,Abad,Breece Hall,player,,,,
+2022-020,2022,2022-09-30,Dugan,Abad,Michael Carter,player,,,,
+2022-020,2022,2022-09-30,Abad,Dugan,Kyler Murray,player,,,,
+2022-021,2022,2022-10-17,Bill,Wayne,Michael Pittman,player,,,,
+2022-021,2022,2022-10-17,Bill,Wayne,Devonta Smith,player,,,,
+2022-021,2022,2022-10-17,Bill,Wayne,Kenny Pickett,player,,,,
+2022-021,2022,2022-10-17,Bill,Wayne,Brian Robinson Jr.,player,,,,
+2022-021,2022,2022-10-17,Bill,Wayne,2023 2nd (Bill),pick,2023,,2,Bill
+2022-021,2022,2022-10-17,Wayne,Bill,Jalen Hurts,player,,,,
+2022-021,2022,2022-10-17,Wayne,Bill,AJ Brown,player,,,,
+2022-021,2022,2022-10-17,Wayne,Bill,Raheem Mostert,player,,,,
+2022-022,2022,2022-10-20,Cantone,Abad,Ja'Marr Chase,player,,,,
+2022-022,2022,2022-10-20,Cantone,Abad,JK Dobbins,player,,,,
+2022-022,2022,2022-10-20,Abad,Cantone,Josh Allen,player,,,,
+2022-022,2022,2022-10-20,Abad,Cantone,Deebo Samuel,player,,,,
+2022-023,2022,2022-10-25,Jason,Bill,Michael Pittman,player,,,,
+2022-023,2022,2022-10-25,Jason,Bill,Brandon Aiyuk,player,,,,
+2022-023,2022,2022-10-25,Jason,Bill,Aaron Jones,player,,,,
+2022-023,2022,2022-10-25,Bill,Jason,Chris Godwin,player,,,,
+2022-023,2022,2022-10-25,Bill,Jason,Alec Pierce,player,,,,
+2022-023,2022,2022-10-25,Bill,Jason,2023 2nd (Jason),pick,2023,,2,Jason
+2022-024,2022,2022-10-28,Cantone,M. Zurek,2023 2nd (Zurek),pick,2023,,2,M. Zurek
+2022-024,2022,2022-10-28,M. Zurek,Cantone,Alexsander Mattison,player,,,,
+2022-025,2022,2022-11-08,A. Zurek,M. Zurek,Deandre Hopkins,player,,,,
+2022-025,2022,2022-11-08,A. Zurek,M. Zurek,2023 1st (Zurek),pick,2023,,1,M. Zurek
+2022-025,2022,2022-11-08,M. Zurek,A. Zurek,Christian McCaffrey,player,,,,
+2022-026,2022,2022-11-08,Ryan,Faybik,Garrett Wilson,player,,,,
+2022-026,2022,2022-11-08,Ryan,Faybik,2023 1st (Faybik),pick,2023,,1,Faybik
+2022-026,2022,2022-11-08,Ryan,Faybik,2023 2nd (Faybik),pick,2023,,2,Faybik
+2022-026,2022,2022-11-08,Faybik,Ryan,Justin Herbert,player,,,,
+2022-027,2022,2022-11-09,A. Zurek,Jared,Javonte Williams,player,,,,
+2022-027,2022,2022-11-09,A. Zurek,Jared,2023 1st (Jason),pick,2023,,1,Jason
+2022-027,2022,2022-11-09,Jared,A. Zurek,Tee Higgins,player,,,,
+2022-027,2022,2022-11-09,Jared,A. Zurek,Drake London,player,,,,
+2022-028,2022,2022-11-10,Cantone,Foley,JaMycal Hasty,player,,,,
+2022-028,2022,2022-11-10,Cantone,Foley,Jared Goff,player,,,,
+2022-028,2022,2022-11-10,Cantone,Foley,2023 2nd (Foley),pick,2023,,2,Foley
+2022-028,2022,2022-11-10,Cantone,Foley,2023 2nd (Wayne),pick,2023,,2,Wayne
+2022-028,2022,2022-11-10,Foley,Cantone,Leonard Fournette,player,,,,
+2022-028,2022,2022-11-10,Foley,Cantone,Dak Prescott,player,,,,
+2022-029,2022,2022-11-10,Ryan,Wayne,Trevor Lawrence,player,,,,
+2022-029,2022,2022-11-10,Ryan,Wayne,Melcole Hardman,player,,,,
+2022-029,2022,2022-11-10,Ryan,Wayne,2023 2nd (Corey),pick,2023,,2,Abad
+2022-029,2022,2022-11-10,Wayne,Ryan,Joe Mixon,player,,,,
+2022-030,2022,2022-11-16,Dugan,Abad,Kyle Pitts,player,,,,
+2022-030,2022,2022-11-16,Abad,Dugan,David Montgomery,player,,,,
+2022-031,2022,2022-11-16,Bill,M. Zurek,Alexander Mattison,player,,,,
+2022-031,2022,2022-11-16,Bill,M. Zurek,DK Metcalf,player,,,,
+2022-031,2022,2022-11-16,Bill,M. Zurek,Pat Freiermuth,player,,,,
+2022-031,2022,2022-11-16,M. Zurek,Bill,Tua Tagovailoa,player,,,,
+2022-031,2022,2022-11-16,M. Zurek,Bill,TJ Hockenson,player,,,,
+2022-031,2022,2022-11-16,M. Zurek,Bill,Ben Skowronek,player,,,,
+2022-032,2022,2022-11-23,Bill,Faybik,Christian Kirk,player,,,,
+2022-032,2022,2022-11-23,Faybik,Bill,DK Metcalf,player,,,,
+2022-032,2022,2022-11-23,Faybik,Bill,2023 2nd (Jason),pick,2023,,2,Jason
+2023-033,2023,2023-03-21,Wayne,Bill,Miles Sanders,player,,,,
+2023-033,2023,2023-03-21,Wayne,Bill,Chubba Hubbard,player,,,,
+2023-033,2023,2023-03-21,Wayne,Bill,2023 2nd (Bill's),pick,2023,,2,Bill
+2023-033,2023,2023-03-21,Bill,Wayne,Saquon Barkley,player,,,,
+2023-034,2023,2023-04-29,A. Zurek,Jared,Travis Etienne,player,,,,
+2023-034,2023,2023-04-29,Jared,A. Zurek,2023 1.05 (Ryan),pick,2023,1.05,1,Ryan
+2023-035,2023,2023-07-25,Ryan,Foley,Davante Adams,player,,,,
+2023-035,2023,2023-07-25,Foley,Ryan,2023 1.11 (Faybik),pick,2023,1.11,1,Faybik
+2023-035,2023,2023-07-25,Foley,Ryan,Tyler Lockett,player,,,,
+2023-036,2023,2023-07-26,Dugan,Abad,Jaylen Waddle,player,,,,
+2023-036,2023,2023-07-26,Abad,Dugan,2023 1.04 (Dugan),pick,2023,1.04,1,Dugan
+2023-036,2023,2023-07-26,Abad,Dugan,2023 1.12 (Wayne),pick,2023,1.12,1,Wayne
+2023-036,2023,2023-07-26,Abad,Dugan,Sky Moore,player,,,,
+2023-037,2023,2023-07-26,Abad,Jared,1.05,player,,,,
+2023-037,2023,2023-07-26,Abad,Jared,1.07,player,,,,
+2023-037,2023,2023-07-26,Jared,Abad,1.04,player,,,,
+2023-037,2023,2023-07-26,Jared,Abad,1.12,player,,,,
+2023-038,2023,2023-08-23,Abad,Jared,Lamar Jackson,player,,,,
+2023-038,2023,2023-08-23,Abad,Jared,Tee Higgins,player,,,,
+2023-038,2023,2023-08-23,Abad,Jared,Drake London,player,,,,
+2023-038,2023,2023-08-23,Jared,Abad,Ceedee Lamb,player,,,,
+2023-039,2023,2023-08-23,Abad,M. Zurek,Christian McCaffrey,player,,,,
+2023-039,2023,2023-08-23,Abad,M. Zurek,Clyde Edwards-Helaire,player,,,,
+2023-039,2023,2023-08-23,M. Zurek,Abad,Josh Allen,player,,,,
+2023-040,2023,2023-08-23,Abad,Wayne,Kyler Murray,player,,,,
+2023-040,2023,2023-08-23,Wayne,Abad,2024 2nd Round (Abad),player,,,,
+2023-040,2023,2023-08-23,Wayne,Abad,Derrick Henry,player,,,,
+2023-041,2023,2023-08-23,Bill,Jason,Kirk Cousins,player,,,,
+2023-041,2023,2023-08-23,Jason,Bill,Christian Kirk,player,,,,
+2023-041,2023,2023-08-23,Jason,Bill,2024 2nd Round (Bill),player,,,,
+2023-042,2023,2023-08-24,Dugan,Foley,Dak Prescott,player,,,,
+2023-042,2023,2023-08-24,Foley,Dugan,Jameson Williams,player,,,,
+2023-042,2023,2023-08-24,Foley,Dugan,Jimmy Garrapolo,player,,,,
+2023-043,2023,2023-09-06,Bill,Jared,2024 1st Rd (Jared),player,,,,
+2023-043,2023,2023-09-06,Jared,Bill,2024 1st Rd (Bill),player,,,,
+2023-044,2023,2023-09-20,Ryan,Jason,Zack Moss,player,,,,
+2023-044,2023,2023-09-20,Ryan,Jason,2024 2nd (Jason),pick,2024,,2,Jason
+2023-044,2023,2023-09-20,Jason,Ryan,Calvin Austin,player,,,,
+2023-044,2023,2023-09-20,Jason,Ryan,2024 2nd (Ryan),pick,2024,,2,Ryan
+2023-045,2023,2023-09-20,Jason,Jared,Puka Nacua,player,,,,
+2023-045,2023,2023-09-20,Jason,Jared,Zach Charbonnet,player,,,,
+2023-045,2023,2023-09-20,Jared,Jason,Kyren Williams,player,,,,
+2023-045,2023,2023-09-20,Jared,Jason,Jaylen Warren,player,,,,
+2023-045,2023,2023-09-20,Jared,Jason,2024 2nd (Bill),pick,2024,,2,Bill
+2023-046,2023,2023-09-25,Faybik,M. Zurek,Dallas Goedert,player,,,,
+2023-046,2023,2023-09-25,Faybik,M. Zurek,Rico Dowdle,player,,,,
+2023-046,2023,2023-09-25,Faybik,M. Zurek,Deuce Vaughn,player,,,,
+2023-046,2023,2023-09-25,Faybik,M. Zurek,2024 1st (Zurek),pick,2024,,1,M. Zurek
+2023-046,2023,2023-09-25,M. Zurek,Faybik,Josh Jacobs,player,,,,
+2023-046,2023,2023-09-25,M. Zurek,Faybik,Cade Otton,player,,,,
+2023-046,2023,2023-09-25,M. Zurek,Faybik,Brandin Cooks,player,,,,
+2023-046,2023,2023-09-25,M. Zurek,Faybik,2024 2nd (Faybik),pick,2024,,2,Faybik
+2023-047,2023,2023-09-25,Wayne,Jason,Jake Ferguson,player,,,,
+2023-047,2023,2023-09-25,Jason,Wayne,Ty Chandler,player,,,,
+2023-047,2023,2023-09-25,Jason,Wayne,2024 2nd (Wayne),pick,2024,,2,Wayne
+2023-048,2023,2023-09-28,Faybik,M. Zurek,Zach Wilson,player,,,,
+2023-048,2023,2023-09-28,M. Zurek,Faybik,Devin Singletary,player,,,,
+2023-049,2023,2023-09-28,Cantone,M. Zurek,Gerald Everett,player,,,,
+2023-049,2023,2023-09-28,Cantone,M. Zurek,2024 2nd (Zurek),pick,2024,,2,M. Zurek
+2023-049,2023,2023-09-28,Cantone,M. Zurek,2024 2nd (Faybik),pick,2024,,2,Faybik
+2023-049,2023,2023-09-28,M. Zurek,Cantone,George Kittle,player,,,,
+2023-050,2023,2023-10-02,Bill,A. Zurek,C.J. Stroud,player,,,,
+2023-050,2023,2023-10-02,Bill,A. Zurek,Ezekiel Elliott,player,,,,
+2023-050,2023,2023-10-02,Bill,A. Zurek,Clyde Edwards-Helaire,player,,,,
+2023-050,2023,2023-10-02,Bill,A. Zurek,2024 1st (Andrew),pick,2024,,1,A. Zurek
+2023-050,2023,2023-10-02,A. Zurek,Bill,Kirk Cousins,player,,,,
+2023-050,2023,2023-10-02,A. Zurek,Bill,Calvin Ridley,player,,,,
+2023-050,2023,2023-10-02,A. Zurek,Bill,Saquon Barkley,player,,,,
+2023-051,2023,2023-10-03,Bill,Jason,Brandon Aiyuk,player,,,,
+2023-051,2023,2023-10-03,Bill,Jason,Matt Brieda,player,,,,
+2023-051,2023,2023-10-03,Bill,Jason,Deuce Vaughn,player,,,,
+2023-051,2023,2023-10-03,Bill,Jason,2024 1st (Jason),pick,2024,,1,Jason
+2023-051,2023,2023-10-03,Bill,Jason,2024 2nd (Ryan),pick,2024,,2,Ryan
+2023-051,2023,2023-10-03,Jason,Bill,Devonta Smith,player,,,,
+2023-051,2023,2023-10-03,Jason,Bill,Alexander Mattison,player,,,,
+2023-051,2023,2023-10-03,Jason,Bill,Ezekiel Elliott,player,,,,
+2023-052,2023,2023-10-10,Faybik,Abad,Bryce Young,player,,,,
+2023-052,2023,2023-10-10,Faybik,Abad,Jordan Addison,player,,,,
+2023-052,2023,2023-10-10,Faybik,Abad,Rondale Moore,player,,,,
+2023-052,2023,2023-10-10,Faybik,Abad,2024 1st (Abad),pick,2024,,1,Abad
+2023-052,2023,2023-10-10,Abad,Faybik,Justin Herbert,player,,,,
+2023-052,2023,2023-10-10,Abad,Faybik,Amon-Ra St. Brown,player,,,,
+2023-052,2023,2023-10-10,Abad,Faybik,Marquez Valdes-Scantling,player,,,,
+2023-053,2023,2023-10-11,Faybik,Foley,Nico Collins,player,,,,
+2023-053,2023,2023-10-11,Faybik,Foley,Isiah Pacheco,player,,,,
+2023-053,2023,2023-10-11,Faybik,Foley,Jimmy Garoppolo,player,,,,
+2023-053,2023,2023-10-11,Faybik,Foley,2024 2nd (Foley),pick,2024,,2,Foley
+2023-053,2023,2023-10-11,Foley,Faybik,Tony Pollard,player,,,,
+2023-053,2023,2023-10-11,Foley,Faybik,Joe Burrow,player,,,,
+2023-053,2023,2023-10-11,Foley,Faybik,Drew Lock,player,,,,
+2023-054,2023,2023-10-16,Wayne,Jared,Kyren Williams,player,,,,
+2023-054,2023,2023-10-16,Jared,Wayne,Jerome Ford,player,,,,
+2023-054,2023,2023-10-16,Jared,Wayne,2024 1st (Wayne),pick,2024,,1,Wayne
+2023-055,2023,2023-10-23,Dugan,Abad,Kyler Murray,player,,,,
+2023-055,2023,2023-10-23,Dugan,Abad,Dawson Knox,player,,,,
+2023-055,2023,2023-10-23,Abad,Dugan,T.J. Hockenson,player,,,,
+2023-056,2023,2023-10-23,Dugan,A. Zurek,Jahmyr Gibbs,player,,,,
+2023-056,2023,2023-10-23,Dugan,A. Zurek,DeAndre Hopkins,player,,,,
+2023-056,2023,2023-10-23,A. Zurek,Dugan,Jaylen Waddle,player,,,,
+2023-056,2023,2023-10-23,A. Zurek,Dugan,Zach Evans,player,,,,
+2023-057,2023,2023-10-25,Dugan,Cantone,Rashee Rice,player,,,,
+2023-057,2023,2023-10-25,Dugan,Cantone,2024 2nd (Cantone),pick,2024,,2,Cantone
+2023-057,2023,2023-10-25,Cantone,Dugan,DJ Moore,player,,,,
+2023-058,2023,2023-10-26,Jared,Bill,Brandon Aiyuk,player,,,,
+2023-058,2023,2023-10-26,Jared,Bill,2024 1st (Jared),pick,2024,,1,Jared
+2023-058,2023,2023-10-26,Bill,Jared,2024 1st (Bill),pick,2024,,1,Bill
+2023-058,2023,2023-10-26,Bill,Jared,2024 2nd (Bill),pick,2024,,2,Bill
+2023-059,2023,2023-10-26,Jared,Ryan,Anthony Richardson,player,,,,
+2023-059,2023,2023-10-26,Jared,Ryan,2024 2nd (Jason),pick,2024,,2,Jason
+2023-059,2023,2023-10-26,Ryan,Jared,Jonathan Taylor,player,,,,
+2023-059,2023,2023-10-26,Ryan,Jared,Ceedee Lamb,player,,,,
+2023-060,2023,2023-11-02,Faybik,M. Zurek,Devin Singletary,player,,,,
+2023-060,2023,2023-11-02,Faybik,M. Zurek,Rashid Shaheed,player,,,,
+2023-060,2023,2023-11-02,M. Zurek,Faybik,DK Metcalf,player,,,,
+2023-060,2023,2023-11-02,M. Zurek,Faybik,Jordan Mason,player,,,,
+2023-061,2023,2023-11-02,Faybik,Jason,Zach Charbonnet,player,,,,
+2023-061,2023,2023-11-02,Faybik,Jason,Demario Douglas,player,,,,
+2023-061,2023,2023-11-02,Jason,Faybik,Raheem Mostert,player,,,,
+2023-062,2023,2023-11-08,Wayne,Bill,Kenny Pickett,player,,,,
+2023-062,2023,2023-11-08,Bill,Wayne,Clayton Tune,player,,,,
+2023-062,2023,2023-11-08,Bill,Wayne,2024 2nd (Corey),pick,2024,,2,Abad
+2023-063,2023,2023-11-09,Wayne,Jason,Puka Nacua,player,,,,
+2023-063,2023,2023-11-09,Wayne,Jason,Matthew Stafford,player,,,,
+2023-063,2023,2023-11-09,Wayne,Jason,Carson Wentz,player,,,,
+2023-063,2023,2023-11-09,Wayne,Jason,2024 2nd (Wayne),pick,2024,,2,Wayne
+2023-063,2023,2023-11-09,Jason,Wayne,Patrick Mahomes,player,,,,
+2023-064,2023,2023-11-13,Wayne,Dugan,Antonio Gibson,player,,,,
+2023-064,2023,2023-11-13,Wayne,Dugan,2024 2nd (Cantone),pick,2024,,2,Cantone
+2023-064,2023,2023-11-13,Dugan,Wayne,Jake Ferguson,player,,,,
+2023-065,2023,2023-11-17,Ryan,Foley,Travis Kelce,player,,,,
+2023-065,2023,2023-11-17,Foley,Ryan,Garrett Wilson,player,,,,
+2023-065,2023,2023-11-17,Foley,Ryan,2024 1st (Ryan),pick,2024,,1,Ryan
+2023-066,2023,2023-11-18,Dugan,Bill,Brian Robinson Jr.,player,,,,
+2023-066,2023,2023-11-18,Bill,Dugan,Rashee Rice,player,,,,
+2023-067,2023,2023-11-21,Dugan,Jared,Justin Jefferson,player,,,,
+2023-067,2023,2023-11-21,Jared,Dugan,Bijan Robinson,player,,,,
+2023-068,2023,2023-11-21,Cantone,Foley,Tony Pollard,player,,,,
+2023-068,2023,2023-11-21,Cantone,Foley,Deebo Samuel,player,,,,
+2023-068,2023,2023-11-21,Foley,Cantone,James Cook,player,,,,
+2023-068,2023,2023-11-21,Foley,Cantone,Jakobi Meyers,player,,,,
+2023-068,2023,2023-11-21,Foley,Cantone,2024 1st (Cantone),pick,2024,,1,Cantone
+2023-069,2023,2023-11-22,Faybik,Bill,Terry McLaurin,player,,,,
+2023-069,2023,2023-11-22,Faybik,Bill,2024 1st (Jason),pick,2024,,1,Jason
+2023-069,2023,2023-11-22,Bill,Faybik,Jordan Addison,player,,,,
+2024-070,2024,2024-05-14,Foley,Jared,Zay Flowers,player,,,,
+2024-070,2024,2024-05-14,Foley,Jared,Jared 2024 1.04,pick,2024,1.04,1,Jared
+2024-070,2024,2024-05-14,Foley,Jared,Jared 2024 1.06,pick,2024,1.06,1,Jared
+2024-070,2024,2024-05-14,Foley,Jared,Jared 2024 2.10,pick,2024,2.10,2,Jared
+2024-070,2024,2024-05-14,Jared,Foley,Foley 2024 1.02,pick,2024,1.02,1,Foley
+2024-070,2024,2024-05-14,Jared,Foley,Foley 2024 1.05,pick,2024,1.05,1,Foley
+2024-071,2024,2024-07-09,M. Zurek,Faybik,Mason Rudolph,player,,,,
+2024-071,2024,2024-07-09,M. Zurek,Faybik,Faybik 2024 2.02,pick,2024,2.02,2,Faybik
+2024-071,2024,2024-07-09,Faybik,M. Zurek,George Kittle,player,,,,
+2024-072,2024,2024-07-21,Jason,Faybik,Bryce Young,player,,,,
+2024-072,2024,2024-07-21,Jason,Faybik,Demario Douglass,player,,,,
+2024-072,2024,2024-07-21,Jason,Faybik,Faybik 2024 1.03,pick,2024,1.03,1,Faybik
+2024-072,2024,2024-07-21,Faybik,Jason,Patrick Mahomes,player,,,,
+2024-072,2024,2024-07-21,Faybik,Jason,Jason 2025 1st,pick,2025,,1,Jason
+2024-072,2024,2024-07-21,Faybik,Jason,Jason 2025 2nd,pick,2025,,2,Jason
+2024-073,2024,2024-07-22,Bill,Cantone,Joe Mixon,player,,,,
+2024-073,2024,2024-07-22,Cantone,Bill,Bill 2024 2.11,pick,2024,2.11,2,Bill
+2024-074,2024,2024-08-02,M. Zurek,Ryan,Alvin Kamara,player,,,,
+2024-074,2024,2024-08-02,M. Zurek,Ryan,Davante Adams,player,,,,
+2024-074,2024,2024-08-02,M. Zurek,Ryan,Ryan 2025 2nd,pick,2025,,2,Ryan
+2024-074,2024,2024-08-02,Ryan,M. Zurek,Zamir White,player,,,,
+2024-074,2024,2024-08-02,Ryan,M. Zurek,M. Zurek 2025 1st,pick,2025,,1,M. Zurek
+2024-075,2024,2024-08-03,Abad,Jared,Caleb Williams,player,,,,
+2024-075,2024,2024-08-03,Abad,Jared,Jaxon Smith-Njigba,player,,,,
+2024-075,2024,2024-08-03,Jared,Abad,Christian McCaffrey,player,,,,
+2024-075,2024,2024-08-03,Jared,Abad,Amon-Ra St. Brown,player,,,,
+2024-075,2024,2024-08-03,Jared,Abad,Corey 2025 2nd,pick,2025,,2,Abad
+2024-076,2024,2024-08-04,Abad,Cantone,D.J. Moore,player,,,,
+2024-076,2024,2024-08-04,Cantone,Abad,Gus Edwards,player,,,,
+2024-077,2024,2024-08-04,Foley,Cantone,Aaron Rodgers,player,,,,
+2024-077,2024,2024-08-04,Cantone,Foley,Dorian Thompson-Robinson,player,,,,
+2024-077,2024,2024-08-04,Cantone,Foley,Foley 2025 2nd,pick,2025,,2,Foley
+2024-078,2024,2024-08-09,Jason,Cantone,J.J. McCarthy,player,,,,
+2024-078,2024,2024-08-09,Cantone,Jason,Bryce Young,player,,,,
+2024-079,2024,2024-08-21,Bill,Ryan,Jonathan Taylor,player,,,,
+2024-079,2024,2024-08-21,Ryan,Bill,Dawson Knox,player,,,,
+2024-079,2024,2024-08-21,Ryan,Bill,Bill 2025 2nd,pick,2025,,2,Bill
+2024-080,2024,2024-08-28,Ryan,Faybik,Isiah Pacheco,player,,,,
+2024-080,2024,2024-08-28,Ryan,Faybik,Tee Higgins,player,,,,
+2024-080,2024,2024-08-28,Ryan,Faybik,Alexander Mattison,player,,,,
+2024-080,2024,2024-08-28,Faybik,Ryan,Trevor Lawrence,player,,,,
+2024-080,2024,2024-08-28,Faybik,Ryan,Darnell Mooney,player,,,,
+2024-080,2024,2024-08-28,Faybik,Ryan,Ezekiel Elliott,player,,,,
+2024-081,2024,2024-09-11,Bill,Jared,Kimani Vidal,player,,,,
+2024-081,2024,2024-09-11,Bill,Jared,Baker Mayfield,player,,,,
+2024-081,2024,2024-09-11,Jared,Bill,Jordan Mason,player,,,,
+2024-081,2024,2024-09-11,Jared,Bill,Will Levis,player,,,,
+2024-082,2024,2024-09-30,Jason,Faybik,Terry Mclaurin,player,,,,
+2024-082,2024,2024-09-30,Jason,Faybik,Ezekiel Elliott,player,,,,
+2024-082,2024,2024-09-30,Jason,Faybik,Jason 2025 1st,pick,2025,,1,Jason
+2024-082,2024,2024-09-30,Jason,Faybik,Jason 2025 2nd,pick,2025,,2,Jason
+2024-082,2024,2024-09-30,Faybik,Jason,Derrick Henry,player,,,,
+2024-082,2024,2024-09-30,Faybik,Jason,Justice Hill,player,,,,
+2024-083,2024,2024-10-03,Jason,A. Zurek,Dalton Kincaid,player,,,,
+2024-083,2024,2024-10-03,Jason,A. Zurek,Tyler Allgeier,player,,,,
+2024-083,2024,2024-10-03,A. Zurek,Jason,Rhamondre Stevenson,player,,,,
+2024-083,2024,2024-10-03,A. Zurek,Jason,Raheem Mostert,player,,,,
+2024-084,2024,2024-10-09,Jason,Dugan,Xavier Worthy,player,,,,
+2024-084,2024,2024-10-09,Jason,Dugan,Dugan 2025 1st,pick,2025,,1,Dugan
+2024-084,2024,2024-10-09,Jason,Dugan,Dugan 2025 2nd,pick,2025,,2,Dugan
+2024-084,2024,2024-10-09,Dugan,Jason,Cooper Kupp,player,,,,
+2024-085,2024,2024-10-09,Cantone,Ryan,CeeDee Lamb,player,,,,
+2024-085,2024,2024-10-09,Ryan,Cantone,Xavier Legette,player,,,,
+2024-085,2024,2024-10-09,Ryan,Cantone,Chase Brown,player,,,,
+2024-085,2024,2024-10-09,Ryan,Cantone,Cantone 2025 1st,pick,2025,,1,Cantone
+2024-086,2024,2024-10-09,Cantone,Foley,James Conner,player,,,,
+2024-086,2024,2024-10-09,Cantone,Foley,Isaac Guerendo,player,,,,
+2024-086,2024,2024-10-09,Foley,Cantone,Gus Edwards,player,,,,
+2024-086,2024,2024-10-09,Foley,Cantone,Jameson Williams,player,,,,
+2024-086,2024,2024-10-09,Foley,Cantone,Foley 2025 2nd,pick,2025,,2,Foley
+2024-087,2024,2024-10-12,Cantone,Abad,Austin Ekeler,player,,,,
+2024-087,2024,2024-10-12,Abad,Cantone,Christian Watson,player,,,,
+2024-087,2024,2024-10-12,Abad,Cantone,Cantone 2025 2nd,pick,2025,,2,Cantone
+2024-088,2024,2024-10-23,Jason,Bill,Rashee Rice,player,,,,
+2024-088,2024,2024-10-23,Jason,Bill,Jordan Addison,player,,,,
+2024-088,2024,2024-10-23,Bill,Jason,Terry Mclaurin,player,,,,
+2024-088,2024,2024-10-23,Bill,Jason,Dugan 2025 1st,pick,2025,,1,Dugan
+2024-089,2024,2024-10-23,Jason,M. Zurek,Drake Maye,player,,,,
+2024-089,2024,2024-10-23,Jason,M. Zurek,Jameis Winston,player,,,,
+2024-089,2024,2024-10-23,Jason,M. Zurek,Hunter Henry,player,,,,
+2024-089,2024,2024-10-23,Jason,M. Zurek,Jerry Jeudy,player,,,,
+2024-089,2024,2024-10-23,Jason,M. Zurek,Ryan 2025 2nd,pick,2025,,2,Ryan
+2024-089,2024,2024-10-23,Jason,M. Zurek,Matt 2025 2nd,pick,2025,,2,M. Zurek
+2024-089,2024,2024-10-23,M. Zurek,Jason,Tua Tagovailoa,player,,,,
+2024-089,2024,2024-10-23,M. Zurek,Jason,Jaylen Waddle,player,,,,
+2024-089,2024,2024-10-23,M. Zurek,Jason,Dalton Kincaid,player,,,,
+2024-089,2024,2024-10-23,M. Zurek,Jason,Emanuel Wilson,player,,,,
+2024-090,2024,2024-10-29,Ryan,Abad,D'Andre Swift,player,,,,
+2024-090,2024,2024-10-29,Ryan,Abad,Josh Downs,player,,,,
+2024-090,2024,2024-10-29,Abad,Ryan,Chase Brown,player,,,,
+2024-090,2024,2024-10-29,Abad,Ryan,Cantone 2025 1st,pick,2025,,1,Cantone
+2024-091,2024,2024-10-29,Bill,Abad,Drake London,player,,,,
+2024-091,2024,2024-10-29,Bill,Abad,Saquon Barkley,player,,,,
+2024-091,2024,2024-10-29,Bill,Abad,Kirk Cousins,player,,,,
+2024-091,2024,2024-10-29,Bill,Abad,Cantone 2025 2nd,pick,2025,,2,Cantone
+2024-091,2024,2024-10-29,Abad,Bill,Ja'Tavion Sanders,player,,,,
+2024-091,2024,2024-10-29,Abad,Bill,C.J. Stroud,player,,,,
+2024-091,2024,2024-10-29,Abad,Bill,Marvin Harrison Jr.,player,,,,
+2024-091,2024,2024-10-29,Abad,Bill,Bill 2025 1st,pick,2025,,1,Bill
+2024-091,2024,2024-10-29,Abad,Bill,Dugan 2025 1st,pick,2025,,1,Dugan
+2024-092,2024,2024-11-06,Cantone,Dugan,Michael Pittman Jr,player,,,,
+2024-092,2024,2024-11-06,Cantone,Dugan,Cooper Rush,player,,,,
+2024-092,2024,2024-11-06,Dugan,Cantone,Austin Ekeler,player,,,,
+2024-093,2024,2024-11-07,Ryan,Jared,Amon-Ra St. Brown,player,,,,
+2024-093,2024,2024-11-07,Ryan,Jared,Christian McCaffrey,player,,,,
+2024-093,2024,2024-11-07,Jared,Ryan,Bucky Irving,player,,,,
+2024-093,2024,2024-11-07,Jared,Ryan,Cedric Tillman,player,,,,
+2024-093,2024,2024-11-07,Jared,Ryan,2025 1st (Zurek),pick,2025,,1,M. Zurek
+2024-093,2024,2024-11-07,Jared,Ryan,2025 2nd (Bill),pick,2025,,2,Bill
+2024-094,2024,2024-11-11,M. Zurek,Faybik,Brian Thomas Jr,player,,,,
+2024-094,2024,2024-11-11,M. Zurek,Faybik,Xavier Hutchinson,player,,,,
+2024-094,2024,2024-11-11,M. Zurek,Faybik,Faybik 2025 2nd,pick,2025,,2,Faybik
+2024-094,2024,2024-11-11,Faybik,M. Zurek,Josh Jacobs,player,,,,
+2024-094,2024,2024-11-11,Faybik,M. Zurek,Adonai Mitchell,player,,,,
+2024-095,2024,2024-11-12,M. Zurek,Dugan,Jahmyr Gibbs,player,,,,
+2024-095,2024,2024-11-12,M. Zurek,Dugan,Michael Penix,player,,,,
+2024-095,2024,2024-11-12,Dugan,M. Zurek,Alvin Kamara,player,,,,
+2024-095,2024,2024-11-12,Dugan,M. Zurek,Tyreek Hill,player,,,,
+2024-096,2024,2024-11-12,Bill,A. Zurek,Calvin Ridley,player,,,,
+2024-096,2024,2024-11-12,Bill,A. Zurek,Travis Etienne,player,,,,
+2024-096,2024,2024-11-12,Bill,A. Zurek,Travis Kelce,player,,,,
+2024-096,2024,2024-11-12,Bill,A. Zurek,Lamar Jackson,player,,,,
+2024-096,2024,2024-11-12,Bill,A. Zurek,Andrew 2025 2nd,pick,2025,,2,A. Zurek
+2024-096,2024,2024-11-12,A. Zurek,Bill,Sam Darnold,player,,,,
+2024-096,2024,2024-11-12,A. Zurek,Bill,Kirk Cousins,player,,,,
+2024-096,2024,2024-11-12,A. Zurek,Bill,Tyjae Spears,player,,,,
+2024-096,2024,2024-11-12,A. Zurek,Bill,Saquon Barkley,player,,,,
+2024-096,2024,2024-11-12,A. Zurek,Bill,Drake London,player,,,,
+2024-097,2024,2024-11-13,M. Zurek,Foley,Rome Odunze,player,,,,
+2024-097,2024,2024-11-13,M. Zurek,Foley,Foley 2025 1st,pick,2025,,1,Foley
+2024-097,2024,2024-11-13,M. Zurek,Foley,Foley 2025 2nd,pick,2025,,2,Foley
+2024-097,2024,2024-11-13,Foley,M. Zurek,AJ Brown,player,,,,
+2024-097,2024,2024-11-13,Foley,M. Zurek,Faybik 2025 2nd,pick,2025,,2,Faybik
+2024-098,2024,2024-11-19,M. Zurek,Wayne,Khalil Herbert,player,,,,
+2024-098,2024,2024-11-19,M. Zurek,Wayne,Wayne 2025 1st,pick,2025,,1,Wayne
+2024-098,2024,2024-11-19,Wayne,M. Zurek,David Montgomery,player,,,,
+2024-099,2024,2024-11-19,M. Zurek,Faybik,Trevor Lawrence,player,,,,
+2024-099,2024,2024-11-19,Faybik,M. Zurek,Geno Smith,player,,,,
+2024-100,2024,2024-11-20,Faybik,Abad,Jaxon Smith-Njigba,player,,,,
+2024-100,2024,2024-11-20,Abad,Faybik,Tom Brady,player,,,,
+2024-100,2024,2024-11-20,Abad,Faybik,Faybik 2025 1st,pick,2025,,1,Faybik

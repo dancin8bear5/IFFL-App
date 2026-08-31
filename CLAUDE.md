@@ -78,28 +78,33 @@ rules deployed):
   and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
   champion/runnerUp/notableTrades preserved from the seeds.
 
-### History Query page (`#history`) — framework built, data seeding later
-One search box over the whole paper trail: rookie picks, auction picks and
-trades. `web/src/services/historySearch.js` (22 tests) normalises all three
-shapes into ONE record at index time — adding a fourth source later means
-writing one adapter and touching nothing else. `HistoryQueryView.jsx` is the
-screen; the tab is switchable from Admin → Areas under key **`historyQuery`**
-(NOT `history` — that key already switches the Trophy Room tiles).
+### League History page (`#history`) — six tabs, exportable (Aug 31, 2026)
+Replaced the two Dashboard pop-ups ("Last Season" and "League History"),
+which were the same question at two zoom levels and could not be linked to,
+sorted or exported. One tile now opens the page; Trophy Room stays separate.
 
-Sources and their state:
-- **Rookie** — bundled with the app (`rookieDraftHistory` + `rookieClass2026`),
-  230 records, live now.
-- **Auction** — `fs.fetchHistoryDrafts()` reads `historyDrafts/{year}`.
-  **Seeded in Firestore by import-history.mjs but not yet verified from the
-  app** — the page shows "0 · historyDrafts — seed to fill" until it is.
-- **Trades** — `fs.fetchAllTrades()` reads the whole `trades` collection
-  (listenToTrades is season-scoped; history needs every season). Proposed,
-  cancelled and rejected offers are deliberately NOT indexed — a deal nobody
-  agreed to isn't history.
+**Declaration-driven.** Each tab is one object in
+`web/src/services/historyCategories.js` — its columns and how to flatten its
+source. `web/src/services/historyTable.js` (24 tests) derives everything
+else: what the search reads, which filter controls appear, the sort, and the
+CSV. Six tabs are not six screens, and a seventh is one object and no new
+UI. Tabs are alphabetical: Auction · Games · Player Scores · Rookie Drafts ·
+Standings · Trades. Deep-linked as `#history/player-scores`.
 
-Both fetches are one-shot and swallow their errors into `[]` on purpose: the
-page is being built ahead of its data, and each source reports its own count
-so an empty screen says WHY rather than looking broken.
+**Loading is staged by each category's declared `cost`:**
+- `bundled` — Auction (4,066 rows) and Games (3,480) generated into
+  `web/src/data/{auctionHistory,gamesHistory}.js` by
+  `generate-history-data.mjs`; rookie drafts, trades and standings likewise.
+  2008–2025 never changes and gzips to 82KB in a lazy chunk, so fetching it
+  bought a round trip and a dependency on the import having been run.
+- `season` — Player Scores only. The weekly lines are 32,000 rows, so the
+  season selector decides what is FETCHED, not what is filtered afterwards.
+  **Needs the `historyPlayerWeeks` composite index** (season + week) in
+  `firestore.indexes.json`, or that view returns empty with no error.
+
+Standings carries an all-time toggle reusing `leagueStats.computeAllTimeStats`.
+The tab is switchable from Admin → Areas under key **`historyQuery`** (NOT
+`history` — that key already switches the Trophy Room tiles).
 
 ### Trade history 2022–2024 (Aug 31, 2026)
 101 trades / 409 asset movements, from the league's hand-kept workbook
@@ -120,7 +125,7 @@ parse.
 
 **Commissioner ruling on names: `Zurek` = M. Zurek, `Andrew` = A. Zurek**
 (also `Corey` = Abad, `Matt` = M. Zurek). This is the opposite of
-`functions/groupmeIngest.js`, which leaves an ambiguous Zurek unresolved on
+`functions/groupmeParser.js`, which leaves an ambiguous Zurek unresolved on
 purpose — that scans unconfirmed live chat, this reads a finished record.
 
 Worth chasing later: the 2022 rows name specific rookie slots ("2022 1.01"),
@@ -394,18 +399,59 @@ Then in the Make.com scenario, add a final HTTP module: `POST https://us-central
 ```
 One `moves` entry per player that changed teams (`fromEspnTeam`/`toEspnTeam` are ESPN's own team names — the function resolves them against the p17 identity map in `functions/tradeIngest.js`, which must be kept in sync with `web/src/data/staticData.js`'s `espnName` fields if the league ever renames a team). Response is always 200 with `{ok:true, status: "applied"|"needs_review"|"duplicate"}` (or `ok:false` for a malformed request / bad secret) — Make can just log it.
 
-### GroupMe trade auto-import (Aug 2026 — same secret, different problem)
-Not every trade goes through ESPN the same way: pure draft-pick swaps never touch ESPN at all (ESPN doesn't roster picks), and some trades get announced in GroupMe hours before the ESPN email shows up. `exports.ingestGroupMeMessage` (`functions/index.js`, parsing logic in `functions/groupmeIngest.js`) is a second webhook the same Make.com relay POSTs live GroupMe messages to — same `TRADE_INGEST_SECRET`, `X-Ingest-Secret` header, no separate secret to manage.
+### GroupMe trade signals (rewritten Aug 31, 2026 — the webhook is gone)
+**Superseded design — read this, not the git history.** There was once an
+`ingestGroupMeMessage` webhook and a `confirmPendingTrade` callable that
+Make.com POSTed to. **Neither exists.** The GroupMe path is now a poller and
+nothing else:
 
-**Critically different from the ESPN path: GroupMe-sourced trades NEVER auto-apply**, no matter how cleanly they parse. GroupMe is free-text human chat — real league history includes a whole fake-out negotiation (numbers, a "YES," then "I BACKED OUT") that would have looked exactly like a real trade to a keyword scanner. Every clean parse becomes a `pending_confirmation` entry in Admin → Trades; the commissioner taps **Confirm & Apply** (`exports.confirmPendingTrade`, commissioner-only) before anything touches a roster.
+`exports.pollGroupMeTrades` (every 10 minutes) reads the league's trade
+group directly, parses with `functions/groupmeParser.js`, and writes each
+clean parse to `groupmeTradeSignals/{messageId}` with `status:
+"unreviewed"`. No webhook, no relay, no `X-Ingest-Secret` for this path.
+The commissioner reviews the queue in **Admin → Trade Signals**, which
+calls `fs.setTradeSignalStatus`.
 
-Trigger phrase is "official" (as in "make it official") — the 🚨 emoji alone is NOT a trigger, since real history shows it used for pure banter too. Team names are recognized via a small alias table in `functions/groupmeIngest.js` (`TEAM_ALIASES`) built from real GroupMe display names seen so far — extend it as more people/nicknames show up; a name that could mean either of the two Zurek teams is deliberately left unresolved rather than guessed.
+**GroupMe-sourced trades still never auto-apply**, which is the whole
+point. GroupMe is free-text human chat, and real league history includes a
+fake-out negotiation (numbers, a "YES," then "I BACKED OUT") that a keyword
+scanner would have applied to live rosters. Trigger phrase is "official"
+(as in "make it official"); the 🚨 emoji alone is NOT a trigger, because
+real history shows it used for pure banter.
 
-**Make.com wiring:** relay's final step POSTs `https://us-central1-iffl-auth.cloudfunctions.net/ingestGroupMeMessage` with the GroupMe message object roughly as GroupMe's own API returns it: `{id, group_id, sender_id, name, text, system}`. The function ignores anything not from the league's trade-announcement group (`config/groupme.groupId` — the **same group already used for outbound trade DMs**, group ID `15079499` as of Aug 2026, gets renamed each season but the ID doesn't change) and anything that doesn't contain the trigger phrase.
+Team names resolve through `TEAM_ALIASES` in `functions/groupmeParser.js` —
+extend it as nicknames appear. **An ambiguous "Zurek" is deliberately left
+unresolved here**, which is the opposite of the trade-workbook converter,
+where the commissioner has ruled that a bare Zurek is Matt. Different
+because this scans unconfirmed live chat and that reads a finished record.
 
-**Cross-source merge:** when a clean GroupMe parse's two teams already have a recent (72h window) ESPN-applied trade, confirming it *attaches* those extra assets (almost always picks) to that existing trade doc instead of creating a second one. The reverse direction is automatic — when an ESPN email applies and a matching GroupMe pending item is already waiting, it gets silently linked (`attachToTradeId`) so confirming it later attaches rather than duplicates. Two GroupMe messages about the same still-unconfirmed pair (e.g. each side announcing separately) merge into one pending item rather than creating two.
+**Cadence is load-bearing:** pollGroupMeTrades (10 min) MUST lead
+pollEspnGmail (15 min). `functions/tradeReconcile.js` Rule 4 holds an ESPN
+trade that has no corroborating GroupMe signal, so the signal has to land
+first. Don't retune either in isolation.
 
-**What happens on each call:** duplicate `sourceId` → no-op. Every player name resolves to exactly one player on the roster ESPN says he's coming from → applied instantly (assets transfer, ledger entry, `trades` doc lands as `completed` with `source: "espn-email"`). Anything ambiguous (typo, name not found, duplicate name) → nothing is guessed; it's queued in Admin → Trades → "ESPN Auto-Import — Needs Review" and Jared gets a GroupMe DM.
+### The league feed (config/ifflFeed) — Jason's export
+`exports.pollIfflFeed` (every 5 minutes) fetches `meta.json`, and only when
+`last_changed_at` has advanced does it pull `league.json`, diff it against
+Firestore and record the delta. **Report-only by default.** Applying is
+armed per domain via `config/ifflFeed.armed = {players, picks, trades}`,
+and even armed it refuses if the report contains problems.
+
+Manage it from **Admin → Feed**: last run, last summary, apply errors, and
+the three arm toggles. The rules allow the commissioner to write ONLY the
+`armed` key on that document — the poller's cursor lives there too, and
+rewinding it would re-import the whole league.
+
+`history.json` (every ownership change, price change and auction, all
+timestamped) is published by Jason but **never fetched**. It is the
+untapped source for pre-2022 trade history. Feed URL lives in Secret
+Manager and must never reach a browser — the unguessable path is the only
+lock on it.
+
+Assessment and open decisions: the "Jason's Feed, Assessed" artifact. The
+unresolved blocker is whose contract math is the league's — ours (+$5 ×
+years kept, waiver $2) vs his ($0-escalation, +$2 surcharge, daily FA
+auctions). Every cap figure depends on it.
 
 ## TestFlight — manual steps (until Fastlane is set up)
 

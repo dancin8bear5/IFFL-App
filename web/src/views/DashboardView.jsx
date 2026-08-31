@@ -899,6 +899,7 @@ function WeeklyCalendar({ isDesktop }) {
           </span>
           <span style={{ display: 'block', fontSize: 11, fontWeight: past ? 700 : 600, color: past ? m.color : CAL_INK, marginTop: 2 }}>
             {m.date.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {m.time && <span style={{ fontWeight: 800 }}> &middot; {m.time}</span>}
           </span>
         </span>
         <span
@@ -956,6 +957,11 @@ function MilestoneCard({ milestone }) {
         <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'center', lineHeight: 1.3, color: CAL_INK }}>
           {milestone.name}
         </div>
+        {milestone.time && (
+          <div style={{ fontSize: 9.5, fontWeight: 800, textAlign: 'center', color: CAL_INK, opacity: 0.85, marginTop: -2 }}>
+            {milestone.time}
+          </div>
+        )}
         <span style={{ fontSize: 9, fontWeight: 800, color: CAL_INK, background: CAL_VEIL, padding: '2px 8px', borderRadius: 20 }}>
           {daysLabel}
         </span>

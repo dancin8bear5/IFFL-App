@@ -189,10 +189,15 @@ export const categoryMeta = (key) =>
   { key: 'Operations', glyph: '⚙️', color: '#A855F7', limited: false }
 
 // ── League calendar (2026 dates, Keeper Master p1) ─────────────
+//
+// `date` is the DAY, kept at midnight so the "in N days" countdown is a
+// whole-day difference. `time` is display only — a milestone with a start
+// time shows it, one without simply doesn't, so nothing has to invent
+// "12:00 AM" for a deadline that is really just a date.
 export const milestones = [
   { name: 'Rookie Draft',       icon: '🎓', color: '#A855F7', date: new Date(2026, 6, 16) },  // Jul 16
   { name: 'Select Keepers',     icon: '🕐', color: '#06B6D4', date: new Date(2026, 7, 28) },  // Aug 28, 12pm CST
-  { name: 'Auction Draft',      icon: '💰', color: '#F4A261', date: new Date(2026, 8, 1) },   // Sep 1, 8:30pm CST
+  { name: 'Auction Draft',      icon: '💰', color: '#F4A261', date: new Date(2026, 8, 1), time: '8:45p CST' },
   { name: 'NFL Kickoff',        icon: '🏈', color: '#22C55E', date: new Date(2026, 8, 9) },   // Sep 9
   { name: 'Trade Deadline',     icon: '⇄',  color: '#F97316', date: new Date(2026, 10, 18) }, // mid-Nov
   { name: 'Rosters Frozen',     icon: '🧊', color: '#E63946', date: new Date(2027, 0, 3) },   // Jan 3, 2027

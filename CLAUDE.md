@@ -78,6 +78,24 @@ rules deployed):
   and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
   champion/runnerUp/notableTrades preserved from the seeds.
 
+### Big Board — REMOVED from the app (Aug 31, 2026)
+The view, `bigBoardFilter.js`, the Firestore helpers, the `#board` tab and
+its nav toggle are all gone. **The `bigBoard` Firestore collection was NOT
+deleted** and its commissioner-only rule is still in place, so restoring
+the feature means restoring UI against the same documents — removing code
+is not removing data.
+
+Two offline copies exist, and they are not equivalent:
+- `data/big-board-2026-08-31.csv` — the snapshot handed over the day it was
+  retired. 299 players plus the per-owner cap table. Has **NFL Team**, has
+  **no tier**.
+- `web/scripts/export-big-board.mjs` — dumps the live collection (which has
+  **tier** but no NFL team) to CSV via `gcloud auth print-access-token`.
+  Run it for an authoritative copy before ever deleting the collection.
+
+Old `#board` and `#bigboard` links land on the Dashboard; the routing alias
+was retired with the tab.
+
 ### League History page (`#history`) — six tabs, exportable (Aug 31, 2026)
 Replaced the two Dashboard pop-ups ("Last Season" and "League History"),
 which were the same question at two zoom levels and could not be linked to,

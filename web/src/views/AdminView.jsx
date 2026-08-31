@@ -470,7 +470,6 @@ function DatabaseSection() {
         </button>
       </div>
 
-      <ImportBigBoardCard />
       <ValidateContractsCard players={players} />
 
       <div style={{ fontSize: 11, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
@@ -1147,7 +1146,7 @@ const APP_AREAS = [
 ]
 
 function AreasSection() {
-  const { disabledAreas, toggleArea, bigBoardInNav, toggleBigBoardInNav, liveScoresMode, setLiveScoresMode, isPreview } = useApp()
+  const { disabledAreas, toggleArea, liveScoresMode, setLiveScoresMode, isPreview } = useApp()
 
   async function chooseScores(next) {
     const prev = liveScoresMode
@@ -1167,29 +1166,6 @@ function AreasSection() {
         Switch any tab or app section off for the whole league — hidden tabs vanish from
         everyone's navigation instantly. You (admin) always see everything, so you can flip an
         area back on. Dashboard itself can't be disabled.
-      </div>
-      <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ flex: 1 }}>
-          <span style={{ display: 'block', fontSize: 14 }}>📋 Big Board in navigation</span>
-          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
-            Off by default. The Big Board is always reachable at{' '}
-            <code>iffl-auth.web.app/#board</code> whether or not it shows here — this only
-            controls the nav button. Unlike the switches below, this one applies to you too,
-            since you&apos;re the only one who can see it at all.
-          </span>
-        </span>
-        <button
-          role="switch"
-          aria-checked={bigBoardInNav}
-          aria-label="Show Big Board in navigation"
-          onClick={toggleBigBoardInNav}
-          style={{
-            width: 44, height: 26, borderRadius: 13, position: 'relative', flexShrink: 0,
-            background: bigBoardInNav ? '#22C55E' : 'var(--iff-elevated)', transition: 'background 0.15s',
-          }}
-        >
-          <span style={{ position: 'absolute', top: 2, left: bigBoardInNav ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
-        </button>
       </div>
 
       <div className="iff-card" style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -3529,53 +3505,6 @@ function toLocalInput(d) {
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
 }
 
-/**
- * One-time migration of the Big Board off Supabase.
- *
- * The old /board.html page read and wrote a Supabase table with an anon key
- * embedded in public HTML, and that table's RLS policies allowed read,
- * update AND insert to anyone — so the board was world-writable to anybody
- * who found the URL. This pulls the live rows into Firestore, where the
- * commissioner-only rule applies. Keyed by the original row id, so
- * re-running overwrites instead of duplicating.
- */
-function ImportBigBoardCard() {
-  const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState(null)
-
-  async function run() {
-    setBusy(true); setResult(null)
-    try {
-      const { imported } = await fs.importBigBoardFromSupabase()
-      setResult({ ok: true, msg: `${imported} players imported. Open the Big Board tab.` })
-    } catch (e) {
-      setResult({ ok: false, msg: e.message })
-    } finally { setBusy(false) }
-  }
-
-  return (
-    <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ flex: 1 }}>
-          <span style={{ display: 'block', fontSize: 14 }}>Import Big Board</span>
-          <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, lineHeight: 1.5 }}>
-            Pulls the keeper board off the old Supabase page into Firestore, behind
-            commissioner-only rules. Safe to re-run — it overwrites by row id rather
-            than duplicating.
-          </span>
-        </span>
-        <button className="btn-outline" onClick={run} disabled={busy} style={{ fontSize: 12, padding: '6px 14px', whiteSpace: 'nowrap' }}>
-          {busy ? 'Importing…' : 'Import'}
-        </button>
-      </div>
-      {result && (
-        <div style={{ fontSize: 12, color: result.ok ? 'var(--iff-green)' : 'var(--iff-accent)' }}>
-          {result.msg}
-        </div>
-      )}
-    </div>
-  )
-}
 
 /**
  * Attach an asset the original import never saw — in practice a draft pick,

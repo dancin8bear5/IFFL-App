@@ -25,8 +25,8 @@ export default function App() {
   )
 
   // Apply the saved default tab once after settings load (mirrors iOS onChange).
-  // A deep link outranks it: someone opening /#board wants the Big Board,
-  // not whatever tab they normally start on.
+  // A deep link outranks it: someone opening /#rosters/bill wants that
+  // roster, not whatever tab they normally start on.
   useEffect(() => {
     if (arrivedOnDeepLink.current) { appliedDefaultTab.current = true; return }
     if (didLoadSettings && !appliedDefaultTab.current) {

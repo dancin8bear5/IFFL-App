@@ -42,7 +42,6 @@ const COL = {
   transactions: 'transactions',
   teamAvatars: 'teamAvatars',
   groupmeTradeSignals: 'groupmeTradeSignals',
-  bigBoard: 'bigBoard',
   weeklyScores: 'weeklyScores',
   playoffs: 'playoffs',
   tradeVotes: 'tradeVotes',
@@ -154,19 +153,6 @@ export function saveTeamEmailMap(map) {
 /** Commissioner kill-switches: area keys hidden from the whole league. */
 export function setDisabledAreas(areaKeys) {
   return updateDoc(doc(db, COL.config, 'league'), { disabledAreas: areaKeys })
-}
-
-/**
- * Whether the Big Board appears in the navigation.
- *
- * Deliberately NOT part of disabledAreas. That list is admin-exempt --
- * areaEnabled() returns true for the commissioner no matter what -- which
- * is right for hiding things from the league but useless here, because the
- * commissioner is the Big Board's only viewer. This is a plain flag that
- * applies to him too, and it defaults to false (hidden) wherever it's read.
- */
-export function setBigBoardInNav(on) {
-  return updateDoc(doc(db, COL.config, 'league'), { bigBoardInNav: !!on })
 }
 
 export function listenToPlayers(callback) {
@@ -1566,61 +1552,6 @@ export function deleteTradeSignal(signalId) {
   return deleteDoc(doc(db, COL.groupmeTradeSignals, signalId))
 }
 
-// ── Big Board — bigBoard/{id} ──────────────────────────────────
-// The commissioner's keeper-planning board: every draftable player in a
-// tier, marked Keep / Drop / Maybe, with a running $200 auction budget
-// per team. Commissioner-only in firestore.rules — these are his private
-// calls on other people's players and must not leak to the league.
-//
-// Ported from a standalone Supabase-backed page. That version was
-// world-writable: its anon key shipped in public HTML and the table's RLS
-// policies allowed read, update and insert to anyone. Moving it here puts
-// it behind the same auth as everything else.
-
-export function listenToBigBoard(callback) {
-  return onSnapshot(collection(db, COL.bigBoard), (snap) =>
-    callback(snapToDocs(snap)),
-  )
-}
-
-/** Patch one player — tier move, K/D/M flip, price edit. */
-export function updateBigBoardPlayer(id, fields) {
-  return updateDoc(doc(db, COL.bigBoard, String(id)), fields)
-}
-
-/**
- * One-time migration from the old Supabase table. Reads live rows with the
- * anon key (already public — it shipped in board.html) and writes them into
- * Firestore keyed by the original id, so re-running overwrites rather than
- * duplicating. Returns {imported}.
- */
-export async function importBigBoardFromSupabase() {
-  const SB_URL = 'https://vmambvgovdxepgejdgcy.supabase.co'
-  const SB_KEY =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZtYW1idmdvdmR4ZXBnZWpkZ2N5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0ODczNDEsImV4cCI6MjEwMjA2MzM0MX0.oj4Tgbg-Y7mTiaB7QCAl2vx9WsxvJXJ4RV_AnhP4h0w'
-  const res = await fetch(`${SB_URL}/rest/v1/big_board?select=*&order=id`, {
-    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
-  })
-  if (!res.ok) throw new Error(`Supabase read failed: ${res.status} ${res.statusText}`)
-  const rows = await res.json()
-
-  const CHUNK = 200 // Firestore caps a batch at 500 ops
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const batch = writeBatch(db)
-    for (const r of rows.slice(i, i + CHUNK)) {
-      batch.set(doc(db, COL.bigBoard, String(r.id)), {
-        player: r.player ?? '',
-        pos: r.pos ?? '',
-        tier: r.tier ?? 'Bench',
-        team: r.team ?? '',
-        price: Number(r.price) || 0,
-        kdm: r.kdm ?? 'M',
-      })
-    }
-    await batch.commit()
-  }
-  return { imported: rows.length }
-}
 
 // ── Rookie draft room — config/rookieDraft + rookieDraftPicks ─────
 //

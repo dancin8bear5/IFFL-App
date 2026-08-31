@@ -114,10 +114,19 @@ service cloud.firestore {
         (signedIn() && leagueConfig().userTeamMap[request.auth.uid] == teamName);
     }
 
-    // Big Board — the commissioner's private keeper-planning tiers and
-    // keep/drop calls on every draftable player, including other people's.
-    // Commissioner-only for READ as well as write: these are opinions about
-    // rivals' rosters and must not be visible to the league.
+    // Big Board — RETIRED from the app on Aug 31, 2026. The view, the
+    // filter service and the Firestore helpers are gone; this collection is
+    // deliberately NOT deleted, so the board can be brought back by
+    // restoring the UI against the same documents.
+    //
+    // The rule stays for the same reason. Removing it would lock out a
+    // future re-read for no benefit, and the access it grants is unchanged:
+    // commissioner-only for READ as well as write, because these are
+    // keep/drop opinions about rivals' rosters and were never the league's
+    // to see.
+    //
+    // Offline copies: data/big-board-2026-08-31.csv, plus
+    // web/scripts/export-big-board.mjs for a fresh authoritative dump.
     match /bigBoard/{playerId} {
       allow read, write: if isCommissioner();
     }

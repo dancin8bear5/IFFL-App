@@ -13,7 +13,6 @@ const TABS = [
   { label: 'Trades', slug: 'trades' },
   { label: 'myTeam Worksheet', slug: 'worksheet' },
   { label: 'The POD', slug: 'pod' },
-  { label: 'Big Board', slug: 'board' },
 ]
 
 // ── normalizeHash ──────────────────────────────────────────────
@@ -33,7 +32,7 @@ test('accepts a bare slug with no hash at all', () => {
 
 test('is case-insensitive — links get capitalised by chat apps', () => {
   assert.equal(normalizeHash('#Rosters'), 'rosters')
-  assert.equal(normalizeHash('#BOARD'), 'board')
+  assert.equal(normalizeHash('#POD'), 'pod')
 })
 
 test('drops anything after the slug', () => {
@@ -68,7 +67,7 @@ test('every alias points at a slug that actually exists', () => {
 test('resolves each slug to its own tab', () => {
   assert.equal(tabForSlug(TABS, 'dashboard'), 0)
   assert.equal(tabForSlug(TABS, '#rosters'), 1)
-  assert.equal(tabForSlug(TABS, '#board'), 6)
+  assert.equal(tabForSlug(TABS, '#pod'), 5)
 })
 
 test('an unknown slug is -1, not a silent fallback to the Dashboard', () => {
@@ -130,8 +129,8 @@ test('parseRoute survives the forms links arrive in', () => {
 })
 
 test('a tab slug still parses when the hash carries no parameter', () => {
-  assert.equal(parseRoute('#board').slug, 'board')
-  assert.equal(parseRoute('#board').param, '')
+  assert.equal(parseRoute('#pod').slug, 'pod')
+  assert.equal(parseRoute('#pod').param, '')
 })
 
 test('normalizeHash keeps working now that it delegates to parseRoute', () => {

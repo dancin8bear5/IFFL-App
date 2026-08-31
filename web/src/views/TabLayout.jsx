@@ -24,14 +24,11 @@ const PlayersView = lazy(() => import('./PlayersView'))
 const MarketView = lazy(() => import('./MarketView'))
 const BuilderView = lazy(() => import('./BuilderView'))
 const PodView = lazy(() => import('./PodView'))
-const BigBoardView = lazy(() => import('./BigBoardView'))
 const RookieDraftRoomView = lazy(() => import('./RookieDraftRoomView'))
 const HistoryView = lazy(() => import('./HistoryView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
-// `podOnly` marks a tab only the three POD hosts can see; `adminOnly`
-// marks one only the commissioner sees (the Big Board is his private
-// keeper planning, including calls on other people's players).
+// `podOnly` marks a tab only the three POD hosts can see.
 // `slug` is the tab's URL: iffl-auth.web.app/#rosters. Slugs are part of
 // the app's public surface once someone shares one, so treat them as
 // permanent — rename the LABEL freely, but retire a slug only by adding
@@ -43,7 +40,6 @@ const TABS = [
   { label: 'F.M.K. Market',    short: 'F.M.K.',    glyph: '⇄',  slug: 'trades',    area: 'market', fmkLabel: true },
   { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', slug: 'worksheet', area: 'builder' },
   { label: 'The POD',          short: 'POD',       glyph: '🎙️', slug: 'pod',       podOnly: true },
-  { label: 'Big Board',        short: 'Board',     glyph: '📋', slug: 'board',     adminOnly: true, urlOnly: true },
   { label: 'Rookie Draft',     short: 'Rookie',    glyph: '🎓', slug: 'rookie',    liveOnly: true },
   // 'historyQuery', not 'history' — that area key already switches the
   // Trophy Room tiles on the Dashboard.
@@ -52,7 +48,7 @@ const TABS = [
 
 export default function TabLayout({ tab, setTab }) {
   const {
-    incomingTradeCount, areaEnabled, isPodMember, isAdmin, bigBoardInNav,
+    incomingTradeCount, areaEnabled, isPodMember, isAdmin,
     rookieDraftLive, isRookieDraftTester, isInitialLoadComplete, selectedTeam, setSelectedTeam,
   } = useApp()
   const isDesktop = useIsDesktop()
@@ -60,8 +56,8 @@ export default function TabLayout({ tab, setTab }) {
   // Indices stay stable (setTab(3) is always Market); hidden tabs just
   // vanish from the nav, and landing on one falls back to the Dashboard.
   // canSee gates the SCREEN — reaching a tab at all. inNav gates whether it
-  // also gets a button. The Big Board is the one tab where those differ: it
-  // stays reachable at its #board URL while sitting out of the navigation.
+  // also gets a button. Nothing differs between them now that the Big Board
+  // is gone; keep both so a URL-only tab stays one flag away.
   // `liveOnly` is the rookie draft room: it exists all year, but the
   // league only sees it once the commissioner opens the draft. Unlike an
   // `area`, this one is NOT admin-exempt for the league — it's a schedule,
@@ -73,7 +69,7 @@ export default function TabLayout({ tab, setTab }) {
       : t.adminOnly ? isAdmin
       : t.liveOnly ? (isAdmin || rookieDraftLive || isRookieDraftTester)
       : !t.area || areaEnabled(t.area)
-  const inNav = (t) => canSee(t) && (!t.urlOnly || bigBoardInNav)
+  const inNav = (t) => canSee(t) && !t.urlOnly
   // With F.M.K. switched off this tab is only the trade portal, so calling
   // it "F.M.K. Market" would advertise a section that isn't there.
   //
@@ -125,8 +121,8 @@ export default function TabLayout({ tab, setTab }) {
   // Read: the hash picks the tab, on load and on hashchange — which is
   // what Back and Forward fire. Gated by canSee, not inNav: a tab can be
   // absent from the navigation and still reachable by URL, which is
-  // exactly how the Big Board works. A non-member typing #board still
-  // gets nothing.
+  // what a `urlOnly` tab would use. A non-member typing one still gets
+  // nothing.
   //
   // Re-runs when permissions resolve, which is what gives a deep link its
   // second chance. Re-running is harmless the rest of the time: the writer
@@ -209,9 +205,8 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 3 && <MarketView setTab={setTab} />}
         {activeTab === 4 && <BuilderView />}
         {activeTab === 5 && <PodView />}
-        {activeTab === 6 && <BigBoardView />}
-        {activeTab === 7 && <RookieDraftRoomView />}
-        {activeTab === 8 && <HistoryView />}
+        {activeTab === 6 && <RookieDraftRoomView />}
+        {activeTab === 7 && <HistoryView />}
       </Suspense>
     </ErrorBoundary>
   )

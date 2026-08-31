@@ -21,7 +21,6 @@
 export const SLUG_ALIASES = {
   market: 'trades',      // the tab was "F.M.K. Market" before F.M.K. was hidden
   fmk: 'trades',
-  bigboard: 'board',
   team: 'worksheet',
   myteam: 'worksheet',
 }

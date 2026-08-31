@@ -86,9 +86,6 @@ export function AppProvider({ children }) {
   // Commissioner kill-switches: area keys hidden from the whole league
   const [disabledAreas, setDisabledAreas] = useState(new Set())
   const [rolloverArmed, setRolloverArmed] = useState(false)
-  // Off unless the config says otherwise — the Big Board stays out of
-  // the nav by default and is reached by its #board URL.
-  const [bigBoardInNav, setBigBoardInNav] = useState(false)
   const [rookieDraft, setRookieDraft] = useState(null)
   const [liveScoresMode, setLiveScoresMode] = useState('off')
 
@@ -188,7 +185,6 @@ export function AppProvider({ children }) {
           setRulesVotingOpen(config.rulesVotingOpen ?? false)
           setDisabledAreas(new Set(config.disabledAreas ?? []))
           setRolloverArmed(config.rolloverArmed ?? false)
-          setBigBoardInNav(config.bigBoardInNav ?? false)
           setLiveScoresMode(config.liveScores ?? 'off')
           setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
           const team = config.userTeamMap?.[uid]
@@ -333,12 +329,6 @@ export function AppProvider({ children }) {
   )
 
   /** Is an app area visible to the league? Admin always sees everything. */
-  const toggleBigBoardInNav = useCallback(async () => {
-    const next = !bigBoardInNav
-    setBigBoardInNav(next)
-    await fs.setBigBoardInNav(next).catch(() => setBigBoardInNav(!next))
-  }, [bigBoardInNav])
-
   /** Commissioner: set the draft order, publish the board, open the room. */
   const saveRookieDraft = useCallback(
     async (patch) => {
@@ -730,7 +720,6 @@ export function AppProvider({ children }) {
     parlayConfig, parlayEntries, submitParlayPick,
     // area kill-switches
     disabledAreas, areaEnabled, toggleArea,
-    bigBoardInNav, toggleBigBoardInNav,
     // rookie draft room (config only — the room loads its own picks)
     rookieDraft, rookieDraftLive: rookieDraft?.live === true, saveRookieDraft,
     // A dry-run list. These teams reach the room while it is still closed

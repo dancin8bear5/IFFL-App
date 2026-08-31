@@ -60,3 +60,9 @@ out/
 # Firestore snapshots — contain member emails and UIDs (config/league).
 # This repo is PUBLIC; these must never be committed. See data/README.md.
 data/backup/
+
+# Big Board exports — the commissioner's private keep/drop calls on other
+# people's rosters. Its Firestore rule is commissioner-only for READ as well
+# as write; this repo is PUBLIC, so a backup belongs on the NAS with the
+# Firestore snapshots (see data/README.md), never here.
+data/big-board-*.csv

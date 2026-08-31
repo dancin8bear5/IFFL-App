@@ -85,13 +85,20 @@ deleted** and its commissioner-only rule is still in place, so restoring
 the feature means restoring UI against the same documents — removing code
 is not removing data.
 
-Two offline copies exist, and they are not equivalent:
-- `data/big-board-2026-08-31.csv` — the snapshot handed over the day it was
-  retired. 299 players plus the per-owner cap table. Has **NFL Team**, has
-  **no tier**.
-- `web/scripts/export-big-board.mjs` — dumps the live collection (which has
-  **tier** but no NFL team) to CSV via `gcloud auth print-access-token`.
-  Run it for an authoritative copy before ever deleting the collection.
+**Backups live on the NAS, never in git.** `data/big-board-*.csv` is
+gitignored: the board is the commissioner's keep/drop calls on other
+people's rosters, its Firestore rule is commissioner-only for READ, and
+this repo is public. A copy was briefly committed on Aug 31, 2026 and
+removed the same day — it remains in git history, so treat those calls as
+public and don't add another.
+
+Two offline copies exist and they are NOT equivalent:
+- The snapshot taken the day it was retired — 299 players plus the per-owner
+  cap table. Has **NFL Team**, has **no tier**.
+- `web/scripts/export-big-board.mjs` — dumps the live collection (298 rows,
+  which has **tier** but no NFL team) via `gcloud auth print-access-token`.
+  Run it for an authoritative copy before ever deleting the collection, and
+  put the CSV on the NAS.
 
 Old `#board` and `#bigboard` links land on the Dashboard; the routing alias
 was retired with the tab.

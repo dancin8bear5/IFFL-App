@@ -1457,6 +1457,50 @@ export async function fetchHistoryDrafts() {
   }
 }
 
+// ── Ingest operations — config/ifflFeed and the poller cursors ────
+//
+// All four documents are written by Cloud Functions through the Admin SDK.
+// The app only reads them, so that "is the feed running, and what did it
+// last see?" is answerable without opening the Firebase console.
+
+/**
+ * Everything the Admin feed panel shows, in one round trip.
+ *
+ * Missing documents come back null rather than throwing: none of these
+ * exist until the function that owns them has run at least once, and a
+ * poller that has never run is a normal state to display, not an error.
+ */
+export async function fetchIngestOps() {
+  const names = ['ifflFeed', 'ifflFeedReport', 'espnIngest', 'espnGmailPoller', 'groupmePoller']
+  try {
+    const snaps = await Promise.all(names.map((n) => getDoc(doc(db, COL.config, n))))
+    return Object.fromEntries(
+      names.map((n, i) => [n, snaps[i].exists() ? snaps[i].data() : null]),
+    )
+  } catch (err) {
+    console.warn('fetchIngestOps failed:', err.message)
+    return Object.fromEntries(names.map((n) => [n, null]))
+  }
+}
+
+/**
+ * Arm or disarm one domain of the league feed.
+ *
+ * Writes ONLY the `armed` map — the security rules reject anything else on
+ * this document, because the poller's cursor lives here too and rewinding
+ * it would re-import the entire league. Passing the whole map rather than a
+ * dotted path keeps the write to a single field for that rule to check.
+ */
+export function setFeedArmed(armed) {
+  return updateDoc(doc(db, COL.config, 'ifflFeed'), {
+    armed: {
+      players: !!armed.players,
+      picks: !!armed.picks,
+      trades: !!armed.trades,
+    },
+  })
+}
+
 /**
  * Player season totals — historyPlayerSeasons/{year}, 2008–2025.
  * ~4,200 rows across 18 docs. Loaded when the Player Scores tab opens.

@@ -336,6 +336,36 @@ service cloud.firestore {
       allow read, write: if isCommissioner();
     }
 
+    // Ops state for the ESPN ingest paths. All written by Cloud Functions
+    // through the Admin SDK, which bypasses rules entirely — these entries
+    // exist only so the commissioner can SEE what the pollers are doing
+    // from inside the app instead of opening the Firebase console.
+    // Read-only: nothing in the app has any business editing a cursor.
+    match /config/espnIngest {
+      allow read: if isCommissioner();
+    }
+    match /config/espnGmailPoller {
+      allow read: if isCommissioner();
+    }
+    match /config/ifflFeedReport {
+      allow read: if isCommissioner();
+    }
+
+    // The league feed's control document.
+    //
+    // Read shows the last run, its summary and any apply error. Write is
+    // deliberately narrowed to the `armed` map and nothing else: the
+    // poller's own cursor (lastProcessedChangedAt) lives in this same
+    // document, and a stray write from the app must not be able to rewind
+    // it and cause the whole league to be re-imported. Arming is the only
+    // decision a human makes here, so it is the only field a human can
+    // touch — same shape as the trades and rules rules above.
+    match /config/ifflFeed {
+      allow read: if isCommissioner();
+      allow update: if isCommissioner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['armed']);
+    }
+
     // Transaction ledger — the league's paper trail. Readable by everyone,
     // written only by the commissioner (entries ride along with executeTrade
     // and repair batches). Never updated or deleted — it's an audit log.

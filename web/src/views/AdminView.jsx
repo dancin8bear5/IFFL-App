@@ -2,10 +2,10 @@
 // Navigation is grouped by job (Data / Trades / League / Setup) rather
 // than one flat row, remembers the last section across visits, badges
 // the sections with work waiting, and is searchable. See SECTION_GROUPS.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
-import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar } from '../components/shared'
+import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
@@ -43,6 +43,7 @@ const SECTION_GROUPS = [
     items: [
       { id: 'Trades',        glyph: '🤝', blurb: 'Ledger, external, review' },
       { id: 'Trade Signals', glyph: '📡', blurb: 'GroupMe review inbox' },
+      { id: 'Feed',          glyph: '🛰️', blurb: 'League feed sync & arming' },
       { id: 'Picks',         glyph: '🎯', blurb: 'Draft pick assets' },
     ],
   },
@@ -211,6 +212,7 @@ export default function AdminView() {
       {section === 'Picks' && <PicksSection />}
       {section === 'Trades' && <TradesSection />}
       {section === 'Trade Signals' && <TradeSignalsSection />}
+      {section === 'Feed' && <FeedSection />}
       {section === 'Messages' && <MessagesSection />}
       {section === 'Parlay' && <ParlaySection />}
       {section === 'Standings' && <StandingsSection />}
@@ -3162,6 +3164,152 @@ function TradeSignalsSection() {
 //
 // Also surfaces parlayWeeks, which saveParlayWeek has always written to
 // but nothing ever read back.
+
+/* ═══════════ League feed ═══════════ */
+//
+// Read-only for everything except arming. The poller writes all of this
+// through the Admin SDK; the one decision a human makes is which domains
+// it is allowed to apply, so that is the one field this panel writes — and
+// the security rules enforce exactly that, because the poller's cursor
+// lives in the same document and rewinding it would re-import the league.
+function FeedSection() {
+  const { isPreview } = useApp()
+  const [ops, setOps] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState(null)
+
+  const load = useCallback(async () => {
+    if (isPreview) {
+      // Preview has no Firestore, and getDoc against a fake key retries
+      // rather than failing — the panel would sit on its skeleton forever.
+      // These are the shapes the real documents have.
+      setOps({
+        ifflFeed: {
+          lastRunAt: '2026-08-31T14:05:02.118Z',
+          lastProcessedChangedAt: '2026-08-31T13:58:44.000Z',
+          lastSummary: 'players: 2 team moves, 0 to FA, 1 price diffs, 0 new · picks: 1 moves · trades: 1 new, 0 need items',
+          armed: {},
+        },
+        ifflFeedReport: { reportedAt: '2026-08-31T14:05:02.400Z' },
+        espnIngest: { lastIngestAt: '2026-08-30T22:11:09.000Z' },
+        espnGmailPoller: { lastRunAt: '2026-08-31T14:00:11.000Z' },
+        groupmePoller: { lastRunAt: '2026-08-31T14:02:37.000Z' },
+      })
+      return
+    }
+    setOps(await fs.fetchIngestOps())
+  }, [isPreview])
+
+  useEffect(() => { load() }, [load])
+
+  if (ops === null) return <LoadingList count={4} />
+
+  const feed = ops.ifflFeed ?? {}
+  const report = ops.ifflFeedReport ?? null
+  const armed = feed.armed ?? {}
+  const anyArmed = !!(armed.players || armed.picks || armed.trades)
+
+  async function toggle(domain) {
+    const next = { ...armed, [domain]: !armed[domain] }
+    setBusy(true)
+    setNote(null)
+    try {
+      if (!isPreview) await fs.setFeedArmed(next)
+      setOps((o) => ({ ...o, ifflFeed: { ...feed, armed: next } }))
+      setNote(next[domain]
+        ? `${domain} armed — the next sync will apply ${domain} changes.`
+        : `${domain} disarmed — back to reporting only.`)
+    } catch (e) {
+      setNote(`Couldn't change arming: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const row = (label, value, mono = false) => (
+    <div style={{ display: 'flex', gap: 10, padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <span style={{ width: 132, flexShrink: 0, fontSize: 11.5, color: 'var(--iff-subtext)' }}>{label}</span>
+      <span className={mono ? 'tnum' : undefined} style={{ fontSize: 12, minWidth: 0, wordBreak: 'break-word' }}>
+        {value ?? <span style={{ color: 'var(--iff-subtext)' }}>—</span>}
+      </span>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="iff-card" style={{ padding: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <strong style={{ fontSize: 13.5 }}>League feed</strong>
+          <span style={{
+            fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+            color: anyArmed ? 'var(--iff-accent)' : 'var(--iff-green)',
+          }}>
+            {anyArmed ? 'Armed — applying changes' : 'Report only'}
+          </span>
+          <span style={{ flex: 1 }} />
+          <button onClick={load} style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--iff-subtext)', padding: '4px 10px' }}>
+            Refresh
+          </button>
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', marginTop: 6, lineHeight: 1.55 }}>
+          Polls Jason&rsquo;s export every 5 minutes, compares one timestamp, and only fetches the
+          full snapshot when something has changed. Disarmed it writes a report and DMs you; armed
+          it corrects rosters, picks or trades to match.
+        </div>
+        {row('Last run', feed.lastRunAt)}
+        {row('Feed changed at', feed.lastProcessedChangedAt)}
+        {row('Last summary', feed.lastSummary)}
+        {feed.lastError && row('Last error', <span style={{ color: 'var(--iff-accent)' }}>{feed.lastError}</span>)}
+        {feed.lastApplyError && row('Apply refused', <span style={{ color: 'var(--iff-accent)' }}>{feed.lastApplyError}</span>)}
+        {report && row('Report written', report.reportedAt)}
+      </div>
+
+      <div className="iff-card" style={{ padding: 16 }}>
+        <strong style={{ fontSize: 13 }}>What the feed may change</strong>
+        <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', margin: '5px 0 10px', lineHeight: 1.55 }}>
+          Each domain arms separately, so the feed can be trusted with picks before it is trusted
+          with rosters. It refuses to apply anything at all if its report contains problems.
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {['players', 'picks', 'trades'].map((d) => (
+            <button
+              key={d}
+              onClick={() => toggle(d)}
+              disabled={busy}
+              aria-pressed={!!armed[d]}
+              style={{
+                padding: '7px 16px', borderRadius: 16, fontSize: 12, fontWeight: 700,
+                textTransform: 'capitalize',
+                background: armed[d] ? 'var(--iff-accent)' : 'var(--iff-elevated)',
+                color: armed[d] ? '#fff' : 'var(--iff-subtext)',
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              {d}{armed[d] ? ' · armed' : ''}
+            </button>
+          ))}
+        </div>
+        {note && <div style={{ marginTop: 10, fontSize: 11.5, color: 'var(--iff-subtext)' }}>{note}</div>}
+        {isPreview && (
+          <div style={{ marginTop: 8, fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+            Preview mode — nothing here is saved.
+          </div>
+        )}
+      </div>
+
+      <div className="iff-card" style={{ padding: 16 }}>
+        <strong style={{ fontSize: 13 }}>The other ingest paths</strong>
+        <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', margin: '5px 0 4px', lineHeight: 1.55 }}>
+          State the pollers keep for themselves. Nothing here is editable; it is here so a quiet
+          pipeline can be told apart from a broken one.
+        </div>
+        {row('ESPN ingest', ops.espnIngest?.lastIngestAt ?? ops.espnIngest?.lastRunAt)}
+        {row('Gmail poller', ops.espnGmailPoller?.lastRunAt)}
+        {row('GroupMe poller', ops.groupmePoller?.lastRunAt)}
+      </div>
+    </div>
+  )
+}
 
 function ParlaySection() {
   const { parlayConfig, parlayEntries, activeSeason } = useApp()

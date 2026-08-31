@@ -7,6 +7,15 @@
         { "fieldPath": "season", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "DESCENDING" }
       ]
+    },
+    {
+      "_comment": "History page, Player Scores tab: fetchHistoryPlayerWeeks filters on season and orders by week. An equality filter plus an orderBy on a different field needs this composite index, and without it the query fails rather than degrading — the tab would read empty with no clue why.",
+      "collectionGroup": "historyPlayerWeeks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "season", "order": "ASCENDING" },
+        { "fieldPath": "week", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

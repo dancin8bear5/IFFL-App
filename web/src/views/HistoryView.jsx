@@ -26,6 +26,8 @@ import { rookieDraftHistory } from '../data/rookieDraftHistory'
 import { rookieClass2026 } from '../data/rookieDraft2026'
 import { tradesHistory } from '../data/tradesHistory'
 import { trades2026 } from '../data/trades2026'
+import { auctionHistory } from '../data/auctionHistory'
+import { gamesHistory } from '../data/gamesHistory'
 import { TEAM_NAMES } from '../services/historyCategories'
 
 /** How many rows the table renders at once. Export is never truncated. */
@@ -81,10 +83,29 @@ export default function HistoryView() {
   }, [category.key])
 
   // Keep the URL on the current tab so a tab is a shareable link.
+  //
+  // replaceState rather than assigning location.hash: switching tabs is not
+  // a navigation anyone wants to press Back through six times, and it also
+  // means these writes fire no hashchange, so the reader below can't loop
+  // against this.
   useEffect(() => {
     const want = `#history/${slugOf(category)}`
     if (window.location.hash !== want) window.history.replaceState(null, '', want)
   }, [category])
+
+  // ...and read it back, because the URL changes without this component
+  // remounting: following a link to #history/games while already on
+  // #history/auction is a hash change, not a reload, so without this the
+  // page would keep showing the tab it happened to open on.
+  useEffect(() => {
+    const onHash = () => {
+      const seg = (window.location.hash.split('/')[1] ?? '').split('?')[0]
+      const next = categoryBySlug(seg)
+      if (next && next.key !== category.key) setCategory(next)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [category.key])
 
   // Reset the query when the tab changes — a price range from the auction
   // tab means nothing on Games, and leaving it applied would silently
@@ -121,9 +142,7 @@ export default function HistoryView() {
       setLoading(true)
       let docs = []
       try {
-        if (category.key === 'auction') docs = await fs.fetchHistoryDrafts()
-        else if (category.key === 'games') docs = await fs.fetchHistoryMatchups()
-        else if (category.key === 'playerScores') {
+        if (category.key === 'playerScores') {
           docs = grain === 'weekly'
             ? await fs.fetchHistoryPlayerWeeks(season)
             : (await fs.fetchHistoryPlayerSeasons()).filter((d) => Number(d.season) === Number(season))
@@ -146,6 +165,8 @@ export default function HistoryView() {
     if (category.key === 'rookieDrafts') source = ROOKIE_SOURCE
     else if (category.key === 'standings') source = leagueHistory
     else if (category.key === 'trades') source = BUNDLED_TRADES
+    else if (category.key === 'auction') source = auctionHistory
+    else if (category.key === 'games') source = gamesHistory
     else source = cache.current[cacheKey] ?? []
     return indexRows(view.toRows(source), columns)
   }, [category, view, columns, cacheKey, leagueHistory, loading])

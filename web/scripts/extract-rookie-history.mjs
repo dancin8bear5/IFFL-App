@@ -58,6 +58,15 @@ const RULINGS = {
   '2018:1.03': { dropped: true },
 }
 
+// Why a season can come back short. A recovered class only ever contains
+// rookies who were still on a roster when the auction ran, so a pick whose
+// player was cut before then leaves no trace at all — the pick was real and
+// the record of it is gone. These are the commissioner's account of the
+// gaps, not something the data can show.
+const SEASON_NOTES = {
+  2017: 'Full two rounds. The 6 missing picks are rookies dropped before the auction.',
+}
+
 // ── CSV ────────────────────────────────────────────────────────
 const rows = (path) => {
   const lines = readFileSync(path, 'utf8').split(/\r?\n/).filter((l) => l.length > 0)
@@ -199,7 +208,9 @@ for (const c of classes) {
   if (r1 > 12) flags.push(`${r1 - 12} too many in round one`)
   if (r2 > 12) flags.push(`${r2 - 12} too many in round two`)
   if (c.picks.some((p) => p.contested)) flags.push('contested slot')
-  console.log(`${c.season}   | ${String(r1).padStart(2)}  ${String(r2).padStart(2)}   ${String(r1 + r2).padStart(3)}  | ${flags.join('; ') || 'clean'}`)
+  const note = SEASON_NOTES[c.season]
+  console.log(`${c.season}   | ${String(r1).padStart(2)}  ${String(r2).padStart(2)}   ${String(r1 + r2).padStart(3)}  | ${flags.join('; ') || (note ? 'accounted for' : 'clean')}`)
+  if (note) console.log(`        ${note}`)
 }
 
 if (process.argv.includes('--verbose')) {

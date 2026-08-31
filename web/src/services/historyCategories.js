@@ -25,14 +25,18 @@ export const TEAM_NAMES = fantasyTeams.map((t) => t.name)
 const money = (v) => (v === null || v === undefined || v === '' ? '' : `$${v}`)
 
 /**
- * Auction draft — historyDrafts/{year}, 2008–2025.
- * 228 picks a season; the whole set is ~1 MB, so it loads on demand.
+ * Auction draft — 2008–2025, bundled with the app.
+ *
+ * Finished data that will never change, and 4,066 rows gzip to 42KB in a
+ * lazy chunk — less than this page's own JavaScript. Fetching it from
+ * Firestore bought a round trip, a reads bill and a dependency on the
+ * import having been run, for nothing.
  */
 const auction = {
   key: 'auction',
   label: 'Auction',
   glyph: '💰',
-  cost: 'lazy',
+  cost: 'bundled',
   blurb: 'Every auction pick since 2008 — what each player cost and who bought him.',
   columns: [
     { key: 'season', label: 'Season', type: 'season', filter: 'select', width: 62 },
@@ -44,28 +48,27 @@ const auction = {
     { key: 'keeper', label: 'Kept', type: 'text', filter: 'select', width: 56, allLabel: 'Kept or bought' },
     { key: 'overallPick', label: 'Pick', type: 'number', align: 'right', width: 56 },
   ],
-  toRows: (docs = []) => docs.flatMap((d) => (d.picks ?? []).map((p) => ({
-    season: Number(d.season),
-    player: p.player ?? '',
-    position: p.position ?? '',
-    nflTeam: p.proTeam ?? '',
-    team: p.team ?? '',
-    price: p.auctionPrice ?? null,
-    keeper: p.keeper ? 'Kept' : 'Bought',
-    overallPick: p.overallPick ?? null,
-  }))),
+  // [season, owner, player, position, proTeam, price, overallPick, keeper]
+  toRows: (rows = []) => rows.map(([season, team, player, position, nflTeam, price, overallPick, keeper]) => ({
+    season, player, position, nflTeam, team,
+    price: price || null,
+    keeper: keeper ? 'Kept' : 'Bought',
+    overallPick: overallPick || null,
+  })),
 }
 
 /**
- * Games — historyMatchups/{year}, 2008–2025. One row per team per game,
- * so every matchup appears twice, once from each side. That's deliberate:
- * it means filtering by team gives you that team's whole season.
+ * Games — 2008–2025, bundled for the same reason as the auction.
+ *
+ * One row per team per game, so every matchup appears twice, once from
+ * each side. That's deliberate: filtering by team then gives you that
+ * team's whole season rather than half of it.
  */
 const games = {
   key: 'games',
   label: 'Games',
   glyph: '🏈',
-  cost: 'lazy',
+  cost: 'bundled',
   blurb: 'Every game since 2008, from each team\'s side — scores, margins and bench points.',
   columns: [
     { key: 'season', label: 'Season', type: 'season', filter: 'select', width: 62 },
@@ -78,17 +81,10 @@ const games = {
     { key: 'margin', label: 'Margin', type: 'number', filter: 'range', align: 'right', width: 70 },
     { key: 'bench', label: 'Bench', type: 'number', align: 'right', width: 62 },
   ],
-  toRows: (docs = []) => docs.flatMap((d) => (d.rows ?? []).map((g) => ({
-    season: Number(d.season),
-    week: g.week ?? null,
-    team: g.team ?? '',
-    points: g.points ?? null,
-    opponent: g.opponent ?? '',
-    oppPoints: g.oppPoints ?? null,
-    result: g.result ?? '',
-    margin: g.margin ?? null,
-    bench: g.benchPoints ?? null,
-  }))),
+  // [season, week, team, points, opponent, oppPoints, result, margin, bench]
+  toRows: (rows = []) => rows.map(([season, week, team, points, opponent, oppPoints, result, margin, bench]) => ({
+    season, week, team, points, opponent, oppPoints, result, margin, bench,
+  })),
 }
 
 /**

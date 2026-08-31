@@ -18,7 +18,6 @@ import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
-import { LastSeasonView, LeagueHistoryTable } from '../components/LeagueHistoryViews'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
 import ParlayView from '../components/ParlayView'
@@ -407,20 +406,26 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // Navigate by URL rather than by tab index: TabLayout already listens
+  // for hash changes, so the Dashboard never has to know which number the
+  // History tab is, and the link survives the tab list being reordered.
+  const openHistory = () => { window.location.hash = 'history' }
+
   const latestSeasonYear = leagueHistory[0]?.season
   const historyTiles = areaEnabled('history') && (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <HistoryTile
-        glyph="📊"
-        title="Last Season"
-        sub={latestSeasonYear ? `${latestSeasonYear} final standings & champion` : 'Final standings & champion'}
-        onClick={() => setHistoryView('last')}
-      />
+      {/* One tile, not two. "Last Season" and "League History" were the
+          same question asked at two zoom levels, and both opened a pop-up
+          table you couldn't link to or export. They're now one page with a
+          tab per category — the most recent season is just the top of the
+          Standings tab. */}
       <HistoryTile
         glyph="📜"
         title="League History"
-        sub="All-time table — every stat, sortable"
-        onClick={() => setHistoryView('table')}
+        sub={latestSeasonYear
+          ? `Standings, drafts, trades and scores — through ${latestSeasonYear}`
+          : 'Standings, drafts, trades and scores'}
+        onClick={openHistory}
       />
       {/* No Power Rankings tile here — the chart at the top of the page is
           the entry point now, and a tile duplicating it would be dead weight.
@@ -591,7 +596,7 @@ export default function DashboardView({ setTab }) {
   const latestSeason = leagueHistory[0]
   const standingsSection = latestSeason?.standings?.length > 0 && (
     <div>
-      <SectionHeader title={`${latestSeason.season} Standings`} actionLabel="Full history" onAction={() => setHistoryView('table')} />
+      <SectionHeader title={`${latestSeason.season} Standings`} actionLabel="Full history" onAction={openHistory} />
       <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '9px 14px', fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--iff-divider)' }}>
           <span /><span>Team</span><span style={{ textAlign: 'center' }}>W-L</span><span style={{ textAlign: 'right' }}>PF</span>
@@ -757,8 +762,6 @@ export default function DashboardView({ setTab }) {
         />
       )}
       {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
-      {historyView === 'last' && <LastSeasonView onClose={() => setHistoryView(null)} />}
-      {historyView === 'table' && <LeagueHistoryTable onClose={() => setHistoryView(null)} />}
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
       {historyView === 'power' && <PowerRankingsView onClose={() => setHistoryView(null)} />}
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}

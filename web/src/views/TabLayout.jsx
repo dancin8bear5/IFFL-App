@@ -26,7 +26,7 @@ const BuilderView = lazy(() => import('./BuilderView'))
 const PodView = lazy(() => import('./PodView'))
 const BigBoardView = lazy(() => import('./BigBoardView'))
 const RookieDraftRoomView = lazy(() => import('./RookieDraftRoomView'))
-const HistoryQueryView = lazy(() => import('./HistoryQueryView'))
+const HistoryView = lazy(() => import('./HistoryView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see; `adminOnly`
@@ -47,7 +47,7 @@ const TABS = [
   { label: 'Rookie Draft',     short: 'Rookie',    glyph: '🎓', slug: 'rookie',    liveOnly: true },
   // 'historyQuery', not 'history' — that area key already switches the
   // Trophy Room tiles on the Dashboard.
-  { label: 'History',          short: 'History',   glyph: '📚', slug: 'history',   area: 'historyQuery' },
+  { label: 'League History',   short: 'History',   glyph: '📚', slug: 'history',   area: 'historyQuery' },
 ]
 
 export default function TabLayout({ tab, setTab }) {
@@ -210,7 +210,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 5 && <PodView />}
         {activeTab === 6 && <BigBoardView />}
         {activeTab === 7 && <RookieDraftRoomView />}
-        {activeTab === 8 && <HistoryQueryView />}
+        {activeTab === 8 && <HistoryView />}
       </Suspense>
     </ErrorBoundary>
   )

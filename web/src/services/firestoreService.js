@@ -1458,6 +1458,42 @@ export async function fetchHistoryDrafts() {
 }
 
 /**
+ * Player season totals — historyPlayerSeasons/{year}, 2008–2025.
+ * ~4,200 rows across 18 docs. Loaded when the Player Scores tab opens.
+ */
+export async function fetchHistoryPlayerSeasons() {
+  try {
+    const q = query(collection(db, 'historyPlayerSeasons'), orderBy('season', 'desc'))
+    return snapToDocs(await getDocs(q))
+  } catch (err) {
+    console.warn('fetchHistoryPlayerSeasons failed:', err.message)
+    return []
+  }
+}
+
+/**
+ * Weekly player lines for ONE season — historyPlayerWeeks/{year}-{WW}.
+ *
+ * Season-scoped because the full set is 32,000 rows across ~140 documents,
+ * which is not something to pull down to look at one year. 2018+ only:
+ * ESPN kept no weekly player data before then, so earlier seasons come
+ * back empty rather than failing.
+ */
+export async function fetchHistoryPlayerWeeks(season) {
+  try {
+    const q = query(
+      collection(db, 'historyPlayerWeeks'),
+      where('season', '==', Number(season)),
+      orderBy('week'),
+    )
+    return snapToDocs(await getDocs(q))
+  } catch (err) {
+    console.warn(`fetchHistoryPlayerWeeks(${season}) failed:`, err.message)
+    return []
+  }
+}
+
+/**
  * Every trade the league has on record, across all seasons.
  *
  * listenToTrades is season-scoped because the Trades tab only ever shows the

@@ -31,9 +31,17 @@ import xml.etree.ElementTree as ET
 NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
 
 # What the sheet calls people vs. the master team names the app uses.
-# 'Zurek' on its own is Matt: both 2022 and 2023 name Andrew explicitly
-# elsewhere on the same sheet, and 2024 switches to 'Matt' / 'M Zurek'
-# while still writing 'Andrew' for the other brother.
+#
+# The two Zureks are the only pair a bare name can land between, and the
+# commissioner has ruled it: 'Zurek' is M. Zurek, 'Andrew' is A. Zurek.
+# The sheet's own usage agrees — 2022 and 2023 both write 'Andrew'
+# explicitly, and 2024 switches to 'Matt' / 'M Zurek' for the other
+# brother — but it is the ruling that settles this, not the inference.
+#
+# Deliberately the opposite convention to functions/groupmeIngest.js, where
+# an ambiguous Zurek is left unresolved rather than guessed. That code
+# scans live free-text chat for a trade nobody has confirmed; this reads a
+# finished record the commissioner has been through.
 ALIASES = {
     'corey': 'Abad', 'abad': 'Abad',
     'andrew': 'A. Zurek', 'a. zurek': 'A. Zurek', 'a zurek': 'A. Zurek',

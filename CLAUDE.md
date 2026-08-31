@@ -101,6 +101,32 @@ Both fetches are one-shot and swallow their errors into `[]` on purpose: the
 page is being built ahead of its data, and each source reports its own count
 so an empty screen says WHY rather than looking broken.
 
+### Trade history 2022–2024 (Aug 31, 2026)
+101 trades / 409 asset movements, from the league's hand-kept workbook
+(`data/Trades_2022-2024.xlsx`). **2025 was never kept — 2022-24 plus 2026 is
+all the trade history that exists.** Pipeline:
+`convert-trade-sheet.py` → `data/trades-2022-2024.csv` (the committed source
+of truth, one row per asset that moved) → `generate-trades-history.mjs
+--write` → `web/src/data/tradesHistory.js`, which is bundled with the app in
+the same shape as `trades2026.js` so `seedHistoricalTrades()` can push it to
+Firestore without a second translation.
+
+The workbook carries TWO layouts (it was rebuilt between seasons): 2022–23
+use a dated row plus undated rows beneath it, blank row as terminator; 2024
+drops the position column and the blanks, and marks a new trade only by a
+date reappearing in column A. Draft picks appear in three notations
+("2023 1.05 (Ryan)", "2023 2nd (Bill's)", "Foley 2024 1.02") and all 102
+parse.
+
+**Commissioner ruling on names: `Zurek` = M. Zurek, `Andrew` = A. Zurek**
+(also `Corey` = Abad, `Matt` = M. Zurek). This is the opposite of
+`functions/groupmeIngest.js`, which leaves an ambiguous Zurek unresolved on
+purpose — that scans unconfirmed live chat, this reads a finished record.
+
+Worth chasing later: the 2022 rows name specific rookie slots ("2022 1.01"),
+which the price-ladder recovery can't reach for 2022+ because the rookie
+scale went flat that year.
+
 ### Rookie draft history — recovered by fingerprint (Aug 30, 2026)
 **The rookie draft began in 2017.** Corey Davis at 1.01 was the first rookie
 pick in league history, so `rookieDraftHistory` (2017–2025) plus

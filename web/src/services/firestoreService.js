@@ -231,13 +231,6 @@ export function updatePlayer(playerId, player) {
   return setDoc(doc(db, COL.players, playerId), player)
 }
 
-export function transferPlayer(playerId, toTeam, tradeNote) {
-  return updateDoc(doc(db, COL.players, playerId), {
-    teamName: toTeam,
-    tradeHistory: arrayUnion(tradeNote),
-  })
-}
-
 export function deactivatePlayer(playerId) {
   return updateDoc(doc(db, COL.players, playerId), { isActive: false })
 }
@@ -266,17 +259,6 @@ export function repairPlayerPrices(repairs, meta = {}) {
 export function listenToDraftPicks(callback) {
   const q = query(collection(db, COL.draftPicks), where('status', '==', 'available'))
   return onSnapshot(q, (snap) => callback(snapToDocs(snap)))
-}
-
-export function addDraftPick(pick) {
-  return addDoc(collection(db, COL.draftPicks), pick)
-}
-
-export function transferDraftPick(pickId, toTeam, tradeNote) {
-  return updateDoc(doc(db, COL.draftPicks, pickId), {
-    currentTeamName: toTeam,
-    tradeHistory: arrayUnion(tradeNote),
-  })
 }
 
 /** Atomic: mark pick used + create the drafted player. Mirrors convertPickToPlayer. */
@@ -1093,19 +1075,6 @@ export function savePodContent(patch) {
   return setDoc(doc(db, COL.config, 'pod'), patch, { merge: true })
 }
 
-/**
- * Replaces one week's True Record scores. Weeks live as a keyed map
- * (`trueRecordWeeks.{season}.{week}`) rather than an array so a re-entered
- * week overwrites cleanly instead of appending a duplicate.
- */
-export function savePodWeekScores(season, week, scores) {
-  return setDoc(
-    doc(db, COL.config, 'pod'),
-    { trueRecordWeeks: { [String(season)]: { [String(week)]: scores } } },
-    { merge: true },
-  )
-}
-
 // ── Weekly scores — weeklyScores/{season} ──────────────────────
 // The league's week-by-week points, one doc per season:
 //   { season, weeks: { "1": [{teamName, points}], "2": [...] } }
@@ -1147,11 +1116,6 @@ export function saveTeamRecords(season, records) {
     { season: Number(season), records, updatedAt: Timestamp.now() },
     { merge: true },
   )
-}
-
-export async function fetchWeeklyScores(season) {
-  const snap = await getDoc(doc(db, COL.weeklyScores, String(season)))
-  return snap.exists() ? (snap.data().weeks ?? {}) : {}
 }
 
 /**
@@ -1278,10 +1242,6 @@ export function voteOnRule(ruleId, teamName, vote) {
 
 export function setRulesVotingOpen(open) {
   return updateDoc(doc(db, COL.config, 'league'), { rulesVotingOpen: open })
-}
-
-export function setRuleStatus(ruleId, status, decidedSeason) {
-  return updateDoc(doc(db, 'rules', ruleId), { status, decidedSeason })
 }
 
 /**
@@ -1437,26 +1397,6 @@ export async function fetchHistoryMatchups() {
   return snapToDocs(await getDocs(q))
 }
 
-/**
- * Every auction draft — historyDrafts/{year}, 2008–2025, one doc per season
- * holding all 228 picks. Loaded on demand by the History Query page, which
- * is the only screen that needs all of them at once (~1MB across 18 docs),
- * and never at startup.
- *
- * Returns [] rather than throwing when nothing is seeded yet: the query page
- * is being built ahead of the data, and an unseeded source there has to read
- * as "nothing here yet", not as a broken screen.
- */
-export async function fetchHistoryDrafts() {
-  try {
-    const q = query(collection(db, 'historyDrafts'), orderBy('season', 'desc'))
-    return snapToDocs(await getDocs(q))
-  } catch (err) {
-    console.warn('fetchHistoryDrafts failed — auction history will be empty:', err.message)
-    return []
-  }
-}
-
 // ── Ingest operations — config/ifflFeed and the poller cursors ────
 //
 // All four documents are written by Cloud Functions through the Admin SDK.
@@ -1533,23 +1473,6 @@ export async function fetchHistoryPlayerWeeks(season) {
     return snapToDocs(await getDocs(q))
   } catch (err) {
     console.warn(`fetchHistoryPlayerWeeks(${season}) failed:`, err.message)
-    return []
-  }
-}
-
-/**
- * Every trade the league has on record, across all seasons.
- *
- * listenToTrades is season-scoped because the Trades tab only ever shows the
- * current one. History search is the opposite question, so this is a
- * one-shot read of the whole collection rather than a second listener.
- */
-export async function fetchAllTrades() {
-  try {
-    const snap = await getDocs(collection(db, COL.trades))
-    return snapToDocs(snap).map((t) => ({ ...t, date: tsToDate(t.date) }))
-  } catch (err) {
-    console.warn('fetchAllTrades failed — trade history will be empty:', err.message)
     return []
   }
 }

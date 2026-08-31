@@ -3191,7 +3191,7 @@ function FeedSection() {
           armed: {},
         },
         ifflFeedReport: { reportedAt: '2026-08-31T14:05:02.400Z' },
-        espnIngest: { lastIngestAt: '2026-08-30T22:11:09.000Z' },
+        espnIngest: { lastIngestAt: '2026-08-30T22:11:09.000Z', lastIngestSource: 'gmail-native' },
         espnGmailPoller: { lastRunAt: '2026-08-31T14:00:11.000Z' },
         groupmePoller: { lastRunAt: '2026-08-31T14:02:37.000Z' },
       })
@@ -3303,7 +3303,25 @@ function FeedSection() {
           State the pollers keep for themselves. Nothing here is editable; it is here so a quiet
           pipeline can be told apart from a broken one.
         </div>
-        {row('ESPN ingest', ops.espnIngest?.lastIngestAt ?? ops.espnIngest?.lastRunAt)}
+        {/* lastIngestSource is the whole reason this row exists. ESPN trades
+            have two doors into the same handler — the Make.com webhook and
+            the Gmail poller — and this field says which one actually
+            delivered last. Retiring the redundant path safely means reading
+            it first. */}
+        {row('ESPN ingest', ops.espnIngest?.lastIngestAt
+          ? <>
+              {String(ops.espnIngest.lastIngestAt?.toDate?.() ?? ops.espnIngest.lastIngestAt)}
+              {ops.espnIngest.lastIngestSource && (
+                <span style={{
+                  marginLeft: 8, padding: '1px 7px', borderRadius: 9, fontSize: 10.5, fontWeight: 700,
+                  background: 'var(--iff-elevated)',
+                  color: ops.espnIngest.lastIngestSource === 'gmail-native' ? 'var(--iff-green)' : 'var(--iff-gold)',
+                }}>
+                  via {ops.espnIngest.lastIngestSource}
+                </span>
+              )}
+            </>
+          : null)}
         {row('Gmail poller', ops.espnGmailPoller?.lastRunAt)}
         {row('GroupMe poller', ops.groupmePoller?.lastRunAt)}
       </div>

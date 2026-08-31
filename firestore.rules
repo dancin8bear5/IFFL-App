@@ -152,9 +152,21 @@ service cloud.firestore {
     // a commissioner action, on purpose.
     match /rookieDraftPicks/{pickId} {
       allow read: if isMember();
+      // `testers` is a dry-run list: those teams can pick while the room is
+      // still closed to the league, so the whole path — rules included —
+      // can be proven before draft night rather than discovered during it.
+      // It has to be enforced HERE and not just in the UI, or a tester
+      // would see the room and then be refused by the database, which
+      // tests nothing.
+      //
+      // Both fields are read with .get(…, default) so a config document
+      // written before they existed denies cleanly instead of erroring.
       allow create: if isCommissioner() || (
         isMember() &&
-        rookieDraftRoom().live == true &&
+        (
+          rookieDraftRoom().get('live', false) == true ||
+          myTeam() in rookieDraftRoom().get('testers', [])
+        ) &&
         pickId == string(request.resource.data.season) + '_' + request.resource.data.slot &&
         request.resource.data.teamName == myTeam() &&
         rookieDraftRoom().slotOwners[request.resource.data.slot] == myTeam()

@@ -733,6 +733,10 @@ export function AppProvider({ children }) {
     bigBoardInNav, toggleBigBoardInNav,
     // rookie draft room (config only — the room loads its own picks)
     rookieDraft, rookieDraftLive: rookieDraft?.live === true, saveRookieDraft,
+    // A dry-run list. These teams reach the room while it is still closed
+    // to everyone else — matched by team name, not uid, because that is
+    // what the security rules compare against too.
+    isRookieDraftTester: (rookieDraft?.testers ?? []).includes(userTeam),
     rolloverArmed, armRollover,
     // trade proposal trigger + trade actions
     selectedAssetForTrade, setSelectedAssetForTrade,

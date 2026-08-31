@@ -67,6 +67,11 @@ export default function RookieDraftRoomView() {
 
   const season = Number(rookieDraft?.season) || activeSeason + 1
   const live = rookieDraft?.live === true
+  const testers = rookieDraft?.testers ?? []
+  // A tester's room is open even while the league's is shut. This is the
+  // same condition the security rules apply, so what the screen offers and
+  // what the database accepts cannot drift apart.
+  const openForMe = live || testers.includes(userTeam)
   const published = rookieDraft?.slotOwners ?? null
 
   const [made, setMade] = useState(null)   // null = loading
@@ -115,8 +120,8 @@ export default function RookieDraftRoomView() {
   )
 
   const state = useMemo(
-    () => pickState({ slots, made: madeBySlot, teamName: userTeam, isAdmin, live }),
-    [slots, madeBySlot, userTeam, isAdmin, live],
+    () => pickState({ slots, made: madeBySlot, teamName: userTeam, isAdmin, live: openForMe }),
+    [slots, madeBySlot, userTeam, isAdmin, openForMe],
   )
 
   // Board cells: a made pick fills its slot, an unmade one stays a slot.
@@ -176,7 +181,11 @@ export default function RookieDraftRoomView() {
     }}>
       {/* "Live" only ever means a draft that can actually be picked in —
           an open room with no order is not a draft in progress. */}
-      {!hasOrder ? 'Order pending' : state.complete ? 'Complete' : live ? 'Live' : 'Opens soon'}
+      {!hasOrder ? 'Order pending'
+        : state.complete ? 'Complete'
+        : live ? 'Live'
+        : openForMe ? 'Testing'
+        : 'Opens soon'}
     </span>
   )
 
@@ -305,6 +314,7 @@ export default function RookieDraftRoomView() {
         <AdminPanel
           season={season}
           live={live}
+          testers={testers}
           savedBlocks={savedBlocks}
           published={published}
           staleSlots={staleSlots}
@@ -316,6 +326,13 @@ export default function RookieDraftRoomView() {
           draftPicks={draftPicks}
           isPreview={isPreview}
         />
+      )}
+      {!live && openForMe && !isAdmin && (
+        <div className="iff-card" style={{ padding: 12, fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.5 }}>
+          <strong style={{ color: 'var(--iff-gold)' }}>Testing.</strong> The room is closed to the
+          league — you can see it because the commissioner added your team to the test list. Picks
+          you make here are real and land on the board.
+        </div>
       )}
       {clockBanner}
       {hasOrder && state.complete && (
@@ -368,7 +385,7 @@ export default function RookieDraftRoomView() {
 // order, the board and the switch that opens the door are the same job,
 // and doing that job means looking at the board while you do it.
 function AdminPanel({
-  season, live, savedBlocks, published, staleSlots, ledgerSlots, hasOrder,
+  season, live, testers, savedBlocks, published, staleSlots, ledgerSlots, hasOrder,
   champion, madePicks, save, draftPicks, isPreview,
 }) {
   const [open, setOpen] = useState(!hasOrder)
@@ -425,6 +442,21 @@ function AdminPanel({
     try {
       await save({ slotOwners: slotOwnerMap(ledgerSlots) })
       setNote(`Board refreshed — ${staleSlots.length} slot${staleSlots.length === 1 ? '' : 's'} moved.`)
+    } catch (e) {
+      setNote(e.message)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function toggleTester(team) {
+    const next = testers.includes(team) ? testers.filter((t) => t !== team) : [...testers, team]
+    setBusy(`tester:${team}`)
+    try {
+      await save({ testers: next })
+      setNote(next.length
+        ? `Testing with ${next.join(', ')}.`
+        : 'Test list cleared — only you can see the room now.')
     } catch (e) {
       setNote(e.message)
     } finally {
@@ -612,6 +644,38 @@ function AdminPanel({
               Preview mode — nothing here is saved.
             </div>
           )}
+
+          {/* Dry run. These teams get into the room while it is shut to
+              everyone else, and the security rules honour the same list —
+              so a test here exercises the real path, not a preview of it. */}
+          <div>
+            <div style={{ fontSize: 11.5, fontWeight: 800, marginBottom: 2 }}>Test with</div>
+            <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', marginBottom: 6, lineHeight: 1.5 }}>
+              These teams see the room and can make real picks while it is closed to the league.
+              {testers.length === 0 && ' Nobody is on the list — only you can see it.'}
+            </div>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+              {TEAM_NAMES.map((t) => {
+                const on = testers.includes(t)
+                return (
+                  <button
+                    key={t}
+                    onClick={() => toggleTester(t)}
+                    disabled={busy !== null}
+                    aria-pressed={on}
+                    style={{
+                      padding: '5px 11px', borderRadius: 14, fontSize: 11, fontWeight: 700,
+                      background: on ? 'var(--iff-gold)' : 'var(--iff-elevated)',
+                      color: on ? '#0B0F17' : 'var(--iff-subtext)',
+                      opacity: busy !== null ? 0.6 : 1,
+                    }}
+                  >
+                    {t}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           {recent.length > 0 && (
             <div>

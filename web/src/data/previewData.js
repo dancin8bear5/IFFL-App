@@ -501,7 +501,8 @@ const previewRookieOwners = (() => {
 
 export const previewRookieDraft = {
   season: 2027,
-  live: true,
+  live: false,
+  testers: ['Jared', 'M. Zurek'],
   champion: 'Bill',
   order: previewRookieOrder,
   slotOwners: previewRookieOwners,

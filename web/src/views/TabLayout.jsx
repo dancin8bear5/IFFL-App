@@ -53,7 +53,7 @@ const TABS = [
 export default function TabLayout({ tab, setTab }) {
   const {
     incomingTradeCount, areaEnabled, isPodMember, isAdmin, bigBoardInNav,
-    rookieDraftLive, isInitialLoadComplete, selectedTeam, setSelectedTeam,
+    rookieDraftLive, isRookieDraftTester, isInitialLoadComplete, selectedTeam, setSelectedTeam,
   } = useApp()
   const isDesktop = useIsDesktop()
 
@@ -66,11 +66,12 @@ export default function TabLayout({ tab, setTab }) {
   // league only sees it once the commissioner opens the draft. Unlike an
   // `area`, this one is NOT admin-exempt for the league — it's a schedule,
   // not a kill switch — but the commissioner still needs in beforehand to
-  // set the order, so he sees it either way.
+  // set the order, so he sees it either way. Named testers get in early
+  // too, which is how the room gets proven before draft night.
   const canSee = (t) =>
     t.podOnly ? isPodMember
       : t.adminOnly ? isAdmin
-      : t.liveOnly ? (isAdmin || rookieDraftLive)
+      : t.liveOnly ? (isAdmin || rookieDraftLive || isRookieDraftTester)
       : !t.area || areaEnabled(t.area)
   const inNav = (t) => canSee(t) && (!t.urlOnly || bigBoardInNav)
   // With F.M.K. switched off this tab is only the trade portal, so calling
@@ -162,7 +163,7 @@ export default function TabLayout({ tab, setTab }) {
     open()
     window.addEventListener('hashchange', open)
     return () => window.removeEventListener('hashchange', open)
-  }, [setTab, isAdmin, isPodMember, areaEnabled, rookieDraftLive, isInitialLoadComplete])
+  }, [setTab, isAdmin, isPodMember, areaEnabled, rookieDraftLive, isRookieDraftTester, isInitialLoadComplete])
 
   // Write: the address bar follows the tab, so every screen is shareable.
   // A typo'd or forbidden slug falls through to here and gets corrected,

@@ -41,6 +41,24 @@ export default function KeeperBuilder() {
     return m
   }, [allDisplayAssets])
 
+  // Team names are compared normalised, never with a bare ===. One stray
+  // space or a case difference and NOTHING matches, and the failure is
+  // silent: the worksheet renders its whole frame around zero rows, which
+  // reads as "the app lost my roster". The ESPN-sourced names in this
+  // project already carry trailing spaces, so this is not hypothetical.
+  const sameTeam = (a, b) =>
+    String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase()
+
+  const myAssets = useMemo(
+    () => allDisplayAssets.filter((a) => sameTeam(a.teamName, userTeam)),
+    [allDisplayAssets, userTeam],
+  )
+
+  // A signature of WHAT is on the roster, not how much of it there is. A
+  // trade that swaps one player for another leaves the count identical, so
+  // keying the first load on length alone would never notice the change.
+  const rosterKey = useMemo(() => myAssets.map((a) => a.id).sort().join('|'), [myAssets])
+
   // Stored prices when present; otherwise chain the escalation formula
   // forward so the builder keeps working past the 3-year stored map.
   const priceFor = (asset, yr) => {
@@ -62,9 +80,8 @@ export default function KeeperBuilder() {
 
   // ── Start from my roster ───────────────────────────────────
   function freshFromRoster() {
-    const mine = allDisplayAssets.filter((a) => a.teamName === userTeam)
     setEntries(
-      mine.map((a) => ({
+      myAssets.map((a) => ({
         assetId: a.id,
         keep: { 0: priceFor(a, 0) > 0, 1: false, 2: false },
       })),
@@ -77,13 +94,18 @@ export default function KeeperBuilder() {
     setDirty(false)
   }
 
-  // initialize once roster data is available
+  // Load the roster in once it is actually there.
+  //
+  // Keyed on rosterKey rather than allDisplayAssets.length: the roster and
+  // the signed-in team arrive from two different Firestore reads, and on a
+  // slow connection the assets can land while userTeam is still empty. The
+  // old dependency pair could settle in a state where neither ever changed
+  // again, leaving the worksheet permanently blank with no way back except
+  // a reload.
   useEffect(() => {
-    if (entries.length === 0 && !planId && allDisplayAssets.length > 0 && userTeam) {
-      freshFromRoster()
-    }
+    if (entries.length === 0 && !planId && rosterKey) freshFromRoster()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allDisplayAssets.length, userTeam])
+  }, [rosterKey, planId])
 
   function loadPlan(p) {
     setPlanId(p.id)
@@ -200,8 +222,8 @@ export default function KeeperBuilder() {
   const addable = useMemo(() => {
     const inPlan = new Set(entries.map((e) => e.assetId))
     const rest = allDisplayAssets.filter((a) => !inPlan.has(a.id))
-    const mine = rest.filter((a) => a.teamName === userTeam)
-    const others = rest.filter((a) => a.teamName !== userTeam)
+    const mine = rest.filter((a) => sameTeam(a.teamName, userTeam))
+    const others = rest.filter((a) => !sameTeam(a.teamName, userTeam))
     const byTeam = {}
     for (const a of others) (byTeam[a.teamName] ??= []).push(a)
     return { mine, byTeam }
@@ -213,6 +235,24 @@ export default function KeeperBuilder() {
         <div className="glyph">🧪</div>
         <div className="title">Builder needs a team</div>
         <div>Sign in and get assigned a team to start planning.</div>
+      </div>
+    )
+  }
+
+  // A team, league assets loaded, and none of them yours. Previously this
+  // rendered the full worksheet around an empty list, which looks like the
+  // app losing your roster. Say what actually happened and show the numbers
+  // that identify it, so the next report is diagnosable.
+  if (allDisplayAssets.length > 0 && myAssets.length === 0 && entries.length === 0) {
+    return (
+      <div className="empty-state" style={{ padding: 28 }}>
+        <div className="glyph">🧪</div>
+        <div className="title">No assets found for {userTeam}</div>
+        <div style={{ lineHeight: 1.6, maxWidth: 460 }}>
+          {allDisplayAssets.length} league assets loaded, none of them on your roster.
+          That usually means your account is mapped to a different team name than the
+          one on your players — a commissioner can check it under Admin &rarr; Teams.
+        </div>
       </div>
     )
   }
@@ -306,7 +346,7 @@ export default function KeeperBuilder() {
             <div key={asset.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 64px 64px 64px 30px', gap: 6, padding: '8px 12px', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: 'block', fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{asset.name}</span>
-                {asset.teamName !== userTeam && (
+                {!sameTeam(asset.teamName, userTeam) && (
                   <span style={{ display: 'block', fontSize: 9.5, color: 'var(--iff-gold)' }}>{asset.teamName}'s player</span>
                 )}
               </span>

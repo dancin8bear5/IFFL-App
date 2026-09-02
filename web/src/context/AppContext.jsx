@@ -4,7 +4,8 @@
 // listeners, and load the user's interests, FMK signals, and settings.
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { listenToAuth } from '../services/authService'
-import { FMK_ENABLED, fantasyTeams } from '../data/staticData'
+import { FMK_ENABLED, fantasyTeams, milestones } from '../data/staticData'
+import { resolvePhase, inPhase, isOffSeasonPhase, phaseBounds, PHASES } from '../services/seasonPhase'
 import { parseRoute, teamFromSlug } from '../services/routing'
 import * as fs from '../services/firestoreService'
 import { canVote } from '../services/tradeVotes'
@@ -24,6 +25,15 @@ const DEV_PREVIEW =
 // scoring charts, the milestone strip — can actually be looked at.
 const DEV_INSEASON =
   DEV_PREVIEW && new URLSearchParams(window.location.search).has('inseason')
+// `?phase=regular` — a per-browser "view as", available in any build so the
+// commissioner can look at a phase without pinning the league to it. It is
+// the preview half of the pair; the persisted, league-wide half is
+// config/league.phaseOverride below.
+const URL_PHASE = (() => {
+  if (typeof window === 'undefined') return null
+  const p = new URLSearchParams(window.location.search).get('phase')
+  return p && PHASES.includes(p) ? p : null
+})()
 
 const DEFAULT_SETTINGS = {
   teamLogoName: null,
@@ -57,7 +67,10 @@ export function AppProvider({ children }) {
   const [selectedTeam, setSelectedTeam] = useState(deepLinkedTeam)
   const [isCommissioner, setIsCommissioner] = useState(false)
   const [activeSeason, setActiveSeason] = useState(2026)
-  const [isOffSeason, setIsOffSeason] = useState(false)
+  // The commissioner's league-wide phase pin, '' when the calendar rules.
+  // The old manual `isOffSeason` boolean this replaces is still WRITTEN to
+  // Firestore for the iOS app, but nothing here reads it any more.
+  const [phaseOverride, setPhaseOverride] = useState('')
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
   const [players, setPlayers] = useState([])
   const [draftPicks, setDraftPicks] = useState([])
@@ -129,7 +142,7 @@ export function AppProvider({ children }) {
     import('../data/previewData').then((d) => {
       setUserTeam('Jared')
       if (!deepLinkedTeam) setSelectedTeam('Jared')
-      setIsOffSeason(!DEV_INSEASON)
+      if (!URL_PHASE) setPhaseOverride(DEV_INSEASON ? 'regular' : 'offseason')
       setPlayers(d.previewPlayers)
       setDraftPicks(d.previewPicks)
       setTrades(d.previewTrades)
@@ -154,6 +167,20 @@ export function AppProvider({ children }) {
   }, [])
 
   // ── setup(for:) / teardown() ────────────────────────────────
+  // Everything on config/league that the whole app reads. Applied from the
+  // first read AND from every subsequent snapshot, so a commissioner
+  // flipping a switch reaches the league without anyone reloading.
+  const applyLeagueConfig = useCallback((config, uid) => {
+    if (!config) return
+    setActiveSeason(config.activeSeasonYear ?? 2026)
+    setPhaseOverride(config.phaseOverride ?? '')
+    setRulesVotingOpen(config.rulesVotingOpen ?? false)
+    setDisabledAreas(new Set(config.disabledAreas ?? []))
+    setRolloverArmed(config.rolloverArmed ?? false)
+    setLiveScoresMode(config.liveScores ?? 'off')
+    setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
+  }, [])
+
   useEffect(() => {
     if (DEV_PREVIEW) return
     if (!user) {
@@ -180,13 +207,7 @@ export function AppProvider({ children }) {
         if (cancelled) return
         if (config) {
           season = config.activeSeasonYear ?? 2026
-          setActiveSeason(season)
-          setIsOffSeason(config.isOffSeason ?? false)
-          setRulesVotingOpen(config.rulesVotingOpen ?? false)
-          setDisabledAreas(new Set(config.disabledAreas ?? []))
-          setRolloverArmed(config.rolloverArmed ?? false)
-          setLiveScoresMode(config.liveScores ?? 'off')
-          setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
+          applyLeagueConfig(config, uid)
           const team = config.userTeamMap?.[uid]
           if (team) {
             setUserTeam(team)
@@ -217,6 +238,10 @@ export function AppProvider({ children }) {
 
       // 2. Real-time listeners (players/picks/messages/FMK; trades via effect below)
       unsubsRef.current.push(
+        // config/league, live. The one-shot read above still runs first —
+        // it gates team resolution and the claimTeam fallback, which must
+        // happen once and in order — and this keeps it current afterwards.
+        fs.listenToLeagueConfig((config) => applyLeagueConfig(config, uid)),
         fs.listenToPlayers((docs) => {
           setPlayers(docs)
           setIsInitialLoadComplete(true)
@@ -256,7 +281,7 @@ export function AppProvider({ children }) {
       unsubsRef.current.forEach((unsub) => unsub())
       unsubsRef.current = []
     }
-  }, [user])
+  }, [user, applyLeagueConfig])
 
   // Trade listener rebuilt when activeSeason changes (AppState.activeSeason didSet)
   useEffect(() => {
@@ -366,6 +391,52 @@ export function AppProvider({ children }) {
     },
     [rolloverArmed],
   )
+
+  /** Commissioner: pin the league to a phase, or '' to hand it back to the calendar. */
+  const setLeaguePhaseOverride = useCallback(
+    async (phase) => {
+      const prev = phaseOverride
+      setPhaseOverride(phase || '')
+      if (DEV_PREVIEW) return
+      await fs.setPhaseOverride(phase).catch(() => setPhaseOverride(prev))
+    },
+    [phaseOverride],
+  )
+
+  // ── Season phase ────────────────────────────────────────────
+  //
+  // Derived, not stored. Every client computes it from its own clock and
+  // the same calendar, so there is nothing to keep in sync and nothing to
+  // forget to flip. The only stored part is the override.
+  //
+  // `?phase=` outranks the league override: it is one person looking, and
+  // it must be able to show them what the league sees WITHOUT them first
+  // having to un-pin the league.
+  //
+  // Re-derived every minute rather than once at mount — the app is left
+  // open for days at a time, and a Dashboard that still says "Pre-season"
+  // the morning after kickoff is the exact failure this replaces.
+  const [phaseClock, setPhaseClock] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setPhaseClock(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
+  const seasonPhase = useMemo(
+    () => resolvePhase(new Date(phaseClock), milestones, URL_PHASE || phaseOverride),
+    [phaseClock, phaseOverride],
+  )
+  const isPhase = useCallback((declared) => inPhase(declared, seasonPhase), [seasonPhase])
+  // Preserved for its existing readers — same meaning, now derived.
+  const isOffSeason = isOffSeasonPhase(seasonPhase)
+  // The calendar window for the phase we are ACTUALLY rendering. When an
+  // override or a ?phase= preview disagrees with the calendar there is no
+  // honest countdown to give — the dates belong to a different phase — so
+  // this goes null rather than quoting them.
+  const phaseWindow = useMemo(() => {
+    const w = phaseBounds(new Date(phaseClock), milestones)
+    return w && w.phase === seasonPhase ? w : null
+  }, [phaseClock, seasonPhase])
 
   // ── Computed (AppState computed properties) ─────────────────
   // Roster/cap views count only salary-status 'rostered' players (missing
@@ -693,7 +764,11 @@ export function AppProvider({ children }) {
     userTeam, setUserTeam,
     selectedTeam, setSelectedTeam,
     activeSeason, setActiveSeason,
-    isOffSeason, setIsOffSeason,
+    // season phase — derived from the calendar (services/seasonPhase.js)
+    seasonPhase, isPhase, phaseWindow,
+    phaseOverride, setLeaguePhaseOverride,
+    phasePreview: URL_PHASE,
+    isOffSeason,
     isInitialLoadComplete,
     players, draftPicks, trades, messages,
     tradeVotes, castTradeVote, uid,

@@ -59,6 +59,24 @@ export async function fetchLeagueConfig() {
   return snap.exists() ? snap.data() : null
 }
 
+/**
+ * The same document, live.
+ *
+ * It was read once at sign-in, which was fine while everything on it was
+ * set months apart. It isn't any more: a phase override, an area
+ * kill-switch or the live-scores mode is flipped DURING the thing it
+ * affects, and a one-shot read meant nobody saw the change until they
+ * happened to reload. Same doc, same rules, same cost — one listener the
+ * commissioner's own toggles read back through too.
+ */
+export function listenToLeagueConfig(callback) {
+  return onSnapshot(
+    doc(db, COL.config, 'league'),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    (err) => console.error('config/league listener failed:', err),
+  )
+}
+
 export function addAuthorizedUID(uid) {
   return updateDoc(doc(db, COL.config, 'league'), { authorizedUIDs: arrayUnion(uid) })
 }
@@ -79,8 +97,23 @@ export function removeTeamAssignment(uid) {
   return updateDoc(doc(db, COL.config, 'league'), { [`userTeamMap.${uid}`]: deleteField() })
 }
 
+/**
+ * Legacy manual flag. The web app derives the season phase from the
+ * calendar now (services/seasonPhase.js) and no longer reads this — but
+ * the iOS app still does, so it stays written and stays here.
+ */
 export function setOffSeason(value) {
   return updateDoc(doc(db, COL.config, 'league'), { isOffSeason: value })
+}
+
+/**
+ * Commissioner: pin the whole league to a phase, or clear it ('') and let
+ * the calendar decide again. Deliberately league-wide and persisted —
+ * looking at a phase yourself is the `?phase=` preview, which touches
+ * nothing.
+ */
+export function setPhaseOverride(phase) {
+  return updateDoc(doc(db, COL.config, 'league'), { phaseOverride: phase || '' })
 }
 
 // ── Season rollover — disarmed by default (see services/seasonRollover.js) ──

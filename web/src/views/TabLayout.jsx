@@ -29,6 +29,10 @@ const HistoryView = lazy(() => import('./HistoryView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see.
+// `phases` lists the season phases a tab belongs in — absent means all of
+// them, which is what almost every tab wants. It hides the tab from the
+// NAVIGATION only; the URL still works, so a link someone shared in
+// January still opens in October.
 // `slug` is the tab's URL: iffl-auth.web.app/#rosters. Slugs are part of
 // the app's public surface once someone shares one, so treat them as
 // permanent — rename the LABEL freely, but retire a slug only by adding
@@ -38,7 +42,11 @@ const TABS = [
   { label: 'Rosters',          short: 'Rosters',   glyph: '👥', slug: 'rosters',   area: 'rosters' },
   { label: 'Players',          short: 'Players',   glyph: '🔎', slug: 'players',   area: 'players' },
   { label: 'F.M.K. Market',    short: 'F.M.K.',    glyph: '⇄',  slug: 'trades',    area: 'market', fmkLabel: true },
-  { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', slug: 'worksheet', area: 'builder' },
+  // Keeper planning. Out of the nav once games start — by then the roster
+  // is the roster and the worksheet is answering next year's question a
+  // season early. #worksheet still opens for anyone who wants it.
+  { label: 'myTeam Worksheet', short: 'Worksheet', glyph: '🧪', slug: 'worksheet', area: 'builder',
+    phases: ['preseason', 'dead', 'offseason'] },
   { label: 'The POD',          short: 'POD',       glyph: '🎙️', slug: 'pod',       podOnly: true },
   { label: 'Rookie Draft',     short: 'Rookie',    glyph: '🎓', slug: 'rookie',    liveOnly: true },
   // 'historyQuery', not 'history' — that area key already switches the
@@ -48,7 +56,7 @@ const TABS = [
 
 export default function TabLayout({ tab, setTab }) {
   const {
-    incomingTradeCount, areaEnabled, isPodMember, isAdmin,
+    incomingTradeCount, areaEnabled, isPodMember, isAdmin, isPhase,
     rookieDraftLive, isRookieDraftTester, isInitialLoadComplete, selectedTeam, setSelectedTeam,
   } = useApp()
   const isDesktop = useIsDesktop()
@@ -69,7 +77,13 @@ export default function TabLayout({ tab, setTab }) {
       : t.adminOnly ? isAdmin
       : t.liveOnly ? (isAdmin || rookieDraftLive || isRookieDraftTester)
       : !t.area || areaEnabled(t.area)
-  const inNav = (t) => canSee(t) && !t.urlOnly
+  // Phase gates the NAV, not canSee — which is exactly "hidden from the
+  // navigation, still reachable by URL", and it reuses the split that was
+  // already here for `urlOnly`. Like `liveOnly` and unlike an `area`, it
+  // is NOT admin-exempt: it's a schedule, not a kill switch, so the
+  // commissioner sees the same tabs the league does and previews another
+  // phase with ?phase= when he wants to check one.
+  const inNav = (t) => canSee(t) && !t.urlOnly && isPhase(t.phases)
   // With F.M.K. switched off this tab is only the trade portal, so calling
   // it "F.M.K. Market" would advertise a section that isn't there.
   //

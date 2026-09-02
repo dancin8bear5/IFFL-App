@@ -2,13 +2,14 @@
 // Mobile: single-column stack under the hero (unchanged from v1).
 // Desktop: page heading + two-column grid — main (team card, calendar,
 // teams, trades) and rail (trophy room, matches, messages).
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
+import { PHASE_META } from '../services/seasonPhase'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -61,7 +62,7 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
-    weeklyRecords,
+    weeklyRecords, seasonPhase, isPhase, phaseWindow,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -161,6 +162,12 @@ export default function DashboardView({ setTab }) {
   }
 
   // ── Sections (identical building blocks on both layouts) ──────
+
+  // Navigate by URL rather than by tab index: TabLayout already listens
+  // for hash changes, so the Dashboard never has to know which number the
+  // History tab is, and the link survives the tab list being reordered.
+  const openHistory = () => { window.location.hash = 'history' }
+
 
   // My Team — two views. Keeper Outlook (default in the off-season) answers
   // "who do I keep, who do I chase" — cap totals are a season problem.
@@ -386,14 +393,14 @@ export default function DashboardView({ setTab }) {
   // taps through to the full history table instead. It flips back on its
   // own the moment the commissioner clears the off-season flag.
   const powerChart = isOffSeason
-    ? <LegacyPowerRankings onOpenFull={() => setHistoryView('table')} />
+    ? <LegacyPowerRankings onOpenFull={openHistory} />
     : <PowerRankingsChart onOpenFull={() => setHistoryView('power')} />
 
   // In-season only. Off-season this is a chart of nothing — the last
   // completed season already has its own home in Last Season / League
   // History, so showing stale weekly scores here would just compete
   // with them.
-  const scoringSection = !isOffSeason && areaEnabled('scoring') && (
+  const scoringSection = areaEnabled('scoring') && (
     <div>
       <SectionHeader title="In-Season Scoring" />
       <div style={{ marginTop: 10 }}>
@@ -405,7 +412,7 @@ export default function DashboardView({ setTab }) {
   // Appears once the commissioner has entered records — which in practice
   // means late in the regular season, exactly when people start caring
   // about seeding. Before that it would be an empty frame all year.
-  const playoffSection = !isOffSeason && areaEnabled('playoffs')
+  const playoffSection = areaEnabled('playoffs')
     && Object.keys(weeklyRecords ?? {}).length > 0 && (
     <div>
       <SectionHeader title="Playoffs" />
@@ -414,11 +421,6 @@ export default function DashboardView({ setTab }) {
       </div>
     </div>
   )
-
-  // Navigate by URL rather than by tab index: TabLayout already listens
-  // for hash changes, so the Dashboard never has to know which number the
-  // History tab is, and the link survives the tab list being reordered.
-  const openHistory = () => { window.location.hash = 'history' }
 
   const latestSeasonYear = leagueHistory[0]?.season
   const historyTiles = areaEnabled('history') && (
@@ -759,6 +761,79 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // The league is shut between the last fantasy game and the Super Bowl.
+  // Saying so beats an unexplained page with the scoreboard and the
+  // worksheet missing and no reason given.
+  const closedNotice = (
+    <div className="iff-card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+      <span style={{ fontSize: 30, lineHeight: 1 }}>{PHASE_META.dead.glyph}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Rosters are frozen</div>
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 4, lineHeight: 1.5 }}>
+          The season is over and the league year hasn't started. No trades, no drops, no keeper
+          decisions{phaseWindow ? ` — the league reopens in ${phaseWindow.daysLeft} day${phaseWindow.daysLeft === 1 ? '' : 's'}, the day after the Super Bowl` : ''}.
+          Standings, the Trophy Room and League History are all still here.
+        </div>
+      </div>
+    </div>
+  )
+
+  // ── Section registry ─────────────────────────────────────────
+  //
+  // The blocks above are assembled TWICE — once for desktop, once for
+  // mobile — so a phase condition written into each block would have to be
+  // right in two places forever. One ordered list instead; both layouts map
+  // over it.
+  //
+  // `phases` absent = every phase, which is what most of the Dashboard is.
+  // `rail` marks the three blocks that sit in the desktop right-hand column;
+  // dropping them from this list leaves exactly the desktop main order, so
+  // one array reproduces both layouts.
+  // `lead` promotes a section to the top in the phases that name it —
+  // during the playoffs the bracket is the reason people opened the app.
+  const SECTIONS = [
+    { key: 'closed',    node: closedNotice,     phases: ['dead'] },
+    { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
+    { key: 'power',     node: powerChart },
+    { key: 'scoring',   node: scoringSection,   phases: ['regular', 'playoffs'] },
+    { key: 'playoffs',  node: playoffSection,   phases: ['regular', 'playoffs'], lead: ['playoffs'] },
+    { key: 'calendar',  node: calendar },
+    { key: 'messages',  node: messagesSection },
+    { key: 'rules',     node: rulesSection,     rail: true },
+    { key: 'offers',    node: offerBanners },
+    { key: 'parlay',    node: parlayCard,       phases: ['regular'] },
+    { key: 'team',      node: teamCard },
+    { key: 'history',   node: historyTiles,     rail: true },
+    { key: 'match',     node: matchBanner,      rail: true },
+    { key: 'teams',     node: teamsGrid },
+    { key: 'standings', node: standingsSection },
+    { key: 'trades',    node: tradesSection },
+    { key: 'ledger',    node: ledgerLink },
+  ]
+
+  // Stable sort: `lead` sections float up, everything else holds the order
+  // written above.
+  //
+  // Falsy nodes are dropped rather than rendered — several blocks evaluate
+  // to `false` (no scoring data, no matches), and both layouts space their
+  // children with a flex `gap`, so wrapping an absent section in an element
+  // would leave a visible hole where nothing is.
+  const pick = (want) =>
+    SECTIONS
+      .map((sec, i) => ({ ...sec, i }))
+      .filter((sec) => sec.node && want(sec) && isPhase(sec.phases))
+      .sort((a, b) => {
+        const lead = (x) => (x.lead?.includes(seasonPhase) ? 0 : 1)
+        return lead(a) - lead(b) || a.i - b.i
+      })
+      .map((sec) => <Fragment key={sec.key}>{sec.node}</Fragment>)
+
+  const mainSections = pick((sec) => !sec.rail)
+  const railSections = pick((sec) => sec.rail)
+  // Mobile is one column, so it takes everything — in the same written
+  // order, which is the order it has always had.
+  const mobileSections = pick(() => true)
+
   const overlays = (
     <>
       {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
@@ -792,26 +867,8 @@ export default function DashboardView({ setTab }) {
           <LoadingList count={4} />
         ) : (
           <div className="dash-grid">
-            <div className="dash-main">
-              {liveScores}
-              {powerChart}
-              {scoringSection}
-              {playoffSection}
-              {calendar}
-              {messagesSection}
-              {offerBanners}
-              {parlayCard}
-              {teamCard}
-              {teamsGrid}
-              {standingsSection}
-              {tradesSection}
-              {ledgerLink}
-            </div>
-            <div className="dash-rail">
-              {rulesSection}
-              {historyTiles}
-              {matchBanner}
-            </div>
+            <div className="dash-main">{mainSections}</div>
+            <div className="dash-rail">{railSections}</div>
           </div>
         )}
         {overlays}
@@ -845,22 +902,7 @@ export default function DashboardView({ setTab }) {
         <LoadingList count={4} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
-          {liveScores}
-          {powerChart}
-          {scoringSection}
-          {playoffSection}
-          {calendar}
-          {messagesSection}
-          {rulesSection}
-          {offerBanners}
-          {parlayCard}
-          {teamCard}
-          {historyTiles}
-          {matchBanner}
-          {teamsGrid}
-          {standingsSection}
-          {tradesSection}
-          {ledgerLink}
+          {mobileSections}
         </div>
       )}
       {overlays}

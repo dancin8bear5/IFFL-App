@@ -188,17 +188,56 @@ export const categoryMeta = (key) =>
   RULE_CATEGORIES.find((c) => c.key === key) ??
   { key: 'Operations', glyph: '⚙️', color: '#A855F7', limited: false }
 
-// ── League calendar (2026 dates, Keeper Master p1) ─────────────
+// ── League calendar (2026–27 cycle, Keeper Master p1) ──────────
 //
 // `date` is the DAY, kept at midnight so the "in N days" countdown is a
 // whole-day difference. `time` is display only — a milestone with a start
 // time shows it, one without simply doesn't, so nothing has to invent
 // "12:00 AM" for a deadline that is really just a date.
+//
+// `phase` marks the milestones that OPEN a phase. Five of them, one per
+// phase, and services/seasonPhase.js derives the whole season model from
+// them — so the calendar below is the single place the league's shape is
+// written down. Adding a milestone without a `phase` is just an event;
+// moving one that HAS a phase moves a boundary for the whole app.
+//
+// `tentative` = the league hasn't fixed the exact day yet; shown with a
+// "~" so nobody plans around a date we guessed.
 export const milestones = [
-  { name: 'Rookie Draft',       icon: '🎓', color: '#A855F7', date: new Date(2026, 6, 16) },  // Jul 16
-  { name: 'Select Keepers',     icon: '🕐', color: '#06B6D4', date: new Date(2026, 7, 28) },  // Aug 28, 12pm CST
-  { name: 'Auction Draft',      icon: '💰', color: '#F4A261', date: new Date(2026, 8, 1), time: '8:45p CST' },
-  { name: 'NFL Kickoff',        icon: '🏈', color: '#22C55E', date: new Date(2026, 8, 9) },   // Sep 9
-  { name: 'Trade Deadline',     icon: '⇄',  color: '#F97316', date: new Date(2026, 10, 18) }, // mid-Nov
-  { name: 'Rosters Frozen',     icon: '🧊', color: '#E63946', date: new Date(2027, 0, 3) },   // Jan 3, 2027
+  // ── Pre-season ───────────────────────────────────────────────
+  { name: 'Rookie Draft',        icon: '🎓', color: '#A855F7', date: new Date(2026, 6, 16), phase: 'preseason' },
+  { name: 'IR Slots Emptied',    icon: '🩹', color: '#64748B', date: new Date(2026, 6, 16) },
+  { name: 'Rookie Spots Open',   icon: '📋', color: '#64748B', date: new Date(2026, 6, 16) },
+  { name: 'Select Keepers',      icon: '🕐', color: '#06B6D4', date: new Date(2026, 7, 28), time: '12:00p CST' },
+  { name: 'Live Keeper Reaction',icon: '🎬', color: '#06B6D4', date: new Date(2026, 7, 28) },
+  { name: 'Auction Draft',       icon: '💰', color: '#F4A261', date: new Date(2026, 8, 1), time: '8:45p CST' },
+  { name: 'League Dues Due',     icon: '💵', color: '#4ADE80', date: new Date(2026, 8, 1) },
+
+  // ── Regular season ───────────────────────────────────────────
+  { name: 'NFL Season Start',    icon: '🏈', color: '#22C55E', date: new Date(2026, 8, 9), phase: 'regular' },
+  // The rule is 2:00pm CST on the Wednesday of NFL week 12 — a week later
+  // than the app used to say, which mattered because members read it here.
+  { name: 'Trade Deadline',      icon: '⇄',  color: '#F97316', date: new Date(2026, 10, 25), time: '2:00p CST' },
+
+  // ── Playoffs ─────────────────────────────────────────────────
+  // Week 15 = kickoff + 14 weeks (REGULAR_SEASON_WEEKS above).
+  { name: 'Playoffs Begin',      icon: '🥊', color: '#E63946', date: new Date(2026, 11, 16), phase: 'playoffs' },
+
+  // ── Dead period ──────────────────────────────────────────────
+  // Rosters freeze in WEEK 18, not week 17. Nothing can happen in the
+  // league between here and the Super Bowl.
+  { name: 'Rosters Frozen',      icon: '🧊', color: '#38BDF8', date: new Date(2027, 0, 6), phase: 'dead' },
+  { name: 'Super Bowl LXI',      icon: '🏆', color: '#F4A261', date: new Date(2027, 1, 14) },
+
+  // ── Off-season ───────────────────────────────────────────────
+  // The league year opens the DAY AFTER the Super Bowl, which moves every
+  // year — this is why the boundary is a milestone and never a fixed
+  // month/day. Update it when the NFL sets the date.
+  { name: 'League Year Opens',   icon: '🔓', color: '#4ADE80', date: new Date(2027, 1, 15), phase: 'offseason' },
+  { name: 'Trade Window Opens',  icon: '⇄',  color: '#F97316', date: new Date(2027, 1, 15) },
+  { name: 'Auction Values Sent', icon: '📊', color: '#38BDF8', date: new Date(2027, 1, 15) },
+  { name: 'Rookie Pick Lottery', icon: '🎰', color: '#A855F7', date: new Date(2027, 1, 22), tentative: true },
+  { name: 'NFL Draft',           icon: '🏟️', color: '#22C55E', date: new Date(2027, 3, 23) },
+  { name: 'New Rule Comms',      icon: '📣', color: '#A855F7', date: new Date(2027, 4, 5) },
+  { name: 'New Rule Voting',     icon: '🗳️', color: '#A855F7', date: new Date(2027, 4, 30) },
 ]

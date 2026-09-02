@@ -4,7 +4,8 @@
 // the sections with work waiting, and is searchable. See SECTION_GROUPS.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { fantasyTeams, RULE_CATEGORIES } from '../data/staticData'
+import { fantasyTeams, RULE_CATEGORIES, milestones } from '../data/staticData'
+import { PHASES, PHASE_META, resolvePhase } from '../services/seasonPhase'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
@@ -65,6 +66,7 @@ const SECTION_GROUPS = [
       { id: 'Teams',   glyph: '👥', blurb: 'Assignment & auto-link' },
       { id: 'Access',  glyph: '🔑', blurb: 'Who gets in' },
       { id: 'Areas',   glyph: '🎛️', blurb: 'Tab kill-switches' },
+      { id: 'Season',  glyph: '🗓️', blurb: 'Phase override & calendar' },
       { id: 'GroupMe', glyph: '🔔', blurb: 'DM mapping & pause' },
     ],
   },
@@ -205,6 +207,7 @@ export default function AdminView() {
       {section === 'Keeper Import' && <KeeperImportSection />}
       {section === 'Rollover' && <RolloverSection />}
       {section === 'Areas' && <AreasSection />}
+      {section === 'Season' && <SeasonSection />}
       {section === 'Rules' && <RulesAdminSection />}
       {section === 'Records' && <RecordsSection />}
       {section === 'Players' && <PlayersSection />}
@@ -285,7 +288,7 @@ export default function AdminView() {
 // ── Database ──────────────────────────────────────────────────
 
 function DatabaseSection() {
-  const { players, draftPicks, trades, activeSeason, setActiveSeason, isOffSeason, setIsOffSeason } = useApp()
+  const { players, draftPicks, trades, activeSeason, setActiveSeason } = useApp()
   const [seasonInput, setSeasonInput] = useState(String(activeSeason))
   const [busy, setBusy] = useState(false)
   const [migrating, setMigrating] = useState(false)
@@ -299,12 +302,6 @@ function DatabaseSection() {
   }, [])
   const openTrades = trades.filter((t) => t.status === 'proposed' || t.status === 'accepted').length
   const pendingCount = openTrades + needsReviewCount
-
-  async function toggleOffSeason() {
-    const next = !isOffSeason
-    setIsOffSeason(next)
-    await fs.setOffSeason(next).catch(() => {})
-  }
 
   async function saveSeason() {
     const year = Number(seasonInput)
@@ -328,22 +325,10 @@ function DatabaseSection() {
         </div>
       </div>
 
+      {/* The Off-Season Mode switch that used to sit here is gone — the
+          phase is derived from the calendar now, and overriding it is
+          Admin → Season. */}
       <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 14 }}>Off-Season Mode</span>
-          <button
-            role="switch"
-            aria-checked={isOffSeason}
-            onClick={toggleOffSeason}
-            style={{
-              width: 44, height: 26, borderRadius: 13, position: 'relative',
-              background: isOffSeason ? '#22C55E' : 'var(--iff-elevated)', transition: 'background 0.15s',
-            }}
-          >
-            <span style={{ position: 'absolute', top: 2, left: isOffSeason ? 20 : 2, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left 0.15s' }} />
-          </button>
-        </div>
-        <hr className="divider" />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 14, flex: 1 }}>Active Season</span>
           <input
@@ -3679,6 +3664,145 @@ function RepairTradeSection() {
           {msg.text}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Season ────────────────────────────────────────────────────
+
+/**
+ * The season phase is derived from the league calendar, so this panel is
+ * mostly a window onto a decision the app already made. Two controls:
+ *
+ * - OVERRIDE pins the whole league to a phase. Persisted, and every client
+ *   picks it up live — no reload. For the years the calendar is wrong: a
+ *   draft that slips a week, a lockout, a season that ends early.
+ * - PREVIEW (?phase=) changes what YOU see and nothing else, which is what
+ *   you want when the question is "what does the league see right now".
+ */
+function SeasonSection() {
+  const {
+    seasonPhase, phaseOverride, setLeaguePhaseOverride, phaseWindow, phasePreview,
+  } = useApp()
+  const [busy, setBusy] = useState(false)
+
+  const calendarPhase = resolvePhase(new Date(), milestones, '')
+
+  async function pin(phase) {
+    setBusy(true)
+    try { await setLeaguePhaseOverride(phase) } finally { setBusy(false) }
+  }
+
+  const fmt = (d) => d?.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 26 }}>{PHASE_META[seasonPhase]?.glyph}</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 16, fontWeight: 800 }}>{PHASE_META[seasonPhase]?.label}</div>
+            <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+              {PHASE_META[seasonPhase]?.blurb}
+            </div>
+          </div>
+        </div>
+        {phaseWindow ? (
+          <div style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>
+            {fmt(phaseWindow.start)} → {fmt(phaseWindow.end)} · {phaseWindow.daysLeft} day
+            {phaseWindow.daysLeft === 1 ? '' : 's'} until {PHASE_META[phaseWindow.next]?.label}
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: '#F4A261' }}>
+            Pinned — the calendar says {PHASE_META[calendarPhase]?.label}, so there is no countdown
+            to show for this phase.
+          </div>
+        )}
+        {phasePreview && (
+          <div style={{ fontSize: 12, color: '#F4A261' }}>
+            👁 You are previewing <b>{PHASE_META[phasePreview]?.label}</b> with ?phase= — only in this
+            browser. Drop it from the URL to see what the league sees.
+          </div>
+        )}
+      </div>
+
+      <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>League-wide override</div>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 3 }}>
+            The calendar says <b>{PHASE_META[calendarPhase]?.label}</b>. Pinning a phase changes what
+            every member sees, immediately and until you clear it.
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {PHASES.map((p) => (
+            <button
+              key={p}
+              className={phaseOverride === p ? 'btn-primary' : 'btn-outline'}
+              disabled={busy}
+              onClick={() => pin(phaseOverride === p ? '' : p)}
+              style={{ fontSize: 12, padding: '7px 12px' }}
+            >
+              {PHASE_META[p]?.glyph} {PHASE_META[p]?.label}
+            </button>
+          ))}
+        </div>
+        {phaseOverride ? (
+          <button className="btn-outline" disabled={busy} onClick={() => pin('')} style={{ fontSize: 12 }}>
+            Clear override — follow the calendar
+          </button>
+        ) : (
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+            No override. The calendar is in charge.
+          </div>
+        )}
+      </div>
+
+      <div className="iff-card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Preview a phase</div>
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 10 }}>
+          Opens the app as if it were that phase, in this browser only. Nothing is saved and no
+          member is affected.
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {PHASES.map((p) => (
+            <a
+              key={p}
+              className="btn-outline"
+              href={`?phase=${p}${window.location.hash}`}
+              style={{ fontSize: 12, padding: '7px 12px' }}
+            >
+              {PHASE_META[p]?.glyph} {PHASE_META[p]?.label}
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <div className="iff-card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>League calendar</div>
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 10 }}>
+          Edited in <code>web/src/data/staticData.js</code>. The five bold rows are the phase
+          boundaries — move one and the whole app moves with it.
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {milestones.map((m) => (
+            <div key={`${m.name}-${+m.date}`} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+              <span style={{ width: 20 }}>{m.icon}</span>
+              <span style={{ flex: 1, fontWeight: m.phase ? 800 : 400 }}>
+                {m.name}
+                {m.phase && (
+                  <span style={{ color: PHASE_META[m.phase]?.color, marginLeft: 6, fontSize: 10 }}>
+                    opens {PHASE_META[m.phase]?.label}
+                  </span>
+                )}
+              </span>
+              <span style={{ color: 'var(--iff-subtext)' }}>
+                {m.tentative ? '~' : ''}{fmt(m.date)}{m.time ? ` · ${m.time}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

@@ -131,6 +131,71 @@ Standings carries an all-time toggle reusing `leagueStats.computeAllTimeStats`.
 The tab is switchable from Admin → Areas under key **`historyQuery`** (NOT
 `history` — that key already switches the Trophy Room tiles).
 
+### Season phases — the calendar drives the app (Sep 2, 2026)
+The app used to know one thing about the season: a manual `isOffSeason`
+boolean the commissioner flipped by hand, read in six places on the
+Dashboard and by no tab at all. It is now **five phases derived from the
+league calendar**, and `isOffSeason` is a computed value
+(`offseason || dead`) kept only so its existing readers didn't have to
+change. The Firestore field is still WRITTEN for the iOS app; nothing on
+the web reads it.
+
+| # | Phase | Opens at | 2026–27 |
+|---|---|---|---|
+| 1 | Pre-season | Rookie Draft | Jul 16, 2026 |
+| 2 | Regular season | NFL Season Start | Sep 9, 2026 |
+| 3 | Playoffs | Week 15 | Dec 16, 2026 |
+| 4 | Dead period | Week 18 — rosters frozen | Jan 6, 2027 |
+| 5 | Off-season | Day after the Super Bowl | Feb 15, 2027 |
+
+**The calendar is the model.** `milestones` in `web/src/data/staticData.js`
+went from 6 dates to 20, and five of them carry a `phase` key — those five
+ARE the boundaries. Move the Rookie Draft date and pre-season moves with
+it; there is no second place to update. Two corrections landed with it: the
+**trade deadline is Nov 25 @ 2:00pm CST** (it said Nov 18, a week early, in
+a spot members read as the rule) and **rosters freeze in week 18 / Jan 6**,
+not week 17.
+
+**The off-season boundary moves every year** — it is the day after the
+Super Bowl. Never hardcode a month/day for it; update the milestone when
+the NFL sets the date. Left stale, the engine repeats last year's date and
+drifts about a week, which is what the override is for.
+
+`web/src/services/seasonPhase.js` (13 tests) is pure and takes `now` as an
+argument — that is what makes both the tests and the "view as" preview
+one-argument changes. It expands the one written cycle by whole years into
+a repeating one, so dates outside the calendar still resolve. **A malformed
+calendar degrades to `dead`, not `offseason`** — deliberately the most
+restrictive phase, since guessing "open" against dates we can't read would
+open a trade window nobody sanctioned.
+
+**Gate composition** — `areaEnabled` (kill switch) and `podOnly` are
+admin-exempt; `liveOnly` and `phases` are NOT, because they are schedules.
+The commissioner sees what the league sees and previews another phase with
+`?phase=`.
+
+- **Tabs** declare `phases` in `TabLayout.jsx`; absent = every phase. It
+  gates `inNav`, **not** `canSee` — so an out-of-phase tab vanishes from
+  the navigation but `#worksheet` still opens. Only the Worksheet declares
+  one today (`preseason`, `dead`, `offseason`).
+- **The Dashboard** is a registry (`SECTIONS` in `DashboardView.jsx`), not
+  a conditional per block — the blocks are assembled TWICE (desktop
+  main/rail and mobile), and a condition written into each would have to be
+  right in two places forever. Dropping the three `rail: true` entries
+  leaves exactly the desktop main order, so one array reproduces both
+  layouts. `lead` floats a section to the top in named phases (the bracket
+  during the playoffs).
+- **Override vs preview.** `config/league.phaseOverride` pins the whole
+  league (persisted, commissioner-only); `?phase=` changes one browser and
+  saves nothing. Both live in **Admin → Season**, which also lists the
+  whole calendar with the five boundaries in bold.
+
+**`config/league` is a listener now**, not a one-shot `getDoc`. It had to
+be for an override to reach anyone without a reload — and the same latent
+bug was there for `disabledAreas`, `liveScores` and `rulesVotingOpen`, all
+of which are flipped during the thing they affect. The one-shot read still
+runs first because it gates team resolution and the `claimTeam` fallback.
+
 ### Trade history 2022–2024 (Aug 31, 2026)
 101 trades / 409 asset movements, from the league's hand-kept workbook
 (`data/Trades_2022-2024.xlsx`). **2025 was never kept — 2022-24 plus 2026 is

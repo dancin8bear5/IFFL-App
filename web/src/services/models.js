@@ -32,15 +32,36 @@ export function pickDisplayName(pick) {
     : `${pick.season} Round ${pick.round}`
 }
 
+/**
+ * A pick is worth nothing until its own draft happens.
+ *
+ * A 2027 pick sitting on a roster in 2026 costs $0 against that season —
+ * it can't count toward the cap and can't be kept, because there is
+ * nothing there to keep yet. The stored map usually carries a figure for
+ * the current season anyway (rollover writes the notional value forward),
+ * so the correction is applied here rather than at each call site: every
+ * consumer reads either `currentPrice` or `prices[season]`, and both come
+ * from this one place.
+ */
+export function pickPricesFromOwnSeason(pick) {
+  const season = Number(pick?.season)
+  const out = {}
+  for (const [yr, price] of Object.entries(pick?.prices ?? {})) {
+    out[yr] = Number.isFinite(season) && Number(yr) < season ? 0 : price
+  }
+  return out
+}
+
 export function pickToDisplayAsset(pick, activeSeason) {
   const name = pickDisplayName(pick)
+  const prices = pickPricesFromOwnSeason(pick)
   return {
     id: pick.id,
     teamName: pick.currentTeamName,
     position: 'Draft Pick',
     name,
-    currentPrice: pick.prices?.[String(activeSeason)] ?? 0,
-    prices: pick.prices ?? {},
+    currentPrice: prices[String(activeSeason)] ?? 0,
+    prices,
     originalPrice: pick.prices?.[String(pick.season)] ?? 0,
     purchaseYear: pick.season,
     contractYearsRemaining: 1,

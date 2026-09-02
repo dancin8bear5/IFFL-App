@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
+import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
@@ -84,7 +85,15 @@ export default function DashboardView({ setTab }) {
     () => myAssets.filter((a) => !a.isPick).sort((a, b) => b.currentPrice - a.currentPrice).slice(0, 3),
     [myAssets],
   )
-  const myCapTotal = useMemo(() => myAssets.reduce((sum, a) => sum + a.currentPrice, 0), [myAssets])
+  // The tile says "Cap", so it has to be the cap the league actually uses:
+  // teamCapTotal excludes picks and in-season waiver pickups. Summing every
+  // asset instead made this tile disagree with the trade-impact figures and
+  // with the rulebook, and a future draft pick inflated it by its own face
+  // value for a season it had nothing to do with.
+  const myCapTotal = useMemo(
+    () => teamCapTotal(allDisplayAssets, userTeam, activeSeason),
+    [allDisplayAssets, userTeam, activeSeason],
+  )
   const belts = teamByName[userTeam]?.beltWins ?? 0
 
   // ── Keeper Outlook math — only players at or under the keeper price

@@ -10,6 +10,7 @@ import { formatTradeDate } from '../services/models'
 import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
 import { PHASE_META } from '../services/seasonPhase'
+import { ODDS_SEASON } from '../data/preseasonOdds'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -18,6 +19,7 @@ import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
+import OddsBoard from '../components/OddsBoard'
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
@@ -778,6 +780,11 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // The championship odds, written for the league and published here
+  // instead of the group chat. Retires itself once the season rolls past
+  // the one it was written for, rather than showing 2026's odds in 2027.
+  const oddsSection = areaEnabled('odds') && activeSeason === ODDS_SEASON && <OddsBoard />
+
   // ── Section registry ─────────────────────────────────────────
   //
   // The blocks above are assembled TWICE — once for desktop, once for
@@ -792,6 +799,7 @@ export default function DashboardView({ setTab }) {
   // `lead` promotes a section to the top in the phases that name it —
   // during the playoffs the bracket is the reason people opened the app.
   const SECTIONS = [
+    { key: 'odds',      node: oddsSection,      phases: ['preseason', 'regular'] },
     { key: 'closed',    node: closedNotice,     phases: ['dead'] },
     { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
     { key: 'power',     node: powerChart },

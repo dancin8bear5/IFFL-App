@@ -1125,6 +1125,7 @@ const APP_AREAS = [
     { key: 'ledger',   label: 'Transaction Log', glyph: '🧾' },
     { key: 'history',  label: 'Trophy Room & history tiles', glyph: '🏆' },
     { key: 'messages', label: 'League messages', glyph: '💬' },
+    { key: 'odds',     label: 'Preseason odds board', glyph: '🎰' },
     { key: 'scoring',  label: 'In-season scoring charts', glyph: '📈' },
     { key: 'playoffs', label: 'Playoff bracket', glyph: '🏆' },
   ]},

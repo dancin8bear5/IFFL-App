@@ -196,7 +196,7 @@ bug was there for `disabledAreas`, `liveScores` and `rulesVotingOpen`, all
 of which are flipped during the thing they affect. The one-shot read still
 runs first because it gates team resolution and the `claimTeam` fallback.
 
-### Dashboard rework + Taylor Made Power Rankings (Sep 10, 2026)
+### Dashboard rework (Sep 10, 2026)
 **Nav.** The sidebar brand reads **IFFL** and IS the Dashboard link, so the
 rail has no Dashboard row. The mobile tab bar still does — a phone has no
 brand to click, and without it there'd be no way home from another tab. That
@@ -208,8 +208,8 @@ positional (`activeTab === 8 && <AdminView />`) and inserting anywhere else
 shifts every index after it. On a phone Admin stays inside Settings.
 
 **Hidden, not deleted.** The Power Rankings chart and In-Season Scoring came
-off the Dashboard on Sep 10 — two entries removed from the `SECTIONS`
-registry, with the lines kept in a comment right there. `PowerRankingsChart`,
+off the Dashboard — two entries removed from the `SECTIONS` registry, with the
+lines kept in a comment right there. `PowerRankingsChart`,
 `LegacyPowerRankings`, `SeasonScoringChart`, `PowerRankingsView` and their
 Admin → Areas kill switches are all still wired. Restoring either is
 re-adding its one line.
@@ -218,24 +218,39 @@ re-adding its one line.
 opens the board in a `DetailOverlay`. `<OddsBoard embedded />` drops its own
 collapse control there — inside a popup the overlay is the reveal.
 
-**The rankings** (`data/powerRankings2026.js`) are ~7,300 words in twelve
-owners' voices, verbatim — emoji, capitalised shouting, one-line bursts and
-typos all intentional. **Nothing in that file gets "fixed".** Line breaks are
-load-bearing: several owners write in bursts and `<Prose>` renders each line
-as its own paragraph because that rhythm IS the voice. Verified by scripted
-diff against the source, never by eye.
+### Taylor Made Power Rankings — built, then pulled back out (Sep 10, 2026)
+A full implementation shipped and was **removed the same day** at the
+commissioner's request: the text was superseded and a design spec was coming.
+Worth knowing before rebuilding it.
 
-`components/PowerRankings.jsx` is **`React.lazy`'d** — it and its prose are a
-52KB chunk (21KB gz) that never reaches anyone until a wave is released.
+**Why it was stripped rather than left dark.** The release gate meant nothing
+rendered at level 0, but the draft still shipped as a **fetchable JS chunk** —
+twelve write-ups and the full 1–12 order, readable from page source. A feature
+whose entire purpose is a staged reveal cannot ship the answer in a
+downloadable file. When it returns, verify by grepping the built `dist/` for a
+phrase from the content, not by checking that the chunk is absent — a stray
+import can inline strings elsewhere.
 
-**Release waves.** `config/league.powerRankingsRelease`, 0–4, flipped from
-Admin → Season: 0 nothing · 1 Introduction · 2 +12–9 · 3 +8–5 · 4 +4–1 and
-the ladder. `services/rankingsRelease.js` (10 tests) owns the mapping,
-because an off-by-one here publishes somebody's ranking early and there is no
-taking that back on a show built around the reveal. **A malformed level reads
-as 0, never as "publish everything"**, and the ladder rides only with the
-last wave since it gives away all twelve at once. Reaches the league in
-seconds without a reload — that is what the `config/league` listener bought.
+**What survives:** `web/src/services/rankingsRelease.js` (10 tests) — the wave
+mapping (0 nothing · 1 Introduction · 2 +12–9 · 3 +8–5 · 4 +4–1 and the
+ladder). A malformed level reads as 0, **never as "publish everything"**, and
+the ladder rides only with the last wave since it gives away all twelve at
+once. Its tests use an inline fixture, deliberately: coupling them to a
+season's prose meant the suite broke when the prose was swapped out.
+
+**What was removed:** `data/powerRankings2026.js`,
+`components/PowerRankings.jsx`, the Dashboard registry entry, the Admin →
+Season release panel, the `rankings` area key, and the
+`config/league.powerRankingsRelease` plumbing in `AppContext` /
+`firestoreService`. Rebuild against the spec doc; the release service is ready
+to wire back up.
+
+**Content lessons if the writing returns unchanged in kind:** it is twelve
+owners' voices verbatim — emoji, capitalised shouting, lowercase sections and
+typos all intentional, none of it to be "fixed". Line breaks are load-bearing;
+several owners write in one-line bursts and that rhythm IS the voice, so each
+line wants to render as its own paragraph rather than being reflowed. Verify
+by scripted diff against the source, never by eye.
 
 ### POD awards & bold calls — redacted until clicked (Sep 10, 2026)
 The three hosts enter their picks before the show and then screen-share the

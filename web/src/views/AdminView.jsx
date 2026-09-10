@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES, milestones } from '../data/staticData'
 import { PHASES, PHASE_META, resolvePhase } from '../services/seasonPhase'
-import { waveStates, MAX_LEVEL } from '../services/rankingsRelease'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
@@ -1127,7 +1126,6 @@ const APP_AREAS = [
     { key: 'history',  label: 'Trophy Room & history tiles', glyph: '🏆' },
     { key: 'messages', label: 'League messages', glyph: '💬' },
     { key: 'odds',     label: 'Preseason odds board', glyph: '🎰' },
-    { key: 'rankings', label: 'Power rankings', glyph: '📋' },
     { key: 'scoring',  label: 'In-season scoring charts', glyph: '📈' },
     { key: 'playoffs', label: 'Playoff bracket', glyph: '🏆' },
   ]},
@@ -3686,7 +3684,6 @@ function RepairTradeSection() {
 function SeasonSection() {
   const {
     seasonPhase, phaseOverride, setLeaguePhaseOverride, phaseWindow, phasePreview,
-    rankingsRelease, publishRankings,
   } = useApp()
   const [busy, setBusy] = useState(false)
 
@@ -3779,46 +3776,6 @@ function SeasonSection() {
               {PHASE_META[p]?.glyph} {PHASE_META[p]?.label}
             </a>
           ))}
-        </div>
-      </div>
-
-      {/* Power rankings release — the show-day control. */}
-      <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>Power rankings — release</div>
-          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 3 }}>
-            Each wave goes live for the whole league the moment you tap it. Nobody has to reload.
-            Tap a released wave again to pull it back.
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {waveStates(rankingsRelease).map((w, i) => (
-            <button
-              key={w.key}
-              onClick={() => publishRankings(w.out ? i : i + 1)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-                borderRadius: 9, textAlign: 'left', width: '100%',
-                background: w.out ? 'rgba(74,222,128,0.12)' : 'var(--iff-elevated)',
-                border: `1px solid ${w.out ? 'rgba(74,222,128,0.45)' : 'var(--iff-divider)'}`,
-              }}
-            >
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>{w.label}</span>
-                <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 1 }}>{w.blurb}</span>
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: w.out ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
-                {w.out ? 'LIVE' : 'hold'}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
-          {rankingsRelease === 0
-            ? 'Nothing published — the block is absent from the Dashboard.'
-            : rankingsRelease >= MAX_LEVEL
-              ? 'Fully published, ladder included.'
-              : `Released through wave ${rankingsRelease} of ${MAX_LEVEL}.`}
         </div>
       </div>
 

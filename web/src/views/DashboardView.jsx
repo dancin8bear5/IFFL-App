@@ -2,7 +2,7 @@
 // Mobile: single-column stack under the hero (unchanged from v1).
 // Desktop: page heading + two-column grid — main (team card, calendar,
 // teams, trades) and rail (trophy room, matches, messages).
-import { Fragment, Suspense, lazy, useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
@@ -11,7 +11,6 @@ import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
 import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
-import { isAnythingOut } from '../services/rankingsRelease'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -21,10 +20,6 @@ import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
 import OddsBoard from '../components/OddsBoard'
-// ~7,300 words of editorial. Lazy so it lands in its own chunk after the
-// Dashboard has painted, rather than in the bundle everyone downloads to
-// see a scoreboard.
-const PowerRankings = lazy(() => import('../components/PowerRankings'))
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
@@ -69,7 +64,7 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
-    weeklyRecords, seasonPhase, isPhase, phaseWindow, rankingsRelease,
+    weeklyRecords, seasonPhase, isPhase, phaseWindow,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -800,14 +795,6 @@ export default function DashboardView({ setTab }) {
     />
   )
 
-  // The Taylor Made Power Rankings, published in waves from Admin → Season.
-  // Absent entirely until the first wave goes out.
-  const rankingsSection = areaEnabled('rankings') && isAnythingOut(rankingsRelease) && (
-    <Suspense fallback={<LoadingList count={3} />}>
-      <PowerRankings level={rankingsRelease} />
-    </Suspense>
-  )
-
   // ── Section registry ─────────────────────────────────────────
   //
   // The blocks above are assembled TWICE — once for desktop, once for
@@ -822,7 +809,6 @@ export default function DashboardView({ setTab }) {
   // `lead` promotes a section to the top in the phases that name it —
   // during the playoffs the bracket is the reason people opened the app.
   const SECTIONS = [
-    { key: 'rankings',  node: rankingsSection },
     { key: 'closed',    node: closedNotice,     phases: ['dead'] },
     { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
     // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the

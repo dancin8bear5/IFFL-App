@@ -71,9 +71,6 @@ export function AppProvider({ children }) {
   // The old manual `isOffSeason` boolean this replaces is still WRITTEN to
   // Firestore for the iOS app, but nothing here reads it any more.
   const [phaseOverride, setPhaseOverride] = useState('')
-  // How many waves of the power rankings are public (0 = none). See
-  // services/rankingsRelease.js.
-  const [rankingsRelease, setRankingsRelease] = useState(0)
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
   const [players, setPlayers] = useState([])
   const [draftPicks, setDraftPicks] = useState([])
@@ -177,7 +174,6 @@ export function AppProvider({ children }) {
     if (!config) return
     setActiveSeason(config.activeSeasonYear ?? 2026)
     setPhaseOverride(config.phaseOverride ?? '')
-    setRankingsRelease(config.powerRankingsRelease ?? 0)
     setRulesVotingOpen(config.rulesVotingOpen ?? false)
     setDisabledAreas(new Set(config.disabledAreas ?? []))
     setRolloverArmed(config.rolloverArmed ?? false)
@@ -405,17 +401,6 @@ export function AppProvider({ children }) {
       await fs.setPhaseOverride(phase).catch(() => setPhaseOverride(prev))
     },
     [phaseOverride],
-  )
-
-  /** Commissioner: publish the next wave of the power rankings (optimistic). */
-  const publishRankings = useCallback(
-    async (level) => {
-      const prev = rankingsRelease
-      setRankingsRelease(level)
-      if (DEV_PREVIEW) return
-      await fs.setRankingsRelease(level).catch(() => setRankingsRelease(prev))
-    },
-    [rankingsRelease],
   )
 
   // ── Season phase ────────────────────────────────────────────
@@ -782,7 +767,6 @@ export function AppProvider({ children }) {
     // season phase — derived from the calendar (services/seasonPhase.js)
     seasonPhase, isPhase, phaseWindow,
     phaseOverride, setLeaguePhaseOverride,
-    rankingsRelease, publishRankings,
     phasePreview: URL_PHASE,
     isOffSeason,
     isInitialLoadComplete,

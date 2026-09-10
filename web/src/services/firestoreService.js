@@ -112,16 +112,6 @@ export function setOffSeason(value) {
  * looking at a phase yourself is the `?phase=` preview, which touches
  * nothing.
  */
-/**
- * Commissioner: how much of the power rankings is public (0-4). Its own
- * field so a wave can be published without touching anything else on the
- * document — and because config/league is a listener, the league sees it
- * within seconds rather than on their next reload.
- */
-export function setRankingsRelease(level) {
-  return updateDoc(doc(db, COL.config, 'league'), { powerRankingsRelease: Number(level) || 0 })
-}
-
 export function setPhaseOverride(phase) {
   return updateDoc(doc(db, COL.config, 'league'), { phaseOverride: phase || '' })
 }

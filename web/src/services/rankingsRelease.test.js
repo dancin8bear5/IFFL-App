@@ -4,7 +4,14 @@ import {
   WAVES, MAX_LEVEL, HIDDEN, normalizeLevel, isWaveOut, releasedTeams,
   isLadderOut, isAnythingOut, waveStates,
 } from './rankingsRelease.js'
-import { rankings } from '../data/powerRankings2026.js'
+// A fixture, not the real content. The wave logic is about ranks and
+// nothing else, so coupling these tests to a particular season's prose
+// only meant the suite broke when that prose was swapped out.
+const rankings = Array.from({ length: 12 }, (_, i) => ({
+  rank: 12 - i,
+  team: `Team${12 - i}`,
+  verdict: `verdict ${12 - i}`,
+}))
 
 const ranksAt = (lvl) => releasedTeams(lvl, rankings).map((t) => t.rank)
 

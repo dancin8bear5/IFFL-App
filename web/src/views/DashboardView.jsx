@@ -2,15 +2,16 @@
 // Mobile: single-column stack under the hero (unchanged from v1).
 // Desktop: page heading + two-column grid — main (team card, calendar,
 // teams, trades) and rail (trophy room, matches, messages).
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, Suspense, lazy, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { teamCapTotal } from '../services/contracts'
-import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge } from '../components/shared'
+import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
 import { PHASE_META } from '../services/seasonPhase'
-import { ODDS_SEASON } from '../data/preseasonOdds'
+import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
+import { isAnythingOut } from '../services/rankingsRelease'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -20,6 +21,10 @@ import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
 import OddsBoard from '../components/OddsBoard'
+// ~7,300 words of editorial. Lazy so it lands in its own chunk after the
+// Dashboard has painted, rather than in the bundle everyone downloads to
+// see a scoreboard.
+const PowerRankings = lazy(() => import('../components/PowerRankings'))
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
@@ -64,13 +69,13 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
-    weeklyRecords, seasonPhase, isPhase, phaseWindow,
+    weeklyRecords, seasonPhase, isPhase, phaseWindow, rankingsRelease,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
   const [detailTrade, setDetailTrade] = useState(null)
-  const [historyView, setHistoryView] = useState(null) // 'last' | 'table' | 'trophy' | 'power'
+  const [historyView, setHistoryView] = useState(null) // 'trophy' | 'power' | 'odds'
   const [showRules, setShowRules] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
   const [showParlay, setShowParlay] = useState(false)
@@ -783,7 +788,25 @@ export default function DashboardView({ setTab }) {
   // The championship odds, written for the league and published here
   // instead of the group chat. Retires itself once the season rolls past
   // the one it was written for, rather than showing 2026's odds in 2027.
-  const oddsSection = areaEnabled('odds') && activeSeason === ODDS_SEASON && <OddsBoard />
+  // The odds are a long read, so they sit in the rail as a tile and open
+  // in the standard overlay rather than taking the top of the main column.
+  const oddsLive = areaEnabled('odds') && activeSeason === ODDS_SEASON
+  const oddsTile = oddsLive && (
+    <HistoryTile
+      glyph="🎰"
+      title={ODDS_TITLE}
+      sub="Twelve teams, priced"
+      onClick={() => setHistoryView('odds')}
+    />
+  )
+
+  // The Taylor Made Power Rankings, published in waves from Admin → Season.
+  // Absent entirely until the first wave goes out.
+  const rankingsSection = areaEnabled('rankings') && isAnythingOut(rankingsRelease) && (
+    <Suspense fallback={<LoadingList count={3} />}>
+      <PowerRankings level={rankingsRelease} />
+    </Suspense>
+  )
 
   // ── Section registry ─────────────────────────────────────────
   //
@@ -799,14 +822,21 @@ export default function DashboardView({ setTab }) {
   // `lead` promotes a section to the top in the phases that name it —
   // during the playoffs the bracket is the reason people opened the app.
   const SECTIONS = [
-    { key: 'odds',      node: oddsSection,      phases: ['preseason', 'regular'] },
+    { key: 'rankings',  node: rankingsSection },
     { key: 'closed',    node: closedNotice,     phases: ['dead'] },
     { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
-    { key: 'power',     node: powerChart },
-    { key: 'scoring',   node: scoringSection,   phases: ['regular', 'playoffs'] },
+    // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the
+    // In-Season Scoring block are off the Dashboard while the Taylor Made
+    // rankings take that slot. `powerChart`, `scoringSection` and the
+    // components behind them are all still here and still wired to their
+    // Admin → Areas kill switches — putting either back is re-adding its
+    // one line to this list:
+    //   { key: 'power',   node: powerChart },
+    //   { key: 'scoring', node: scoringSection, phases: ['regular', 'playoffs'] },
     { key: 'playoffs',  node: playoffSection,   phases: ['regular', 'playoffs'], lead: ['playoffs'] },
     { key: 'calendar',  node: calendar },
     { key: 'messages',  node: messagesSection },
+    { key: 'odds',      node: oddsTile,         rail: true, phases: ['preseason', 'regular'] },
     { key: 'rules',     node: rulesSection,     rail: true },
     { key: 'offers',    node: offerBanners },
     { key: 'parlay',    node: parlayCard,       phases: ['regular'] },
@@ -856,6 +886,16 @@ export default function DashboardView({ setTab }) {
       {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
       {historyView === 'power' && <PowerRankingsView onClose={() => setHistoryView(null)} />}
+      {historyView === 'odds' && (
+        <DetailOverlay title={ODDS_TITLE} onBack={() => setHistoryView(null)} desktop="modal">
+          <div style={{ padding: '14px 16px 24px' }}>
+            {/* `embedded` drops the board's own collapse control — in here
+                the overlay is the reveal, and a Collapse button that hides
+                the only thing on screen would be nonsense. */}
+            <OddsBoard embedded />
+          </div>
+        </DetailOverlay>
+      )}
       {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
       {showLedger && <TransactionLedger onClose={() => setShowLedger(false)} />}
       {showParlay && <ParlayView onClose={() => setShowParlay(false)} />}

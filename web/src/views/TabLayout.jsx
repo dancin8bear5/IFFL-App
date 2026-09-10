@@ -26,6 +26,7 @@ const BuilderView = lazy(() => import('./BuilderView'))
 const PodView = lazy(() => import('./PodView'))
 const RookieDraftRoomView = lazy(() => import('./RookieDraftRoomView'))
 const HistoryView = lazy(() => import('./HistoryView'))
+const AdminView = lazy(() => import('./AdminView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see.
@@ -38,7 +39,12 @@ const HistoryView = lazy(() => import('./HistoryView'))
 // permanent — rename the LABEL freely, but retire a slug only by adding
 // an alias in services/routing.js.
 const TABS = [
-  { label: 'Dashboard',        short: 'Dashboard', glyph: '▦',  slug: 'dashboard' },  // always on
+  // The desktop brand ("IFFL") is the Dashboard link, so the rail doesn't
+  // also need a row for it. The MOBILE bar still does — the phone has no
+  // brand to click, and without this there'd be no way home from another
+  // tab. Hence hideInSidebar rather than urlOnly, which would take it out
+  // of both.
+  { label: 'Dashboard',        short: 'Dashboard', glyph: '▦',  slug: 'dashboard', hideInSidebar: true },
   { label: 'Rosters',          short: 'Rosters',   glyph: '👥', slug: 'rosters',   area: 'rosters' },
   { label: 'Players',          short: 'Players',   glyph: '🔎', slug: 'players',   area: 'players' },
   { label: 'F.M.K. Market',    short: 'F.M.K.',    glyph: '⇄',  slug: 'trades',    area: 'market', fmkLabel: true },
@@ -52,6 +58,12 @@ const TABS = [
   // 'historyQuery', not 'history' — that area key already switches the
   // Trophy Room tiles on the Dashboard.
   { label: 'League History',   short: 'History',   glyph: '📚', slug: 'history',   area: 'historyQuery' },
+  // Commissioner only, and the rail only — `adminOnly` was already
+  // supported by canSee and never used. On a phone Admin stays where it
+  // has always been, inside Settings, rather than making a ninth tab
+  // nobody else can see fight for room in the bar.
+  { label: 'Admin',            short: 'Admin',     glyph: '🛡', slug: 'admin',
+    adminOnly: true, sidebarOnly: true },
 ]
 
 export default function TabLayout({ tab, setTab }) {
@@ -94,7 +106,11 @@ export default function TabLayout({ tab, setTab }) {
   // this reads "Trades" for the commissioner too.
   const labelOf = (t) => (t?.fmkLabel && !FMK_ENABLED ? 'Trades' : t?.label)
   const shortOf = (t) => (t?.fmkLabel && !FMK_ENABLED ? 'Trades' : t?.short)
-  const visibleTabs = TABS.filter(inNav)
+  // One permission pass, two navs. The rail and the bar show different
+  // subsets for the reasons noted on the tabs themselves.
+  const navTabs = TABS.filter(inNav)
+  const sidebarTabs = navTabs.filter((t) => !t.hideInSidebar)
+  const visibleTabs = navTabs.filter((t) => !t.sidebarOnly)
   const activeTab = TABS[tab] && !canSee(TABS[tab]) ? 0 : tab
 
   // ── URL ↔ tab, both directions ───────────────────────────────
@@ -221,6 +237,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 5 && <PodView />}
         {activeTab === 6 && <RookieDraftRoomView />}
         {activeTab === 7 && <HistoryView />}
+        {activeTab === 8 && <AdminView />}
       </Suspense>
     </ErrorBoundary>
   )
@@ -229,11 +246,13 @@ export default function TabLayout({ tab, setTab }) {
     return (
       <div className="desktop-shell">
         <Sidebar
-          tabs={visibleTabs}
-          tab={visibleTabs.indexOf(TABS[activeTab])}
-          setTab={(i) => setTab(TABS.indexOf(visibleTabs[i]))}
+          tabs={sidebarTabs}
+          tab={sidebarTabs.indexOf(TABS[activeTab])}
+          setTab={(i) => setTab(TABS.indexOf(sidebarTabs[i]))}
           matchCount={incomingTradeCount}
           labelFor={labelOf}
+          onHome={() => setTab(0)}
+          homeActive={activeTab === 0}
         />
         <main className="desktop-main" key={activeTab}>
           <div className="desktop-content">{screens}</div>

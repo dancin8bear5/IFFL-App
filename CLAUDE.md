@@ -196,6 +196,47 @@ bug was there for `disabledAreas`, `liveScores` and `rulesVotingOpen`, all
 of which are flipped during the thing they affect. The one-shot read still
 runs first because it gates team resolution and the `claimTeam` fallback.
 
+### Dashboard rework + Taylor Made Power Rankings (Sep 10, 2026)
+**Nav.** The sidebar brand reads **IFFL** and IS the Dashboard link, so the
+rail has no Dashboard row. The mobile tab bar still does — a phone has no
+brand to click, and without it there'd be no way home from another tab. That
+is why Dashboard carries `hideInSidebar` rather than `urlOnly`, which would
+take it out of both. **Admin** is now a rail row (`adminOnly` + `sidebarOnly`
+in `TabLayout.jsx`) — `adminOnly` was already supported by `canSee` and had
+never been used. It is appended to `TABS`, because the screen map is
+positional (`activeTab === 8 && <AdminView />`) and inserting anywhere else
+shifts every index after it. On a phone Admin stays inside Settings.
+
+**Hidden, not deleted.** The Power Rankings chart and In-Season Scoring came
+off the Dashboard on Sep 10 — two entries removed from the `SECTIONS`
+registry, with the lines kept in a comment right there. `PowerRankingsChart`,
+`LegacyPowerRankings`, `SeasonScoringChart`, `PowerRankingsView` and their
+Admin → Areas kill switches are all still wired. Restoring either is
+re-adding its one line.
+
+**Odds** moved from the main column to the top of the rail as a tile that
+opens the board in a `DetailOverlay`. `<OddsBoard embedded />` drops its own
+collapse control there — inside a popup the overlay is the reveal.
+
+**The rankings** (`data/powerRankings2026.js`) are ~7,300 words in twelve
+owners' voices, verbatim — emoji, capitalised shouting, one-line bursts and
+typos all intentional. **Nothing in that file gets "fixed".** Line breaks are
+load-bearing: several owners write in bursts and `<Prose>` renders each line
+as its own paragraph because that rhythm IS the voice. Verified by scripted
+diff against the source, never by eye.
+
+`components/PowerRankings.jsx` is **`React.lazy`'d** — it and its prose are a
+52KB chunk (21KB gz) that never reaches anyone until a wave is released.
+
+**Release waves.** `config/league.powerRankingsRelease`, 0–4, flipped from
+Admin → Season: 0 nothing · 1 Introduction · 2 +12–9 · 3 +8–5 · 4 +4–1 and
+the ladder. `services/rankingsRelease.js` (10 tests) owns the mapping,
+because an off-by-one here publishes somebody's ranking early and there is no
+taking that back on a show built around the reveal. **A malformed level reads
+as 0, never as "publish everything"**, and the ladder rides only with the
+last wave since it gives away all twelve at once. Reaches the league in
+seconds without a reload — that is what the `config/league` listener bought.
+
 ### POD awards & bold calls — redacted until clicked (Sep 10, 2026)
 The three hosts enter their picks before the show and then screen-share the
 page while recording, so plain text spoiled every pick the moment the tab

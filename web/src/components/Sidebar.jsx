@@ -9,7 +9,7 @@ import { teamByName } from '../data/staticData'
 import { BeltRow, TeamAvatar } from './shared'
 import SettingsView from '../views/SettingsView'
 
-export default function Sidebar({ tabs, tab, setTab, matchCount, labelFor = (t) => t.label }) {
+export default function Sidebar({ tabs, tab, setTab, matchCount, labelFor = (t) => t.label, onHome, homeActive }) {
   const { userTeam } = useApp()
   const [showSettings, setShowSettings] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === '1')
@@ -24,13 +24,24 @@ export default function Sidebar({ tabs, tab, setTab, matchCount, labelFor = (t) 
 
   return (
     <nav className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-full">
-          <div className="sidebar-logo-mark">Insanity League</div>
-          <div className="sidebar-logo-sub">EST. 2008</div>
-        </div>
-        <div className="sidebar-logo-min sidebar-logo-mark" style={{ fontSize: 19 }}>IL</div>
-      </div>
+      {/* The brand IS the Dashboard link, which is why the rail has no
+          Dashboard row. A real button, not a clickable div, so it keeps
+          keyboard focus and gets the same active treatment as a nav item —
+          otherwise it reads as a logo that happens to respond to clicks. */}
+      <button
+        className={`sidebar-logo${homeActive ? ' active' : ''}`}
+        onClick={onHome}
+        title="Dashboard"
+        aria-label="Dashboard"
+        aria-current={homeActive ? 'page' : undefined}
+        data-label="Dashboard"
+      >
+        <span className="sidebar-logo-full">
+          <span className="sidebar-logo-mark">IFFL</span>
+          <span className="sidebar-logo-sub">EST. 2008</span>
+        </span>
+        <span className="sidebar-logo-min sidebar-logo-mark">IFFL</span>
+      </button>
 
       <div className="sidebar-nav">
         {tabs.map((t, i) => (

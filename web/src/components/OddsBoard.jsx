@@ -133,23 +133,32 @@ function CompactRow({ entry, mine, last }) {
   )
 }
 
-export default function OddsBoard() {
+/**
+ * `embedded` = rendered inside the Dashboard's odds overlay, where the
+ * board is the only thing on screen. There it is always expanded and the
+ * collapse control is gone: the overlay already IS the reveal, and a
+ * button that hides the sole contents of a popup helps nobody.
+ */
+export default function OddsBoard({ embedded = false }) {
   const { userTeam } = useApp()
-  const [collapsed, setCollapsed] = useState(loadCollapsed)
+  const [stored, setCollapsed] = useState(loadCollapsed)
+  const collapsed = embedded ? false : stored
 
   function toggle() {
-    const next = !collapsed
+    const next = !stored
     setCollapsed(next)
     try { localStorage.setItem(STORE_KEY, next ? '1' : '0') } catch { /* private mode */ }
   }
 
   return (
     <div>
-      <SectionHeader
-        title={`🎰 ${ODDS_TITLE}`}
-        actionLabel={collapsed ? '▾ Read the odds' : '▴ Collapse'}
-        onAction={toggle}
-      />
+      {!embedded && (
+        <SectionHeader
+          title={`🎰 ${ODDS_TITLE}`}
+          actionLabel={collapsed ? '▾ Read the odds' : '▴ Collapse'}
+          onAction={toggle}
+        />
+      )}
 
       {collapsed ? (
         <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>

@@ -277,16 +277,30 @@ a { color: inherit; text-decoration: none; }
   gap: 20px;
 }
 
-.sidebar-logo { padding: 0 10px; }
+/* The brand is the Dashboard link, so it needs a button's affordances
+   without a button's chrome — and the same hover/active states the nav
+   rows have, or it doesn't read as navigation. */
+.sidebar-logo {
+  padding: 6px 10px;
+  border-radius: 10px;
+  text-align: left;
+  width: 100%;
+  transition: background 0.12s;
+}
+.sidebar-logo:hover { background: rgba(255, 255, 255, 0.04); }
+.sidebar-logo.active { background: rgba(230, 57, 70, 0.12); }
+.sidebar-logo-full { display: block; }
 .sidebar-logo-mark {
-  font-size: 22px;
+  display: block;
+  font-size: 26px;
   font-weight: 900;
   font-style: italic;
-  letter-spacing: -1px;
+  letter-spacing: -1.5px;
   line-height: 1.1;
   color: var(--iff-accent);
 }
 .sidebar-logo-sub {
+  display: block;
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 3px;
@@ -337,7 +351,10 @@ a { color: inherit; text-decoration: none; }
 .sidebar-logo-min { display: none; }
 
 .sidebar.collapsed { width: 64px; padding-left: 8px; padding-right: 8px; }
-.sidebar.collapsed .sidebar-logo { padding: 0; text-align: center; }
+.sidebar.collapsed .sidebar-logo { padding: 6px 0; text-align: center; }
+/* "IFFL" in 48px of rail: four characters where "IL" had two, so the type
+   comes down and the tracking closes up. Tested at the 64px width. */
+.sidebar.collapsed .sidebar-logo-min { font-size: 14px; letter-spacing: -0.6px; }
 .sidebar.collapsed .sidebar-logo-full,
 .sidebar.collapsed .sidebar-label,
 .sidebar.collapsed .sidebar-team-detail { display: none; }
@@ -357,7 +374,8 @@ a { color: inherit; text-decoration: none; }
 /* Auto-collapse on narrow desktops — same rail, no button needed */
 @media (min-width: 900px) and (max-width: 1099px) {
   .sidebar { width: 64px; padding-left: 8px; padding-right: 8px; }
-  .sidebar .sidebar-logo { padding: 0; text-align: center; }
+  .sidebar .sidebar-logo { padding: 6px 0; text-align: center; }
+  .sidebar .sidebar-logo-min { font-size: 14px; letter-spacing: -0.6px; }
   .sidebar .sidebar-logo-full,
   .sidebar .sidebar-label,
   .sidebar .sidebar-team-detail,

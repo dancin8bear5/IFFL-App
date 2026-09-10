@@ -107,12 +107,13 @@ async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs, tsFromM
     reportedAt: nowIso(),
     mode: "report-only",
   });
-  await stateRef.set({
-    lastProcessedChangedAt: meta.last_changed_at,
-    lastRunAt: nowIso(),
-    lastError: null,
-    lastSummary: summarize(report),
-  }, { merge: true });
+
+  // NOTE: lastProcessedChangedAt is deliberately NOT advanced here. It used to
+  // be, which meant a throw inside the apply loop below left this run recorded
+  // as processed while its writes never landed — the next run compared
+  // last_changed_at, saw no advance, returned no_change, and that feed change
+  // was skipped permanently. The watermark now moves only after the apply
+  // attempt resolves, so a failed apply is retried instead of lost.
 
   // ── Phase 4: apply, when armed. config/ifflFeed.armed = {players, picks}.
   // Report-only remains the default for any flag left unset.
@@ -123,48 +124,80 @@ async function runFeedSync({ db, fetchImpl, feedBase, dm, nowIso, nowTs, tsFromM
   };
   let appliedLine = "Report-only — nothing was applied.";
   let applied = null;
+  let applyFailed = null;
 
   if ((armed.players || armed.picks || armed.trades) && report.problems.length === 0) {
     const plan = planApply(league, { players, draftPicks, trades }, armed, { nowMs: Date.parse(nowIso()) });
     if (!plan.ok) {
+      // A refusal is a decision, not a failure: the plan was computed and
+      // declined. Nothing was written, so the watermark may safely advance.
       appliedLine = `⛔ Apply refused: ${plan.reasons.slice(0, 3).join("; ")}`;
       await stateRef.set({ lastApplyError: plan.reasons.join("; ") }, { merge: true });
     } else {
-      for (const w of plan.writes) {
-        const ref = db.collection(w.col).doc(w.id);
-        const fields = { ...w.fields };
-        // Timestamp-typed fields ride the plan as epoch ms (the plan is
-        // pure); they become real Timestamps here so Firestore's type-aware
-        // ordering keeps feed-created docs sorted with everything else.
-        for (const [k, ms] of Object.entries(w.tsFields ?? {})) fields[k] = tsFromMs(ms);
-        if (w.op === "set") await ref.set(fields);
-        else await ref.update(fields);
+      try {
+        for (const w of plan.writes) {
+          const ref = db.collection(w.col).doc(w.id);
+          const fields = { ...w.fields };
+          // Timestamp-typed fields ride the plan as epoch ms (the plan is
+          // pure); they become real Timestamps here so Firestore's type-aware
+          // ordering keeps feed-created docs sorted with everything else.
+          for (const [k, ms] of Object.entries(w.tsFields ?? {})) fields[k] = tsFromMs(ms);
+          if (w.op === "set") await ref.set(fields);
+          else await ref.update(fields);
+        }
+        for (const row of plan.ledger) {
+          await db.collection("transactions").doc().set({ ...row, createdAt: nowTs() });
+        }
+        applied = plan.counts;
+        const c = plan.counts;
+        appliedLine =
+          `APPLIED: ${c.teamMoves} moves, ${c.deactivated} to FA, ${c.reactivated} back, ` +
+          `${c.created} created, ${c.priceUpdates} prices, ${c.anchorUpdates} anchors, ${c.pickMoves} pick moves, ` +
+          `trades ${c.tradesStamped} stamped/${c.tradesCreated} created/${c.tradesItemFilled} items filled, ` +
+          `${c.nflTeamFixes} NFL teams.`;
+        await stateRef.set({
+          lastAppliedAt: nowIso(),
+          lastAppliedChangedAt: meta.last_changed_at,
+          lastAppliedCounts: c,
+          lastApplyError: null,
+        }, { merge: true });
+      } catch (e) {
+        // A partial apply is the dangerous case: some writes landed, some did
+        // not. Leaving the watermark unadvanced makes the next run re-diff
+        // against the new reality and finish the job.
+        applyFailed = e.message;
+        appliedLine = `⛔ Apply failed partway: ${e.message} — will retry next run.`;
+        await stateRef.set({
+          lastRunAt: nowIso(),
+          lastApplyError: `apply threw: ${e.message}`,
+        }, { merge: true });
       }
-      for (const row of plan.ledger) {
-        await db.collection("transactions").doc().set({ ...row, createdAt: nowTs() });
-      }
-      applied = plan.counts;
-      const c = plan.counts;
-      appliedLine =
-        `APPLIED: ${c.teamMoves} moves, ${c.deactivated} to FA, ${c.reactivated} back, ` +
-        `${c.created} created, ${c.priceUpdates} prices, ${c.anchorUpdates} anchors, ${c.pickMoves} pick moves, ` +
-        `trades ${c.tradesStamped} stamped/${c.tradesCreated} created/${c.tradesItemFilled} items filled, ` +
-        `${c.nflTeamFixes} NFL teams.`;
-      await stateRef.set({
-        lastAppliedAt: nowIso(),
-        lastAppliedCounts: c,
-        lastApplyError: null,
-      }, { merge: true });
     }
   }
 
-  if (report.problems.length > 0) {
+  if (!applyFailed) {
+    await stateRef.set({
+      lastProcessedChangedAt: meta.last_changed_at,
+      lastRunAt: nowIso(),
+      lastError: null,
+      lastSummary: summarize(report),
+    }, { merge: true });
+  }
+
+  if (applyFailed) {
+    await dm(`⛔ Feed apply failed partway and will retry: ${applyFailed}`);
+  } else if (report.problems.length > 0) {
     await dm(`⛔ Feed sync hit problems:\n${report.problems.join("\n")}`);
   } else {
     await dm(`📥 League feed changed (${meta.last_changed_at}).\n${summarize(report)}\n${appliedLine}`);
   }
 
-  return { status: "reported", summary: summarize(report), applied };
+  return {
+    status: applyFailed ? "apply_error" : "reported",
+    summary: summarize(report),
+    applied,
+    ...(applyFailed ? { error: applyFailed } : {}),
+  };
 }
 
 module.exports = { runFeedSync, STATE_DOC, REPORT_DOC };

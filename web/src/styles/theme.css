@@ -1632,3 +1632,45 @@ a { color: inherit; text-decoration: none; }
   border-top: 1px solid rgba(255, 255, 255, 0.04);
 }
 .hist-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+
+/* ── POD spoilers ──────────────────────────────────────────── */
+/* The three hosts screen-share Awards and Bold Calls while recording, so
+   every entry sits behind a black bar until it is clicked.
+
+   The text stays in the DOM and is hidden with COLOUR rather than being
+   swapped for a placeholder. That is what keeps the awards table's column
+   widths identical before and after a reveal — swap in a placeholder and
+   opening one cell reflows the rows around it mid-show.
+
+   user-select is off while hidden so a stray drag-select can't leak a pick
+   that hasn't been revealed yet.
+
+   Lives here rather than inline so reduced motion can actually turn the
+   fade off — an inline transition would need !important (same reason as
+   .legacy-bar above). */
+.pod-spoiler {
+  font: inherit;
+  text-align: left;
+  color: transparent;
+  background: #000;
+  border-radius: 4px;
+  padding: 0 3px;
+  box-shadow: inset 0 0 0 1px rgba(158, 168, 184, 0.22);
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.pod-spoiler:hover  { box-shadow: inset 0 0 0 1px var(--iff-accent); }
+.pod-spoiler:focus-visible { outline: 2px solid var(--iff-accent); outline-offset: 1px; }
+.pod-spoiler.revealed {
+  color: inherit;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  cursor: zoom-out;
+  user-select: text;
+  -webkit-user-select: text;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pod-spoiler { transition: none; }
+}

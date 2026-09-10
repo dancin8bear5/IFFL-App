@@ -19,9 +19,26 @@
 //   paragraph; a single newline is a <br>.
 import { useEffect, useRef, useState } from 'react'
 import { INITIAL_ROUTE } from '../services/routing'
-import { dropStates, releasedTeams, releasedRanks, isDropOut } from '../services/rankingsRelease'
-import data from '../data/powerRankings2026.json'
+import * as fs from '../services/firestoreService'
+import {
+  DROPS, dropStates, normalizeReleased, releasedTeams, ladderRows, isDropOut,
+} from '../services/rankingsRelease'
+import { edition as EDITION, editionId as EDITION_ID } from '../data/powerRankingsMeta'
 import '../styles/powerRankings.css'
+
+// THE CONTENT IS NEVER BUNDLED, and there is deliberately no import of it
+// anywhere in this file — not even a dev-only one.
+//
+// A guarded `import.meta.env.DEV` import does get eliminated from the
+// output, but Rollup still has to RESOLVE it, so the payload would have to
+// stay committed to a public repo for the build to pass. The whole point
+// of the per-drop Firestore layout is that an unreleased write-up exists
+// in exactly two places: the analytics agent that generates it, and
+// Firestore behind a membership rule. Adding a third copy to the repo to
+// buy a local preview is a bad trade.
+//
+// The check that proves it: grep the built dist/ for a phrase from an
+// unreleased card and expect zero hits.
 
 /** A → green, B → blue, C → amber, D/F → red. First character decides. */
 function band(grade) {
@@ -152,10 +169,39 @@ function TeamCard({ team, open, onToggle }) {
   )
 }
 
-export default function PowerRankingsView({ released }) {
+export default function PowerRankingsView() {
+  const [meta, setMeta] = useState(null)
+  const [bodies, setBodies] = useState({})   // drop key → its fetched doc
+  const [loading, setLoading] = useState(true)
+
+  // The meta doc is a listener and carries no content — just the released
+  // list — so opening a drop reaches everyone in seconds without a reload.
+  useEffect(
+    () => fs.listenToPowerRankingsMeta(EDITION_ID, (m) => { setMeta(m); setLoading(false) }),
+    [],
+  )
+
+  const released = normalizeReleased(meta?.released)
+  const key = released.join(',')
+
+  // Fetch only what is released, and only once per drop.
+  useEffect(() => {
+    let alive = true
+    for (const k of released) {
+      if (bodies[k]) continue
+      fs.fetchPowerRankingsDrop(EDITION_ID, k)
+        .then((d) => { if (alive && d) setBodies((prev) => ({ ...prev, [k]: d })) })
+        .catch(() => {})
+    }
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
   const drops = dropStates(released)
-  const teams = releasedTeams(released, data.drops)
-  const ranksOut = releasedRanks(released)
+  const teams = releasedTeams(released, bodies)
+  const intro = isDropOut(released, 'intro') ? bodies.intro : null
+  const ladder = ladderRows(released, bodies)
+  const data = { edition: meta?.edition ?? EDITION, date: meta?.date ?? '' }
 
   // A deep link opens exactly one card. Read once on mount — after that the
   // reader is in charge of what's open.
@@ -200,6 +246,17 @@ export default function PowerRankingsView({ released }) {
           </ul>
         </header>
 
+        {loading && <p className="sub" style={{ marginTop: 28 }}>Loading…</p>}
+
+        {!loading && !meta && (
+          <p className="sub" style={{ marginTop: 28 }}>
+            Nothing published yet. The commissioner publishes an edition with
+            <code> scripts/publish-power-rankings.mjs</code>, then opens each section
+            from Admin → Season.
+          </p>
+        )}
+
+        {intro && (
         <section>
           <details open>
             <summary><span className="cond">The Taylor Made™️ Lookback</span></summary>
@@ -215,7 +272,7 @@ export default function PowerRankingsView({ released }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.lookback.rows.map((r) => (
+                  {(intro.lookback?.rows ?? []).map((r) => (
                     <tr key={r.owner}>
                       <td className="num">{r.tm}</td>
                       <td>{r.owner}</td>
@@ -236,28 +293,44 @@ export default function PowerRankingsView({ released }) {
                 </tbody>
               </table>
             </div>
-            <div className="foot">{data.lookback.summary}</div>
+            <div className="foot">{intro.lookback?.summary}</div>
           </details>
         </section>
+        )}
 
+        {intro && (
         <section className="prose">
-          {data.intro.map((p, i) => <Voice text={p} key={i} />)}
+          {(intro.intro ?? []).map((p, i) => <Voice text={p} key={i} />)}
         </section>
+        )}
 
+        {intro && (
         <section>
           <details>
             <summary><span className="cond">A Note From The Machine</span></summary>
             <div style={{ padding: '14px 16px' }}>
               <div className="prose machine">
-                {data.foreword.map((p, i) => <Voice text={p} key={i} />)}
+                {(intro.foreword ?? []).map((p, i) => <Voice text={p} key={i} />)}
                 <p className="sig">— Claude</p>
               </div>
             </div>
           </details>
         </section>
+        )}
+
+        {!loading && !intro && (
+          <section>
+            <div className="drop locked" style={{ border: '1px dashed var(--line)', borderRadius: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px' }}>
+                <span className="dh cond">Introduction</span>
+                <span className="lockchip">Locked</span>
+              </div>
+            </div>
+          </section>
+        )}
 
         <section>
-          {drops.map((d) => {
+          {drops.filter((d) => d.from).map((d) => {
             if (!d.out) {
               // NO BODY IN THE DOM. An unreleased drop must never reach the
               // client — not hidden, not collapsed, absent.
@@ -297,8 +370,8 @@ export default function PowerRankingsView({ released }) {
         <section>
           <div className="eyebrow">The Ladder · {data.edition}</div>
           <ol className="ladder" style={{ marginTop: 10 }}>
-            {data.ladder.map((row) => {
-              const out = ranksOut.has(row.rank)
+            {ladder.map((row) => {
+              const out = row.out
               return (
                 <li key={row.rank} className={out ? '' : 'locked'}>
                   <span className="r mono">{row.rank}</span>

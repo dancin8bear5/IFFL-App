@@ -75,6 +75,25 @@ service cloud.firestore {
       );
     }
 
+    // Power Rankings — powerRankings/{edition} + /drops/{key}
+    //
+    // ONE DOC PER DROP, and the split is the security boundary, not a
+    // convenience: the client fetches only the drops named in the meta
+    // doc's `released`, so an unreleased write-up is never transmitted.
+    // The rules cannot express "only released drops", and they don't need
+    // to — a member who fetched a locked drop by hand would get it, but
+    // the twelve people with access are the twelve people the reveal is
+    // for. The real protection is that nothing unreleased is ever sent to
+    // a browser or shipped in the bundle.
+    match /powerRankings/{edition} {
+      allow read: if isMember();
+      allow write: if isCommissioner();
+      match /drops/{drop} {
+        allow read: if isMember();
+        allow write: if isCommissioner();
+      }
+    }
+
     match /config/pod {
       allow read, write: if isPodMember();
     }

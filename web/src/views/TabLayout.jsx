@@ -74,7 +74,7 @@ const TABS = [
 
 export default function TabLayout({ tab, setTab }) {
   const {
-    incomingTradeCount, areaEnabled, isPodMember, isAdmin, isPhase, rankingsReleased,
+    incomingTradeCount, areaEnabled, isPodMember, isAdmin, isPhase,
     rookieDraftLive, isRookieDraftTester, isInitialLoadComplete, selectedTeam, setSelectedTeam,
   } = useApp()
   const isDesktop = useIsDesktop()
@@ -244,7 +244,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 6 && <RookieDraftRoomView />}
         {activeTab === 7 && <HistoryView />}
         {activeTab === 8 && <AdminView />}
-        {activeTab === 9 && <PowerRankingsView released={rankingsReleased} />}
+        {activeTab === 9 && <PowerRankingsView />}
       </Suspense>
     </ErrorBoundary>
   )

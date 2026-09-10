@@ -112,17 +112,6 @@ export function setOffSeason(value) {
  * looking at a phase yourself is the `?phase=` preview, which touches
  * nothing.
  */
-/**
- * Commissioner: which Power Rankings drops are public, as an array of drop
- * keys. config/league is a live listener, so opening a drop reaches the
- * league in seconds without anyone reloading.
- */
-export function setRankingsReleased(keys) {
-  return updateDoc(doc(db, COL.config, 'league'), {
-    powerRankingsReleased: Array.isArray(keys) ? keys : [],
-  })
-}
-
 export function setPhaseOverride(phase) {
   return updateDoc(doc(db, COL.config, 'league'), { phaseOverride: phase || '' })
 }
@@ -1088,6 +1077,47 @@ export async function fetchPendingIngests() {
   return snapToDocs(snap)
     .map((i) => ({ ...i, receivedAt: tsToDate(i.receivedAt) }))
     .sort((a, b) => (b.receivedAt ?? 0) - (a.receivedAt ?? 0))
+}
+
+// ── Power Rankings — powerRankings/{edition} + /drops/{key} ────
+//
+// ONE DOC PER DROP, and that is the whole point of the layout. The client
+// fetches only the drops named in `released`, so an unreleased team's
+// write-up is never sent to a browser — not hidden, not gated in the UI,
+// never transmitted. A single document holding all twelve would put the
+// full order in the network tab of anyone who looked.
+//
+// The meta doc holds no content at all: edition, date and the released
+// list. It is safe to read at any time, and it is a LISTENER, so opening a
+// drop reaches the league in seconds with nobody reloading.
+
+const PR_COL = 'powerRankings'
+
+export function listenToPowerRankingsMeta(edition, callback) {
+  return onSnapshot(
+    doc(db, PR_COL, edition),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    (err) => { console.error('powerRankings meta listener failed:', err); callback(null) },
+  )
+}
+
+export async function fetchPowerRankingsDrop(edition, key) {
+  const snap = await getDoc(doc(db, PR_COL, edition, 'drops', key))
+  return snap.exists() ? snap.data() : null
+}
+
+/** Commissioner: open or close drops. Writes only the released list. */
+export function setPowerRankingsReleased(edition, keys) {
+  return setDoc(
+    doc(db, PR_COL, edition),
+    { released: Array.isArray(keys) ? keys : [] },
+    { merge: true },
+  )
+}
+
+export async function fetchPowerRankingsMeta(edition) {
+  const snap = await getDoc(doc(db, PR_COL, edition))
+  return snap.exists() ? snap.data() : null
 }
 
 // ── POD content — config/pod ───────────────────────────────────

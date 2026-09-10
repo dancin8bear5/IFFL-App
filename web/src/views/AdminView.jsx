@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES, milestones } from '../data/staticData'
 import { PHASES, PHASE_META, resolvePhase } from '../services/seasonPhase'
-import { dropStates, DROP_KEYS } from '../services/rankingsRelease'
+import { editionId as EDITION_ID } from '../data/powerRankingsMeta'
+import { dropStates, normalizeReleased } from '../services/rankingsRelease'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
@@ -3685,9 +3686,21 @@ function RepairTradeSection() {
 function SeasonSection() {
   const {
     seasonPhase, phaseOverride, setLeaguePhaseOverride, phaseWindow, phasePreview,
-    rankingsReleased, publishRankingsDrop,
   } = useApp()
   const [busy, setBusy] = useState(false)
+  // Release state lives on the Power Rankings doc, not config/league — the
+  // page listens to it directly, so a flip lands for the league in seconds.
+  const [released, setReleased] = useState(null)
+  useEffect(() => fs.listenToPowerRankingsMeta(EDITION_ID, (m) => setReleased(normalizeReleased(m?.released))), [])
+
+  async function toggleDrop(key) {
+    const next = released?.includes(key)
+      ? released.filter((k) => k !== key)
+      : [...(released ?? []), key]
+    const prev = released
+    setReleased(normalizeReleased(next))
+    await fs.setPowerRankingsReleased(EDITION_ID, normalizeReleased(next)).catch(() => setReleased(prev))
+  }
 
   const calendarPhase = resolvePhase(new Date(), milestones, '')
 
@@ -3786,17 +3799,16 @@ function SeasonSection() {
         <div>
           <div style={{ fontSize: 14, fontWeight: 700 }}>Power Rankings — drops</div>
           <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 3 }}>
-            Opening a drop reaches the whole league in seconds — nobody reloads. Tap an open
-            drop to pull it back.
+            Each section is independent — open them in any order. A flip reaches the whole
+            league in seconds; nobody reloads. Tap an open section to pull it back, and its
+            content stops being sent to browsers entirely.
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {dropStates(rankingsReleased).map((d, i) => (
+          {dropStates(released ?? []).map((d) => (
             <button
               key={d.key}
-              onClick={() => publishRankingsDrop(
-                d.out ? DROP_KEYS.slice(0, i) : DROP_KEYS.slice(0, i + 1),
-              )}
+              onClick={() => toggleDrop(d.key)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
                 borderRadius: 9, textAlign: 'left', width: '100%',
@@ -3804,7 +3816,12 @@ function SeasonSection() {
                 border: `1px solid ${d.out ? 'rgba(74,222,128,0.45)' : 'var(--iff-divider)'}`,
               }}
             >
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{d.label}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>{d.label}</span>
+                {d.blurb && (
+                  <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 1 }}>{d.blurb}</span>
+                )}
+              </span>
               <span style={{ fontSize: 11, fontWeight: 700, color: d.out ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
                 {d.out ? 'LIVE' : 'locked'}
               </span>

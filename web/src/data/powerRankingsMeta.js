@@ -1,4 +1,5 @@
-// The Power Rankings edition label, split out so the Dashboard tile can name
-// the edition without pulling the whole ~88KB payload into the entry bundle.
-// Keep in step with data/powerRankings2026.json's `edition`.
+// Power Rankings edition identity, split out so the Dashboard tile and the
+// view can name the edition without either of them pulling in content.
+// `editionId` is the Firestore doc id; keep both in step with the payload.
 export const edition = '2026 Preseason'
+export const editionId = '2026_preseason'

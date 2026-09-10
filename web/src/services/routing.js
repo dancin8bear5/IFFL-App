@@ -36,12 +36,18 @@ export function normalizeHash(hash) {
 }
 
 /**
- * Split a hash into its tab slug and optional parameter.
- * `#rosters/a-zurek` → { slug: 'rosters', param: 'a-zurek' }
+ * Split a hash into its tab slug and its parameters.
+ * `#rosters/a-zurek` → { slug: 'rosters', param: 'a-zurek', params: ['a-zurek'] }
  *
- * Only Rosters uses the parameter today — it names the team whose roster
- * to open, which is what makes "here's Bill's roster" a real link rather
- * than an instruction to go and click something.
+ * Rosters names the team whose roster to open, which is what makes
+ * "here's Bill's roster" a real link rather than an instruction to go and
+ * click something.
+ *
+ * `params` carries EVERY segment after the slug, because one is not always
+ * enough: a power-rankings deep link is
+ * `#power-rankings/2026-preseason/wayne-vh`, and reading only `param`
+ * silently threw the team away. `param` stays as the first segment so
+ * every existing caller is untouched.
  */
 export function parseRoute(hash) {
   const parts = String(hash ?? '')
@@ -56,8 +62,25 @@ export function parseRoute(hash) {
   return {
     slug: raw ? (SLUG_ALIASES[raw] ?? raw) : '',
     param: parts[1] ?? '',
+    params: parts.slice(1),
   }
 }
+
+/**
+ * The route the app was OPENED with, captured once at module init.
+ *
+ * A deep link does not survive to the view that needs it. TabLayout's URL
+ * writer normalises the hash back to the bare tab slug, and a lazily
+ * loaded view mounts after that has already happened — so by the time
+ * PowerRankingsView reads window.location.hash, the team it was supposed
+ * to open has been stripped off. Same hazard AppContext documents for
+ * `deepLinkedTeam`, and the same fix: read it before anything can rewrite
+ * it, and hand the snapshot to whoever needs it.
+ */
+export const INITIAL_ROUTE =
+  typeof window === 'undefined'
+    ? { slug: '', param: '', params: [] }
+    : parseRoute(window.location.hash)
 
 /**
  * A team name as a URL segment. "A. Zurek" → "a-zurek".

@@ -1,87 +1,101 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  WAVES, MAX_LEVEL, HIDDEN, normalizeLevel, isWaveOut, releasedTeams,
-  isLadderOut, isAnythingOut, waveStates,
+  DROPS, DROP_KEYS, normalizeReleased, isDropOut, dropStates,
+  releasedTeams, releasedRanks, isAnythingOut,
 } from './rankingsRelease.js'
-// A fixture, not the real content. The wave logic is about ranks and
-// nothing else, so coupling these tests to a particular season's prose
-// only meant the suite broke when that prose was swapped out.
-const rankings = Array.from({ length: 12 }, (_, i) => ({
-  rank: 12 - i,
-  team: `Team${12 - i}`,
-  verdict: `verdict ${12 - i}`,
-}))
 
-const ranksAt = (lvl) => releasedTeams(lvl, rankings).map((t) => t.rank)
+// A fixture, not the payload. The gating is about ranks and drop keys; tying
+// these tests to a season's prose only means they break when it is replaced.
+const drops = {
+  '12-9': { teams: [12, 11, 10, 9].map((rank) => ({ rank, team: `T${rank}` })) },
+  '8-5': { teams: [8, 7, 6, 5].map((rank) => ({ rank, team: `T${rank}` })) },
+  '4-1': { teams: [4, 3, 2, 1].map((rank) => ({ rank, team: `T${rank}` })) },
+}
+const ranksAt = (rel) => releasedTeams(rel, drops).map((t) => t.rank)
 
-test('nothing is public at level 0', () => {
-  assert.equal(isAnythingOut(0), false)
-  assert.deepEqual(ranksAt(0), [])
-  assert.equal(isWaveOut(0, 'intro'), false)
+test('nothing is public until a drop is released', () => {
+  assert.deepEqual(ranksAt([]), [])
+  assert.equal(isAnythingOut([]), false)
+  assert.equal(releasedRanks([]).size, 0)
 })
 
-test('each wave publishes exactly its own four, and holds the rest', () => {
-  assert.deepEqual(ranksAt(1), [])                        // intro only, no teams
-  assert.deepEqual(ranksAt(2), [12, 11, 10, 9])
-  assert.deepEqual(ranksAt(3), [12, 11, 10, 9, 8, 7, 6, 5])
-  assert.deepEqual(ranksAt(4), [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
+test('each drop publishes exactly its own four', () => {
+  assert.deepEqual(ranksAt(['12-9']), [12, 11, 10, 9])
+  assert.deepEqual(ranksAt(['12-9', '8-5']), [12, 11, 10, 9, 8, 7, 6, 5])
+  assert.deepEqual(ranksAt(DROP_KEYS), [12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1])
 })
 
-test('THE ONE THAT MATTERS: no rank ever leaks a wave early', () => {
-  // Walk every level and assert nothing above the published floor appears.
-  const floor = { 0: null, 1: null, 2: 9, 3: 5, 4: 1 }
-  for (const lvl of [0, 1, 2, 3, 4]) {
-    const out = ranksAt(lvl)
-    if (floor[lvl] === null) { assert.deepEqual(out, []); continue }
-    assert.ok(Math.min(...out) === floor[lvl], `level ${lvl} floor`)
-    assert.equal(out.length, new Set(out).size, 'no team published twice')
+test('THE ONE THAT MATTERS: no rank leaks a drop early', () => {
+  const floor = { '12-9': 9, '8-5': 5, '4-1': 1 }
+  let acc = []
+  for (const key of DROP_KEYS) {
+    acc = [...acc, key]
+    const out = ranksAt(acc)
+    assert.equal(Math.min(...out), floor[key], `after ${key}`)
+    assert.equal(out.length, new Set(out).size, 'no team twice')
   }
 })
 
-test('the ladder waits for the last wave — it gives away all twelve', () => {
-  assert.equal(isLadderOut(0), false)
-  assert.equal(isLadderOut(2), false)
-  assert.equal(isLadderOut(3), false)
-  assert.equal(isLadderOut(MAX_LEVEL), true)
-})
-
-test('the introduction rides with level 1 and stays out after', () => {
-  for (const lvl of [1, 2, 3, 4]) assert.equal(isWaveOut(lvl, 'intro'), true)
-})
-
-test('a bad level reads as hidden, never as fully published', () => {
-  for (const bad of [undefined, null, '', 'lots', NaN, -1, -99, {}, []]) {
-    assert.equal(normalizeLevel(bad), HIDDEN, String(bad))
+test('a malformed release list fails CLOSED, never open', () => {
+  for (const bad of [undefined, null, '', 'all', 0, 4, {}, NaN, true]) {
+    assert.deepEqual(normalizeReleased(bad), [], String(bad))
     assert.deepEqual(ranksAt(bad), [])
+    assert.equal(isAnythingOut(bad), false)
   }
-  // ...and an over-large number clamps rather than throwing
-  assert.equal(normalizeLevel(99), MAX_LEVEL)
-  assert.equal(normalizeLevel('3'), 3)
-  assert.equal(normalizeLevel(2.7), 2)
 })
 
-test('an unknown wave key is never out', () => {
-  assert.equal(isWaveOut(4, 'nope'), false)
+test('unknown keys are discarded rather than trusted', () => {
+  assert.deepEqual(normalizeReleased(['nope', '12-9', 'all']), ['12-9'])
+  assert.deepEqual(ranksAt(['nope']), [])
+  assert.equal(isDropOut(['12-9'], 'nope'), false)
 })
 
-test('waveStates reports each wave as out or pending', () => {
-  assert.deepEqual(waveStates(0).map((w) => w.out), [false, false, false, false])
-  assert.deepEqual(waveStates(2).map((w) => w.out), [true, true, false, false])
-  assert.deepEqual(waveStates(4).map((w) => w.out), [true, true, true, true])
-  assert.equal(waveStates(1)[0].label, 'Introduction')
+test('order and duplicates in the stored list do not matter', () => {
+  assert.deepEqual(normalizeReleased(['4-1', '12-9']), ['12-9', '4-1'])
+  assert.deepEqual(normalizeReleased(['12-9', '12-9']), ['12-9'])
+  // ...but a gap stays a gap — releasing 4-1 alone shows only 4-1
+  assert.deepEqual(ranksAt(['4-1']), [4, 3, 2, 1])
 })
 
-test('the waves between them cover all twelve ranks exactly once', () => {
-  const covered = []
-  for (const w of WAVES) {
-    if (!w.from) continue
-    for (let r = w.to; r <= w.from; r++) covered.push(r)
-  }
+test('teams come back 12 → 1, by rank', () => {
+  const out = releasedTeams(DROP_KEYS, drops).map((t) => t.rank)
+  assert.deepEqual(out, [...out].sort((a, b) => b - a))
+})
+
+test('sorting is on rank, so an out-of-order score cannot reorder anyone', () => {
+  // Cantone's real shape: rank 5 with a score below the teams at 6 and 7.
+  const d = { '8-5': { teams: [
+    { rank: 5, score: 2.845 }, { rank: 6, score: 2.985 },
+    { rank: 7, score: 2.945 }, { rank: 8, score: 2.775 },
+  ] } }
+  assert.deepEqual(releasedTeams(['8-5'], d).map((t) => t.rank), [8, 7, 6, 5])
+})
+
+test('the ladder names only released ranks', () => {
+  assert.deepEqual([...releasedRanks(['12-9'])].sort((a, b) => a - b), [9, 10, 11, 12])
+  assert.equal(releasedRanks(DROP_KEYS).size, 12)
+  assert.equal(releasedRanks(['12-9']).has(8), false)
+})
+
+test('dropStates reports each drop as out or pending, in order', () => {
+  assert.deepEqual(dropStates([]).map((d) => d.out), [false, false, false])
+  assert.deepEqual(dropStates(['12-9']).map((d) => d.out), [true, false, false])
+  assert.deepEqual(dropStates(DROP_KEYS).map((d) => d.out), [true, true, true])
+  assert.equal(dropStates([])[0].label, 'Ranks 12–9')
+})
+
+test('the drops between them cover all twelve ranks exactly once', () => {
+  const covered = DROPS.flatMap((d) => {
+    const r = []
+    for (let i = d.to; i <= d.from; i++) r.push(i)
+    return r
+  })
   assert.deepEqual(covered.sort((a, b) => a - b), [1,2,3,4,5,6,7,8,9,10,11,12])
 })
 
-test('missing rankings data degrades to empty rather than throwing', () => {
-  assert.deepEqual(releasedTeams(4, null), [])
-  assert.deepEqual(releasedTeams(4, []), [])
+test('missing drop data degrades to empty rather than throwing', () => {
+  assert.deepEqual(releasedTeams(DROP_KEYS, null), [])
+  assert.deepEqual(releasedTeams(['12-9'], {}), [])
+  assert.deepEqual(releasedTeams(['12-9'], { '12-9': {} }), [])
 })

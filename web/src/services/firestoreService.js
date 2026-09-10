@@ -112,6 +112,17 @@ export function setOffSeason(value) {
  * looking at a phase yourself is the `?phase=` preview, which touches
  * nothing.
  */
+/**
+ * Commissioner: which Power Rankings drops are public, as an array of drop
+ * keys. config/league is a live listener, so opening a drop reaches the
+ * league in seconds without anyone reloading.
+ */
+export function setRankingsReleased(keys) {
+  return updateDoc(doc(db, COL.config, 'league'), {
+    powerRankingsReleased: Array.isArray(keys) ? keys : [],
+  })
+}
+
 export function setPhaseOverride(phase) {
   return updateDoc(doc(db, COL.config, 'league'), { phaseOverride: phase || '' })
 }

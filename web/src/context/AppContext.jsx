@@ -71,6 +71,11 @@ export function AppProvider({ children }) {
   // The old manual `isOffSeason` boolean this replaces is still WRITTEN to
   // Firestore for the iOS app, but nothing here reads it any more.
   const [phaseOverride, setPhaseOverride] = useState('')
+  // Which Power Rankings drops are public. An ARRAY OF DROP KEYS, matching
+  // the generated payload — see services/rankingsRelease.js. Defaults to
+  // the first drop only, so a deploy never publishes the whole thing by
+  // accident; the commissioner opens the rest from Admin → Season.
+  const [rankingsReleased, setRankingsReleased] = useState(['12-9'])
   const [isInitialLoadComplete, setIsInitialLoadComplete] = useState(false)
   const [players, setPlayers] = useState([])
   const [draftPicks, setDraftPicks] = useState([])
@@ -174,6 +179,7 @@ export function AppProvider({ children }) {
     if (!config) return
     setActiveSeason(config.activeSeasonYear ?? 2026)
     setPhaseOverride(config.phaseOverride ?? '')
+    setRankingsReleased(config.powerRankingsReleased ?? ['12-9'])
     setRulesVotingOpen(config.rulesVotingOpen ?? false)
     setDisabledAreas(new Set(config.disabledAreas ?? []))
     setRolloverArmed(config.rolloverArmed ?? false)
@@ -401,6 +407,17 @@ export function AppProvider({ children }) {
       await fs.setPhaseOverride(phase).catch(() => setPhaseOverride(prev))
     },
     [phaseOverride],
+  )
+
+  /** Commissioner: open or close a Power Rankings drop (optimistic). */
+  const publishRankingsDrop = useCallback(
+    async (keys) => {
+      const prev = rankingsReleased
+      setRankingsReleased(keys)
+      if (DEV_PREVIEW) return
+      await fs.setRankingsReleased(keys).catch(() => setRankingsReleased(prev))
+    },
+    [rankingsReleased],
   )
 
   // ── Season phase ────────────────────────────────────────────
@@ -767,6 +784,7 @@ export function AppProvider({ children }) {
     // season phase — derived from the calendar (services/seasonPhase.js)
     seasonPhase, isPhase, phaseWindow,
     phaseOverride, setLeaguePhaseOverride,
+    rankingsReleased, publishRankingsDrop,
     phasePreview: URL_PHASE,
     isOffSeason,
     isInitialLoadComplete,

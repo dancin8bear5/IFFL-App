@@ -11,6 +11,7 @@ import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
 import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
+import { edition as RANKINGS_EDITION } from '../data/powerRankingsMeta'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -783,6 +784,17 @@ export default function DashboardView({ setTab }) {
   // The championship odds, written for the league and published here
   // instead of the group chat. Retires itself once the season rolls past
   // the one it was written for, rather than showing 2026's odds in 2027.
+  // The Power Rankings are their own page (#power-rankings) — a long read
+  // people arrive at from a GroupMe link. The tile is the in-app way in.
+  const rankingsTile = areaEnabled('rankings') && (
+    <HistoryTile
+      glyph="📋"
+      title="Taylor Made Power Rankings"
+      sub={`${RANKINGS_EDITION} · twelve teams, graded`}
+      onClick={() => { window.location.hash = 'power-rankings' }}
+    />
+  )
+
   // The odds are a long read, so they sit in the rail as a tile and open
   // in the standard overlay rather than taking the top of the main column.
   const oddsLive = areaEnabled('odds') && activeSeason === ODDS_SEASON
@@ -822,6 +834,7 @@ export default function DashboardView({ setTab }) {
     { key: 'playoffs',  node: playoffSection,   phases: ['regular', 'playoffs'], lead: ['playoffs'] },
     { key: 'calendar',  node: calendar },
     { key: 'messages',  node: messagesSection },
+    { key: 'rankings',  node: rankingsTile,     rail: true },
     { key: 'odds',      node: oddsTile,         rail: true, phases: ['preseason', 'regular'] },
     { key: 'rules',     node: rulesSection,     rail: true },
     { key: 'offers',    node: offerBanners },

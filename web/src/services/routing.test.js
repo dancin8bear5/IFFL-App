@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   normalizeHash, slugForTab, tabForSlug, allSlugs, SLUG_ALIASES,
-  parseRoute, teamSlug, teamFromSlug, rosterHash,
+  INITIAL_ROUTE, parseRoute, teamSlug, teamFromSlug, rosterHash,
 } from './routing.js'
 
 // Mirrors the real TABS shape closely enough to exercise the mapping.
@@ -118,14 +118,32 @@ const TEAMS = [
 ]
 
 test('parseRoute splits the tab from its parameter', () => {
-  assert.deepEqual(parseRoute('#rosters/a-zurek'), { slug: 'rosters', param: 'a-zurek' })
-  assert.deepEqual(parseRoute('#rosters'), { slug: 'rosters', param: '' })
+  assert.deepEqual(parseRoute('#rosters/a-zurek'), { slug: 'rosters', param: 'a-zurek', params: ['a-zurek'] })
+  assert.deepEqual(parseRoute('#rosters'), { slug: 'rosters', param: '', params: [] })
 })
 
 test('parseRoute survives the forms links arrive in', () => {
-  assert.deepEqual(parseRoute('#/rosters/bill'), { slug: 'rosters', param: 'bill' })
-  assert.deepEqual(parseRoute('#ROSTERS/BILL'), { slug: 'rosters', param: 'bill' })
-  assert.deepEqual(parseRoute('#rosters/bill?x=1'), { slug: 'rosters', param: 'bill' })
+  assert.deepEqual(parseRoute('#/rosters/bill'), { slug: 'rosters', param: 'bill', params: ['bill'] })
+  assert.deepEqual(parseRoute('#ROSTERS/BILL'), { slug: 'rosters', param: 'bill', params: ['bill'] })
+  assert.deepEqual(parseRoute('#rosters/bill?x=1'), { slug: 'rosters', param: 'bill', params: ['bill'] })
+})
+
+test('a deep link keeps EVERY segment, not just the first', () => {
+  // The power-rankings link is #power-rankings/2026-preseason/wayne-vh.
+  // Reading only `param` threw the team away and opened nothing — which is
+  // the bug that put `params` here.
+  const r = parseRoute('#power-rankings/2026-preseason/wayne-vh')
+  assert.equal(r.slug, 'power-rankings')
+  assert.deepEqual(r.params, ['2026-preseason', 'wayne-vh'])
+  assert.equal(r.params[r.params.length - 1], 'wayne-vh')
+  // ...and `param` still means what it always did, so Rosters is untouched.
+  assert.equal(r.param, '2026-preseason')
+})
+
+test('a link with no segments gives an empty params list, never undefined', () => {
+  assert.deepEqual(parseRoute('#dashboard').params, [])
+  assert.deepEqual(parseRoute('').params, [])
+  assert.deepEqual(parseRoute(null).params, [])
 })
 
 test('a tab slug still parses when the hash carries no parameter', () => {
@@ -173,4 +191,11 @@ test('rosterHash builds the shareable link', () => {
 test('a rosterHash parses back to the team it names', () => {
   const name = 'M. Zurek'
   assert.equal(teamFromSlug(parseRoute(rosterHash(name)).param, TEAMS), name)
+})
+
+test('INITIAL_ROUTE is a snapshot with the same shape as parseRoute', () => {
+  // Captured at module init so a deep link survives the URL writer
+  // normalising the hash before a lazy view mounts.
+  assert.equal(typeof INITIAL_ROUTE.slug, 'string')
+  assert.ok(Array.isArray(INITIAL_ROUTE.params))
 })

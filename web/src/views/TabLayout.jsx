@@ -27,6 +27,7 @@ const PodView = lazy(() => import('./PodView'))
 const RookieDraftRoomView = lazy(() => import('./RookieDraftRoomView'))
 const HistoryView = lazy(() => import('./HistoryView'))
 const AdminView = lazy(() => import('./AdminView'))
+const PowerRankingsView = lazy(() => import('./PowerRankingsView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see.
@@ -64,11 +65,16 @@ const TABS = [
   // nobody else can see fight for room in the bar.
   { label: 'Admin',            short: 'Admin',     glyph: '🛡', slug: 'admin',
     adminOnly: true, sidebarOnly: true },
+  // Reached from the Dashboard tile and from a shared link, not from the
+  // nav — a preseason document doesn't earn a permanent row in either bar.
+  // `urlOnly` keeps #power-rankings working while hiding it from both.
+  { label: 'Power Rankings',   short: 'Rankings',  glyph: '📋', slug: 'power-rankings',
+    urlOnly: true },
 ]
 
 export default function TabLayout({ tab, setTab }) {
   const {
-    incomingTradeCount, areaEnabled, isPodMember, isAdmin, isPhase,
+    incomingTradeCount, areaEnabled, isPodMember, isAdmin, isPhase, rankingsReleased,
     rookieDraftLive, isRookieDraftTester, isInitialLoadComplete, selectedTeam, setSelectedTeam,
   } = useApp()
   const isDesktop = useIsDesktop()
@@ -238,6 +244,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 6 && <RookieDraftRoomView />}
         {activeTab === 7 && <HistoryView />}
         {activeTab === 8 && <AdminView />}
+        {activeTab === 9 && <PowerRankingsView released={rankingsReleased} />}
       </Suspense>
     </ErrorBoundary>
   )

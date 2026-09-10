@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES, milestones } from '../data/staticData'
 import { PHASES, PHASE_META, resolvePhase } from '../services/seasonPhase'
+import { dropStates, DROP_KEYS } from '../services/rankingsRelease'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
@@ -3684,6 +3685,7 @@ function RepairTradeSection() {
 function SeasonSection() {
   const {
     seasonPhase, phaseOverride, setLeaguePhaseOverride, phaseWindow, phasePreview,
+    rankingsReleased, publishRankingsDrop,
   } = useApp()
   const [busy, setBusy] = useState(false)
 
@@ -3775,6 +3777,38 @@ function SeasonSection() {
             >
               {PHASE_META[p]?.glyph} {PHASE_META[p]?.label}
             </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Power Rankings drops — the show-day control. */}
+      <div className="iff-card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>Power Rankings — drops</div>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 3 }}>
+            Opening a drop reaches the whole league in seconds — nobody reloads. Tap an open
+            drop to pull it back.
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {dropStates(rankingsReleased).map((d, i) => (
+            <button
+              key={d.key}
+              onClick={() => publishRankingsDrop(
+                d.out ? DROP_KEYS.slice(0, i) : DROP_KEYS.slice(0, i + 1),
+              )}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
+                borderRadius: 9, textAlign: 'left', width: '100%',
+                background: d.out ? 'rgba(74,222,128,0.12)' : 'var(--iff-elevated)',
+                border: `1px solid ${d.out ? 'rgba(74,222,128,0.45)' : 'var(--iff-divider)'}`,
+              }}
+            >
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{d.label}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: d.out ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
+                {d.out ? 'LIVE' : 'locked'}
+              </span>
+            </button>
           ))}
         </div>
       </div>

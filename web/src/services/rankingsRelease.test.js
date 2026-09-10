@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DROPS, DROP_KEYS, normalizeReleased, isDropOut, dropStates,
-  releasedTeams, releasedRanks, isAnythingOut, ladderRows,
+  releasedTeams, releasedRanks, isAnythingOut, ladderRows, releaseSummary,
 } from './rankingsRelease.js'
 
 // A fixture, not the payload. The gating is about ranks and drop keys; tying
@@ -129,4 +129,20 @@ test('the ladder is DERIVED, so an unreleased placement has nowhere to leak from
 test('the ladder always has twelve rows, released or not', () => {
   assert.equal(ladderRows([], drops).length, 12)
   assert.deepEqual(ladderRows([], drops).map((r) => r.rank), [1,2,3,4,5,6,7,8,9,10,11,12])
+})
+
+test('the banner summary names what is ACTUALLY public', () => {
+  assert.equal(releaseSummary([]), null, 'nothing out → no banner at all')
+  assert.equal(releaseSummary('junk'), null)
+  assert.equal(releaseSummary(['intro']), 'The introduction is live')
+  assert.equal(releaseSummary(['intro', '12-9']), '12–9 is live')
+  assert.equal(releaseSummary(['12-9', '8-5']), '12–9 and 8–5 are live')
+  assert.equal(releaseSummary(['12-9', '8-5', '4-1']), 'All twelve, ranked')
+  assert.equal(releaseSummary(DROP_KEYS), 'All twelve, ranked')
+})
+
+test('the summary never promises ranks that are not out', () => {
+  // Introduction alone must not read as though the rankings have dropped.
+  assert.ok(!/\d/.test(releaseSummary(['intro'])))
+  assert.ok(!releaseSummary(['intro']).includes('twelve'))
 })

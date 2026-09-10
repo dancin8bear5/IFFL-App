@@ -281,8 +281,14 @@ TabLayout's URL writer had already normalised the hash to the bare slug
 before it mounted. `routing.INITIAL_ROUTE` captures the route at module
 init, the same fix `AppContext` documents for `deepLinkedTeam`.
 
-Reached from a Dashboard rail tile, not a nav row: the TABS entry is
-`urlOnly`. Release toggles live in **Admin → Season**.
+**It renders INLINE on the Dashboard**, first in the main column, not behind
+a link — `<PowerRankingsView embedded />`. Embedded mode drops the 760px
+reading wrapper (the column already constrains it) and starts every section
+COLLAPSED; expanded inline would push the whole rest of the Dashboard below
+eight thousand words. The standalone `#power-rankings` route still exists
+for shareable links and opens its sections by default, since there it is the
+only thing on screen. The block renders only when a section is actually
+released. Release toggles live in **Admin → Season**.
 
 ### Earlier draft, built then pulled back out (Sep 10, 2026)
 A full implementation shipped and was **removed the same day** at the

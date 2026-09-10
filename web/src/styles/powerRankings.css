@@ -243,3 +243,12 @@
 .pr-page .ladder .t { font-weight: 600; }
 .pr-page .ladder .o { color: var(--mut); font-size: 13px; margin-left: auto; text-align: right; }
 .pr-page .note { color: var(--mut); font-size: 13px; margin-top: 12px; }
+
+/* Inline on the Dashboard: the column already constrains the measure, so
+   the page's own 760px wrapper and side gutter would double up. Sections
+   sit closer together than on the standalone page, because here they are
+   competing with the rest of the Dashboard for height. */
+.pr-page .pr-embed { max-width: 100%; }
+.pr-page .pr-embed .mast { padding-bottom: 12px; }
+.pr-page .pr-embed section { margin-top: 14px; }
+.pr-page .pr-embed .drop { margin-top: 10px; }

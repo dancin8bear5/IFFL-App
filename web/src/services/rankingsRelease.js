@@ -99,3 +99,25 @@ export function ladderRows(released, drops) {
 export function isAnythingOut(released) {
   return normalizeReleased(released).length > 0
 }
+
+/**
+ * One line naming what is actually public, for the Dashboard banner.
+ *
+ * The banner has to be honest: pointing people at "the Power Rankings"
+ * when only the introduction is out sends them to a page of locked
+ * panels. Returns null when nothing is released, which is the banner's
+ * cue not to render at all.
+ */
+export function releaseSummary(released) {
+  const out = normalizeReleased(released)
+  if (!out.length) return null
+  const ranks = out.filter((k) => k !== 'intro')
+  const labelOf = (k) => DROPS.find((d) => d.key === k)?.label ?? k
+  if (!ranks.length) return 'The introduction is live'
+  if (ranks.length === RANK_DROPS.length) return 'All twelve, ranked'
+  const names = ranks.map((k) => labelOf(k).replace('Ranks ', ''))
+  const list = names.length === 1
+    ? names[0]
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+  return `${list} ${names.length === 1 ? 'is' : 'are'} live`
+}

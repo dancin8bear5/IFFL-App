@@ -169,7 +169,16 @@ function TeamCard({ team, open, onToggle }) {
   )
 }
 
-export default function PowerRankingsView() {
+/**
+ * `embedded` = rendered inline in the Dashboard's main column rather than
+ * as its own page. Two differences, both about not swallowing the page it
+ * is sitting in: the 760px reading wrapper comes off (the column already
+ * constrains it), and every section starts COLLAPSED. Expanded by default
+ * inline would push the entire rest of the Dashboard below eight thousand
+ * words. The standalone page at #power-rankings still opens its sections,
+ * because there it is the only thing on screen.
+ */
+export default function PowerRankingsView({ embedded = false }) {
   const [meta, setMeta] = useState(null)
   const [bodies, setBodies] = useState({})   // drop key → its fetched doc
   const [loading, setLoading] = useState(true)
@@ -227,10 +236,12 @@ export default function PowerRankingsView() {
 
   return (
     <div className="pr-page">
-      <div className="pr-wrap">
+      <div className={embedded ? 'pr-embed' : 'pr-wrap'}>
         <header className="mast">
           <div className="eyebrow">Insanity League · {data.edition}</div>
-          <h1>The Taylor Made Power Rankings</h1>
+          <h1 style={embedded ? { fontSize: 'clamp(24px,4.5vw,32px)', margin: '4px 0 8px' } : undefined}>
+            The Taylor Made Power Rankings
+          </h1>
           <p className="sub">Judged against one standard: IFFL CHAMPION.</p>
           <p className="sub">Every owner delivers Jared's verdict on their own team. In their own words.</p>
           <p className="sub mono" style={{ marginTop: 6 }}>{data.date}</p>
@@ -248,17 +259,10 @@ export default function PowerRankingsView() {
 
         {loading && <p className="sub" style={{ marginTop: 28 }}>Loading…</p>}
 
-        {!loading && !meta && (
-          <p className="sub" style={{ marginTop: 28 }}>
-            Nothing published yet. The commissioner publishes an edition with
-            <code> scripts/publish-power-rankings.mjs</code>, then opens each section
-            from Admin → Season.
-          </p>
-        )}
 
         {intro && (
         <section>
-          <details open>
+          <details open={!embedded}>
             <summary><span className="cond">The Taylor Made™️ Lookback</span></summary>
             <div className="tablewrap">
               <table>
@@ -299,8 +303,15 @@ export default function PowerRankingsView() {
         )}
 
         {intro && (
-        <section className="prose">
-          {(intro.intro ?? []).map((p, i) => <Voice text={p} key={i} />)}
+        <section>
+          <details open={!embedded}>
+            <summary><span className="cond">The State of the League</span></summary>
+            <div style={{ padding: '14px 16px' }}>
+              <div className="prose">
+                {(intro.intro ?? []).map((p, i) => <Voice text={p} key={i} />)}
+              </div>
+            </div>
+          </details>
         </section>
         )}
 
@@ -346,7 +357,7 @@ export default function PowerRankingsView() {
             }
             const mine = teams.filter((t) => t.rank <= d.from && t.rank >= d.to)
             return (
-              <details className="drop" id={`drop-${d.key}`} key={d.key} open>
+              <details className="drop" id={`drop-${d.key}`} key={d.key} open={!embedded}>
                 <summary>
                   <span className="dh cond">{d.label}</span>
                   <span className="count mono">{mine.length} teams</span>

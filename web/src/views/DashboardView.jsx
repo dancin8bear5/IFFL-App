@@ -2,7 +2,7 @@
 // Mobile: single-column stack under the hero (unchanged from v1).
 // Desktop: page heading + two-column grid — main (team card, calendar,
 // teams, trades) and rail (trophy room, matches, messages).
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
@@ -11,7 +11,9 @@ import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
 import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
-import { edition as RANKINGS_EDITION } from '../data/powerRankingsMeta'
+import { editionId as RANKINGS_EDITION_ID } from '../data/powerRankingsMeta'
+import { releaseSummary } from '../services/rankingsRelease'
+import * as fs from '../services/firestoreService'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
 import TradeDetailView from '../components/TradeDetailView'
@@ -21,13 +23,15 @@ import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
 import OddsBoard from '../components/OddsBoard'
+// Lazy: the rankings view carries its own stylesheet and is only needed
+// once a section is released, so it loads after the Dashboard has painted.
+const PowerRankings = lazy(() => import('./PowerRankingsView'))
 import SeasonScoringChart from '../components/SeasonScoringChart'
 import PlayoffBracket from '../components/PlayoffBracket'
 import RulesOverlay, { categoryMeta } from '../components/RulesView'
 import TransactionLedger from '../components/TransactionLedger'
 import ParlayView from '../components/ParlayView'
 import SettingsView from './SettingsView'
-import { useEffect } from 'react'
 
 const KEEPER_POS = ['QB', 'RB', 'WR', 'TE']
 
@@ -72,6 +76,15 @@ export default function DashboardView({ setTab }) {
   const [detailAsset, setDetailAsset] = useState(null)
   const [detailTrade, setDetailTrade] = useState(null)
   const [historyView, setHistoryView] = useState(null) // 'trophy' | 'power' | 'odds'
+  // What the Power Rankings banner is allowed to claim. A listener on a
+  // tiny doc that carries no content, so opening a section lights the
+  // banner up for everyone without a reload.
+  const [rankingsReleased, setRankingsReleased] = useState(null)
+  useEffect(
+    () => fs.listenToPowerRankingsMeta(RANKINGS_EDITION_ID, (m) => setRankingsReleased(m?.released)),
+    [],
+  )
+  const rankingsSummary = releaseSummary(rankingsReleased)
   const [showRules, setShowRules] = useState(false)
   const [showLedger, setShowLedger] = useState(false)
   const [showParlay, setShowParlay] = useState(false)
@@ -784,15 +797,14 @@ export default function DashboardView({ setTab }) {
   // The championship odds, written for the league and published here
   // instead of the group chat. Retires itself once the season rolls past
   // the one it was written for, rather than showing 2026's odds in 2027.
-  // The Power Rankings are their own page (#power-rankings) — a long read
-  // people arrive at from a GroupMe link. The tile is the in-app way in.
-  const rankingsTile = areaEnabled('rankings') && (
-    <HistoryTile
-      glyph="📋"
-      title="Taylor Made Power Rankings"
-      sub={`${RANKINGS_EDITION} · twelve teams, graded`}
-      onClick={() => { window.location.hash = 'power-rankings' }}
-    />
+  // The Power Rankings sit IN the Dashboard, not behind a link — the whole
+  // piece, in the main column, every section collapsed so it leads without
+  // burying everything under it. Renders only when something is actually
+  // released; an empty masthead over four locked bars helps nobody.
+  const rankingsBlock = areaEnabled('rankings') && rankingsSummary && (
+    <Suspense fallback={<LoadingList count={2} />}>
+      <PowerRankings embedded />
+    </Suspense>
   )
 
   // The odds are a long read, so they sit in the rail as a tile and open
@@ -821,6 +833,7 @@ export default function DashboardView({ setTab }) {
   // `lead` promotes a section to the top in the phases that name it —
   // during the playoffs the bracket is the reason people opened the app.
   const SECTIONS = [
+    { key: 'rankings',  node: rankingsBlock },
     { key: 'closed',    node: closedNotice,     phases: ['dead'] },
     { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
     // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the
@@ -834,7 +847,6 @@ export default function DashboardView({ setTab }) {
     { key: 'playoffs',  node: playoffSection,   phases: ['regular', 'playoffs'], lead: ['playoffs'] },
     { key: 'calendar',  node: calendar },
     { key: 'messages',  node: messagesSection },
-    { key: 'rankings',  node: rankingsTile,     rail: true },
     { key: 'odds',      node: oddsTile,         rail: true, phases: ['preseason', 'regular'] },
     { key: 'rules',     node: rulesSection,     rail: true },
     { key: 'offers',    node: offerBanners },

@@ -398,17 +398,24 @@ M. Zurek = known 2008 champion). The full mapping prints when the script runs.
   `~/Documents/Claude/Projects/IFFL/"iOS App"`. Neither exists. There is
   also `~/Desktop/IFFL-backup-2026-08-16`, a dated snapshot — never deploy
   from it.
-  The machine's hostname changed from `taylor-mac-pro` to `taylor-pro-2`
-  at some point; both names are the same MacBook Pro, not two machines.
+  **There is only ever one machine**, and it is a **MacBook Pro**
+  (`Mac15,6`, M3 Pro) despite being *named* "Mac Pro" — not a Mac Pro
+  desktop. Verified Sep 4, 2026: `ComputerName` = `Taylor Mac Pro`,
+  `LocalHostName` = `Taylor-Mac-Pro-4`, `HostName` unset, Tailscale node
+  `taylor-mac-pro`. An earlier note here claimed the hostname had changed
+  to `taylor-pro-2`; it had not, and no system name on this laptop has ever
+  been that. `taylor-pro-2` survives only in the name of the
+  `archive/taylor-pro-2-local` git branch below.
 - **`web/.env` is gitignored and always will be.** It holds the Firebase
   web config. A fresh clone therefore builds *successfully* and produces an
   app that cannot reach Firebase — a silent failure that reads like a
   broken deploy. Copy the file across by hand; template at
   `web/.env.example`, values from Console → Project settings → Your apps → Web.
-- **`archive/taylor-pro-2-local`** holds work that once existed on that
-  laptop only: the parallel Supabase backend (`backend/` — migrations,
-  seed scripts, `2026_IFFL_Master.xlsx`) and a second native app
-  (`ios/IFFL/`, separate from the CodeRed target). Both are gitignored on
+- **`archive/taylor-pro-2-local` is a git BRANCH, not a folder** (it exists
+  locally and on `origin`; there is no `archive/` directory to look in). It
+  holds work that once existed on that laptop only: the parallel Supabase
+  backend (`backend/` — migrations, seed scripts, `2026_IFFL_Master.xlsx`)
+  and a second native app (`ios/IFFL/`, separate from the CodeRed target). Both are gitignored on
   the working branch; `ios/build` alone is 600MB.
 - Branch protection on `main` — pushes are rejected, PRs required.
 - Active development branch: `claude/insanity-league-ios-app-g73Jo`.

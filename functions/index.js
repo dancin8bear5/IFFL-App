@@ -1221,3 +1221,7 @@ exports.pollEspnGmail = onSchedule(
 // either. functions/pipeline.test.js injects a fake Firestore and drives
 // these directly. Production never touches this export.
 exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets};
+
+// League-state export consumed by the Agent Control Center on the NAS
+// (job `iffl-snapshot`). Shared-secret auth; see leagueState.js.
+exports.leagueState = require("./leagueState").leagueState;

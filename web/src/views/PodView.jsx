@@ -7,7 +7,7 @@
 // preseason Rankings table, Awards, and Bold Calls. Rankings/Awards/Bold
 // Calls seed from data/podData.js and are editable in-app; whatever's
 // saved to config/pod wins once written.
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import * as fs from '../services/firestoreService'
 import { computeTrueRecord, parseWeekScores } from '../services/trueRecord'
@@ -16,6 +16,9 @@ import {
   POD_AWARDS_2025, POD_BOLD_CALLS_2025, POD_SEED_SEASON,
 } from '../data/podData'
 import { TeamAvatar } from '../components/shared'
+import {
+  spoilerId, isBlank, isRevealed, toggle as toggleSpoiler, loadStore, saveStore,
+} from '../services/podSpoiler'
 
 // Same preview switch the rest of the app uses — lets the POD screens be
 // exercised without Firebase. Compiled out of production builds.
@@ -38,6 +41,17 @@ export default function PodView() {
   const [module, setModule] = useState('trueRecord')
   const [pod, setPod] = useState(null) // null = loading
   const [saving, setSaving] = useState(false)
+  // Which entries have been clicked open. Lives in this browser only — see
+  // services/podSpoiler.js for why it is keyed to the value and not the cell.
+  const [revealed, setRevealed] = useState(loadStore)
+
+  const toggleReveal = useCallback((id, value) => {
+    setRevealed((prev) => {
+      const next = toggleSpoiler(prev, id, value)
+      saveStore(next)
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (DEV_PREVIEW) { setPod({}); return }  // no Firebase in preview — fall back to seeded data
@@ -86,8 +100,8 @@ export default function PodView() {
 
       {module === 'trueRecord' && <TrueRecordModule pod={pod} setPod={setPod} season={activeSeason} weeklyScores={weeklyScores} />}
       {module === 'rankings' && <RankingsModule pod={pod} persist={persist} />}
-      {module === 'awards' && <AwardsModule pod={pod} persist={persist} />}
-      {module === 'bold' && <BoldCallsModule pod={pod} persist={persist} />}
+      {module === 'awards' && <AwardsModule pod={pod} persist={persist} revealed={revealed} onReveal={toggleReveal} />}
+      {module === 'bold' && <BoldCallsModule pod={pod} persist={persist} revealed={revealed} onReveal={toggleReveal} />}
     </div>
   )
 }
@@ -326,9 +340,39 @@ function RankingsModule({ pod, persist }) {
   )
 }
 
+// ── Spoiler ────────────────────────────────────────────────────
+
+/**
+ * One entry, black until clicked.
+ *
+ * The value stays in the DOM and is hidden with colour rather than being
+ * swapped for a placeholder — that is what keeps the awards table's column
+ * widths identical before and after a reveal, so opening one cell can't
+ * shove the rows around it. See theme.css `.pod-spoiler`.
+ *
+ * A blank entry is returned untouched: a black bar over an empty cell would
+ * advertise a pick nobody made.
+ */
+function Spoiler({ id, value, revealed, onReveal, blank = '—' }) {
+  if (isBlank(value)) return blank
+  const shown = isRevealed(revealed, id, value)
+  return (
+    <button
+      type="button"
+      className={shown ? 'pod-spoiler revealed' : 'pod-spoiler'}
+      onClick={() => onReveal(id, value)}
+      aria-expanded={shown}
+      aria-label={shown ? `Hide ${value}` : 'Reveal this pick'}
+      title={shown ? 'Click to hide again' : 'Click to reveal'}
+    >
+      {value}
+    </button>
+  )
+}
+
 // ── Awards ─────────────────────────────────────────────────────
 
-function AwardsModule({ pod, persist }) {
+function AwardsModule({ pod, persist, revealed, onReveal }) {
   const stored = pod.awards
   const awards = stored ?? POD_AWARDS_2025
   const predictors = pod.awardPredictors ?? POD_AWARD_PREDICTORS
@@ -387,7 +431,14 @@ function AwardsModule({ pod, persist }) {
                         }}
                         style={{ width: '100%', minWidth: 120 }}
                       />
-                    ) : (a.picks?.[p] || '—')}
+                    ) : (
+                      <Spoiler
+                        id={spoilerId(a.category, p)}
+                        value={a.picks?.[p]}
+                        revealed={revealed}
+                        onReveal={onReveal}
+                      />
+                    )}
                   </td>
                 ))}
               </tr>
@@ -401,7 +452,7 @@ function AwardsModule({ pod, persist }) {
 
 // ── Bold Calls ─────────────────────────────────────────────────
 
-function BoldCallsModule({ pod, persist }) {
+function BoldCallsModule({ pod, persist, revealed, onReveal }) {
   const stored = pod.boldCalls
   const calls = stored ?? POD_BOLD_CALLS_2025
   const hosts = Object.keys(calls)
@@ -455,8 +506,17 @@ function BoldCallsModule({ pod, persist }) {
                   />
                 ) : (
                   <div style={{ fontSize: 12.5, lineHeight: 1.5, display: 'flex', gap: 7 }}>
+                    {/* The number stays legible; only the call is covered. */}
                     <span style={{ color: 'var(--iff-subtext)', flexShrink: 0 }}>{i + 1}.</span>
-                    <span>{call}</span>
+                    <span style={{ minWidth: 0 }}>
+                      <Spoiler
+                        id={spoilerId(host, i)}
+                        value={call}
+                        revealed={revealed}
+                        onReveal={onReveal}
+                        blank=""
+                      />
+                    </span>
                   </div>
                 )}
               </div>

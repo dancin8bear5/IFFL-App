@@ -196,6 +196,40 @@ bug was there for `disabledAreas`, `liveScores` and `rulesVotingOpen`, all
 of which are flipped during the thing they affect. The one-shot read still
 runs first because it gates team resolution and the `claimTeam` fallback.
 
+### POD awards & bold calls — redacted until clicked (Sep 10, 2026)
+The three hosts enter their picks before the show and then screen-share the
+page while recording, so plain text spoiled every pick the moment the tab
+opened. Each entry now renders as a **black bar until it is clicked**; click
+again to re-hide. Blank entries are left alone — a bar over an empty cell
+would advertise a pick nobody made.
+
+**The rule worth knowing: a reveal is tied to the VALUE, not the cell.**
+`web/src/services/podSpoiler.js` (10 tests) stores id → the exact string that
+was revealed, and an entry counts as revealed only while the current value
+still matches. Key it by position instead and next season's MVP pick shows up
+already revealed the instant it is saved, because that cell was clicked a year
+ago. Editing a pick therefore sends it back to black, which is the behaviour
+you want and the bug nobody would think to test for.
+
+Reveal state is per-browser (`localStorage`, key `iffl.pod.revealed`) and is
+**never written to `config/pod`** — it is a viewing preference, not league
+data. That doc is a one-shot `getDoc` with no listener, so a stored reveal
+would not reach the other two hosts live anyway.
+
+The hidden text stays in the DOM at `color: transparent` rather than being
+swapped for a placeholder, which is what keeps the awards table's column
+widths identical before and after a reveal — a placeholder reflows the rows
+mid-show. `user-select` is off while hidden so a stray drag-select can't leak
+an unrevealed pick. The `.pod-spoiler` transition lives in `theme.css`, not
+inline, so `prefers-reduced-motion` can actually turn it off (the rule set by
+`.legacy-bar`).
+
+Read-mode only: Edit shows everything in the clear, since you can't fix a typo
+you can't read. **Bold calls already had one `<textarea>` per call** — that
+half of the request needed no restructuring. `RankingsModule` has the same
+bare-expression shape at `PodView.jsx:314` and is a one-line addition if the
+rankings ever want the same treatment.
+
 ### Trade history 2022–2024 (Aug 31, 2026)
 101 trades / 409 asset movements, from the league's hand-kept workbook
 (`data/Trades_2022-2024.xlsx`). **2025 was never kept — 2022-24 plus 2026 is

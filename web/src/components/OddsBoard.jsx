@@ -62,9 +62,23 @@ function OddsBadge({ odds, big }) {
   )
 }
 
-/** One team: the header row, then the blurb in full. */
+/**
+ * One team: the header row, then the blurb.
+ *
+ * Each card collapses on its own so a reader can shrink the ones they've
+ * finished and keep their place — twelve write-ups is a long scroll in a
+ * popup. Open by default, because the popup exists to read the thing.
+ *
+ * The row is clickable rather than being a <button>, because the owner
+ * name is a link to that roster: an anchor nested in a button is invalid
+ * and the toggle would swallow the link. So the row handles the mouse and
+ * skips clicks that came from a link, and the chevron is a real button
+ * carrying the keyboard path and aria-expanded.
+ */
 function OddsCard({ entry, mine }) {
   const team = teamByName[entry.team]
+  const [open, setOpen] = useState(true)
+  const toggle = () => setOpen((v) => !v)
   return (
     <div
       className="iff-card"
@@ -81,7 +95,10 @@ function OddsCard({ entry, mine }) {
       }}
     >
       <div style={{ flex: 1, minWidth: 0, padding: '12px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+        <div
+          onClick={(e) => { if (!e.target.closest('a')) toggle() }}
+          style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}
+        >
           <span
             className="tnum"
             style={{ fontSize: 11, fontWeight: 800, color: 'var(--iff-subtext)', width: 16, flexShrink: 0 }}
@@ -99,10 +116,23 @@ function OddsCard({ entry, mine }) {
             </span>
           </span>
           <OddsBadge odds={entry.odds} big />
+          <button
+            // The row toggles too, and this sits inside it — without
+            // stopping the bubble the click fires both handlers and the
+            // card toggles twice, which looks exactly like a dead button.
+            onClick={(e) => { e.stopPropagation(); toggle() }}
+            aria-expanded={open}
+            aria-label={open ? `Collapse ${entry.name}` : `Expand ${entry.name}`}
+            style={{ fontSize: 12, color: 'var(--iff-subtext)', padding: '2px 0 2px 4px', flexShrink: 0 }}
+          >
+            {open ? '⌃' : '⌄'}
+          </button>
         </div>
-        <p style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--iff-subtext)', margin: '10px 0 0' }}>
-          {entry.body}
-        </p>
+        {open && (
+          <p style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--iff-subtext)', margin: '10px 0 0' }}>
+            {entry.body}
+          </p>
+        )}
       </div>
     </div>
   )

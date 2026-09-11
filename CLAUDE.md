@@ -257,9 +257,20 @@ Owner names come from `teamByEspnName` → `fantasyTeams`, so the grid shows
 `B (with Watson)` — too wide for a column, so the cell shows the letter and
 the full string is the `title`.
 
-**The ladder is derived, never stored.** A stored ladder has to carry all
-twelve rank→team pairs to be useful and that IS the reveal, so
-`ladderRows()` builds it from whichever drops are public.
+**The Ladder is gone** (Sep 11) — the Grade Sheet replaced it at the bottom
+of the page. Same twelve rows, strictly more information, and two tables of
+the same teams is one too many. `ladderRows()` and its tests went with it;
+git has them if it ever comes back. Consequence worth knowing: the Grade
+Sheet is gated to `4-1`, so before the last drop there is now NO summary
+table at the bottom, where the ladder used to fill in progressively.
+
+**Columns sort on click, and grades sort on the LEAGUE SCALE.**
+`services/gradeScale.js` (7 tests) exists because alphabetical sorting of
+grades is wrong in a way that looks almost right: `"A+" < "A" < "A-"` by
+string comparison, so an alphabetical Verdict column puts A above A+ and
+buries the best team mid-table. Bench/Owner sorts on the mean of its pair.
+A missing value sinks in BOTH directions, and rank is the tiebreak
+everywhere so equal grades don't shuffle between clicks.
 
 **Sort on `rank`, never on `score`.** Two placements deliberately contradict
 the weighted number — Dugan #2 over Faybik #3 on an identical 3.110, and

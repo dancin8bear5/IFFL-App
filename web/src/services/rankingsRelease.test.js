@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DROPS, DROP_KEYS, normalizeReleased, isDropOut, dropStates,
-  releasedTeams, releasedRanks, isAnythingOut, ladderRows, releaseSummary,
+  releasedTeams, releasedRanks, isAnythingOut, releaseSummary,
   isGradeSheetOut, GRADE_SHEET_DROP,
 } from './rankingsRelease.js'
 
@@ -114,23 +114,7 @@ test('gates are INDEPENDENT — any one opens without the others', () => {
   assert.equal(isDropOut(['intro'], '12-9'), false)
 })
 
-test('the ladder is DERIVED, so an unreleased placement has nowhere to leak from', () => {
-  const named = (rel) => ladderRows(rel, drops).filter((r) => r.out).map((r) => r.rank)
-  assert.deepEqual(named([]), [])
-  assert.deepEqual(named(['intro']), [])
-  assert.deepEqual(named(['12-9']), [9, 10, 11, 12])
-  assert.deepEqual(named(DROP_KEYS), [1,2,3,4,5,6,7,8,9,10,11,12])
-  // a locked row carries no team and no owner at all
-  const locked = ladderRows(['12-9'], drops).find((r) => r.rank === 1)
-  assert.equal(locked.out, false)
-  assert.equal(locked.team, undefined)
-  assert.equal(locked.owner, undefined)
-})
 
-test('the ladder always has twelve rows, released or not', () => {
-  assert.equal(ladderRows([], drops).length, 12)
-  assert.deepEqual(ladderRows([], drops).map((r) => r.rank), [1,2,3,4,5,6,7,8,9,10,11,12])
-})
 
 test('the banner summary names what is ACTUALLY public', () => {
   assert.equal(releaseSummary([]), null, 'nothing out → no banner at all')

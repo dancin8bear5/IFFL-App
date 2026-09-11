@@ -280,3 +280,17 @@
 /* The team column earns a floor: below this the long names wrap to three
    lines and the row height doubles, which costs more than the width saves. */
 .pr-page table.gradesheet td:nth-child(2) { min-width: 104px; }
+
+/* Sortable headers. The whole header is the hit target, not a tiny glyph. */
+.pr-page table.gradesheet th { padding: 0; }
+.pr-page .sortbtn {
+  display: inline-flex; align-items: baseline; gap: 4px; width: 100%;
+  padding: 6px; font: inherit; color: var(--mut); text-align: inherit;
+  letter-spacing: .12em; text-transform: uppercase; font-weight: 700; font-size: 12px;
+  border-radius: 5px; cursor: pointer;
+}
+.pr-page th.num .sortbtn { justify-content: flex-end; }
+.pr-page .sortbtn:hover { color: var(--txt); background: rgba(255,255,255,.04); }
+.pr-page .sortbtn.active { color: var(--txt); }
+.pr-page .sortbtn:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.pr-page .sortbtn .arrow { font-size: 8px; opacity: .8; }

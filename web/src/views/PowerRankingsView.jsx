@@ -21,11 +21,11 @@ import { useEffect, useRef, useState } from 'react'
 import { INITIAL_ROUTE } from '../services/routing'
 import * as fs from '../services/firestoreService'
 import {
-  DROPS, dropStates, normalizeReleased, releasedTeams, ladderRows, isDropOut,
-  isGradeSheetOut,
+  DROPS, dropStates, normalizeReleased, releasedTeams, isDropOut, isGradeSheetOut,
 } from '../services/rankingsRelease'
 import { edition as EDITION, editionId as EDITION_ID } from '../data/powerRankingsMeta'
 import { teamByEspnName, teamByName } from '../data/staticData'
+import { gradeValue, pairValue } from '../services/gradeScale'
 import '../styles/powerRankings.css'
 
 // THE CONTENT IS NEVER BUNDLED, and there is deliberately no import of it
@@ -72,6 +72,60 @@ function Voice({ text, className }) {
       ))}
     </>
   )
+}
+
+/**
+ * The Grade Sheet's columns, each declaring how it sorts.
+ *
+ * `get` returns the value to compare, so grades sort on the league scale
+ * (gradeScale.js) rather than alphabetically — the difference between A+
+ * leading the table and A+ sitting third.
+ *
+ * `dir` is the direction a FIRST click applies. Rank ascending puts the
+ * champion on top; everything else descending puts the best value on top,
+ * which is what you want from one click on QB. Text sorts A→Z.
+ */
+const COLUMNS = [
+  { key: 'rank', label: '#', num: true, dir: 'asc', get: (t) => t.rank },
+  { key: 'team', label: 'Team', dir: 'asc', get: (t) => t.team },
+  { key: 'owner', label: 'Owner', dir: 'asc', get: (t) => ownerShort(t) },
+  { key: 'QB', label: 'QB', num: true, dir: 'desc', get: (t) => gradeValue(t.grades?.QB) },
+  { key: 'RB', label: 'RB', num: true, dir: 'desc', get: (t) => gradeValue(t.grades?.RB) },
+  { key: 'WR', label: 'WR', num: true, dir: 'desc', get: (t) => gradeValue(t.grades?.WR) },
+  { key: 'TE', label: 'TE', num: true, dir: 'desc', get: (t) => gradeValue(t.grades?.TE) },
+  { key: 'bo', label: 'Bench / Owner', num: true, dir: 'desc',
+    get: (t) => pairValue(t.grades?.DEPTH, t.grades?.OWNER) },
+  { key: 'pivot', label: 'Pivot Player', dir: 'asc', get: (t) => t.pivot?.player },
+  { key: 'overall', label: 'Verdict', num: true, dir: 'desc', get: (t) => gradeValue(t.overall) },
+  { key: 'score', label: 'Score', num: true, dir: 'desc', get: (t) => t.score },
+]
+
+const ownerShort = (t) =>
+  teamByName[teamByEspnName[String(t.team).toLowerCase()]]?.name ?? t.owner
+
+/** Click the active column to flip it; click a new one to start on its own default. */
+function nextSort(current, col) {
+  return current.col === col.key
+    ? { col: col.key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+    : { col: col.key, dir: col.dir }
+}
+
+function sortTeams(teams, sort) {
+  const col = COLUMNS.find((c) => c.key === sort.col) ?? COLUMNS[0]
+  const sign = sort.dir === 'asc' ? 1 : -1
+  return [...teams].sort((a, b) => {
+    const x = col.get(a)
+    const y = col.get(b)
+    // A missing value sinks to the bottom in BOTH directions — flipping the
+    // sort should reorder the data, not float the gaps to the top.
+    if (x == null && y == null) return a.rank - b.rank
+    if (x == null) return 1
+    if (y == null) return -1
+    const cmp = typeof x === 'string' ? x.localeCompare(y) : x - y
+    // Rank is the tiebreak everywhere, so equal grades stay in ranking order
+    // rather than shuffling between clicks.
+    return cmp === 0 ? a.rank - b.rank : cmp * sign
+  })
 }
 
 const SECTIONS = [
@@ -211,8 +265,8 @@ export default function PowerRankingsView({ embedded = false }) {
   const drops = dropStates(released)
   const teams = releasedTeams(released, bodies)
   const intro = isDropOut(released, 'intro') ? bodies.intro : null
-  const ladder = ladderRows(released, bodies)
   const data = { edition: meta?.edition ?? EDITION, date: meta?.date ?? '' }
+  const [sort, setSort] = useState({ col: 'rank', dir: 'asc' })
 
   // A deep link opens exactly one card. Read once on mount — after that the
   // reader is in charge of what's open.
@@ -380,13 +434,15 @@ export default function PowerRankingsView({ embedded = false }) {
           })}
         </section>
 
-        {/* The grade sheet. Gated to the LAST drop by isGradeSheetOut —
-            every team's grades, pivot and score in one grid is the entire
-            document at a glance, so it cannot appear while anything is
-            still held back. Derived from the payload, never hardcoded:
-            a second copy of these numbers would go stale the first time
-            the generator ran again, and would put all twelve placements
-            in the bundle. */}
+        {/* The Grade Sheet, at the bottom where the Ladder used to be.
+            It REPLACED the ladder rather than joining it: same twelve rows,
+            strictly more information, and two tables of the same teams is
+            one table too many.
+
+            Still gated to the LAST drop by isGradeSheetOut — every grade,
+            pivot and score in one grid is the whole document at a glance,
+            so it cannot appear while anything is held back. Derived from
+            the payload, never hardcoded. */}
         {isGradeSheetOut(released) && teams.length > 0 && (
         <section>
           <details open={!embedded}>
@@ -395,29 +451,34 @@ export default function PowerRankingsView({ embedded = false }) {
               <table className="gradesheet">
                 <thead>
                   <tr>
-                    <th className="num">#</th>
-                    <th>Team</th>
-                    <th>Owner</th>
-                    <th className="num">QB</th>
-                    <th className="num">RB</th>
-                    <th className="num">WR</th>
-                    <th className="num">TE</th>
-                    <th className="num">Bench / Owner</th>
-                    <th>Pivot Player</th>
-                    <th className="num">Verdict</th>
-                    <th className="num">Score</th>
+                    {COLUMNS.map((c) => {
+                      const active = sort.col === c.key
+                      return (
+                        <th
+                          key={c.key}
+                          className={c.num ? 'num' : undefined}
+                          aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                        >
+                          <button
+                            type="button"
+                            className={`sortbtn${active ? ' active' : ''}`}
+                            onClick={() => setSort(nextSort(sort, c))}
+                            title={`Sort by ${c.label}`}
+                          >
+                            {c.label}
+                            <span className="arrow">{active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
+                          </button>
+                        </th>
+                      )
+                    })}
                   </tr>
                 </thead>
                 <tbody>
-                  {[...teams].sort((a, b) => a.rank - b.rank).map((t) => {
+                  {sortTeams(teams, sort).map((t) => {
                     const g = t.grades ?? {}
-                    // Short owner name from the app's own identity map, so the
-                    // grid stays narrow and reads like the rest of the app.
-                    // Falls back to the payload's full name if a team is ever
-                    // renamed out from under the map.
                     const short = teamByName[teamByEspnName[String(t.team).toLowerCase()]]?.name
-                    // "B (with Watson)" is too wide for a grade column — the
-                    // letter goes in the cell, the whole thing in the tooltip.
+                    // The same band colours the cards use — a grade means the
+                    // same thing here as it does on the card it came from.
                     const cell = (v) => (
                       <td className={`num v ${band(v)}`} title={v}>{String(v ?? '').split(' ')[0]}</td>
                     )
@@ -441,36 +502,10 @@ export default function PowerRankingsView({ embedded = false }) {
                 </tbody>
               </table>
             </div>
+            <div className="foot">Click any column to sort. Grades sort by the league scale, not alphabetically.</div>
           </details>
         </section>
         )}
-
-        <section>
-          <div className="eyebrow">The Ladder · {data.edition}</div>
-          <ol className="ladder" style={{ marginTop: 10 }}>
-            {ladder.map((row) => {
-              const out = row.out
-              return (
-                <li key={row.rank} className={out ? '' : 'locked'}>
-                  <span className="r mono">{row.rank}</span>
-                  {out ? (
-                    <>
-                      <span className="t">{row.team}</span>
-                      <span className="o">{row.owner}</span>
-                    </>
-                  ) : (
-                    <span className="t" style={{ fontWeight: 400, fontStyle: 'italic' }}>Not yet released</span>
-                  )}
-                </li>
-              )
-            })}
-          </ol>
-          <p className="note">
-            Grades: A green · B blue · C amber · D red. Weighted QB 25% · RB 30% · WR 20% ·
-            TE 10% · Bench 5% · Owner 10%. Overall is a ladder-slot grade, not the raw score —
-            which is why two teams sit above a higher score.
-          </p>
-        </section>
       </div>
     </div>
   )

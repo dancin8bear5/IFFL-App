@@ -80,21 +80,6 @@ export function releasedRanks(released) {
   return ranks
 }
 
-/**
- * The ladder, derived from the teams that are actually public rather than
- * from a stored list. A stored ladder would have to carry all twelve
- * rank→team pairs to be useful, and that IS the spoiler — knowing rank 1
- * is Meta Knights is the whole reveal. Deriving it means an unreleased
- * placement has nowhere to leak from.
- */
-export function ladderRows(released, drops) {
-  const byRank = new Map(releasedTeams(released, drops).map((t) => [t.rank, t]))
-  return Array.from({ length: 12 }, (_, i) => {
-    const rank = i + 1
-    const t = byRank.get(rank)
-    return t ? { rank, team: t.team, owner: t.owner, out: true } : { rank, out: false }
-  })
-}
 
 export function isAnythingOut(released) {
   return normalizeReleased(released).length > 0

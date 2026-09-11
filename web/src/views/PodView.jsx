@@ -19,6 +19,7 @@ import { TeamAvatar } from '../components/shared'
 import {
   spoilerId, isBlank, isRevealed, toggle as toggleSpoiler, loadStore, saveStore,
 } from '../services/podSpoiler'
+import { columnFor, mergeAwardPicks, hasChanges } from '../services/podAwards'
 
 // Same preview switch the rest of the app uses — lets the POD screens be
 // exercised without Firebase. Compiled out of production builds.
@@ -373,38 +374,67 @@ function Spoiler({ id, value, revealed, onReveal, blank = '—' }) {
 // ── Awards ─────────────────────────────────────────────────────
 
 function AwardsModule({ pod, persist, revealed, onReveal }) {
+  const { userTeam } = useApp()
   const stored = pod.awards
   const awards = stored ?? POD_AWARDS_2025
   const predictors = pod.awardPredictors ?? POD_AWARD_PREDICTORS
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  // The one column this host owns. Null means read-only — see
+  // services/podAwards.js; the commissioner gets no override, because a
+  // prediction somebody else can edit is not a prediction.
+  const myColumn = columnFor(userTeam, predictors)
 
   function startEdit() {
     setDraft(JSON.parse(JSON.stringify(awards)))
     setEditing(true)
   }
+
   async function save() {
-    await persist({ awards: draft, awardPredictors: predictors })
-    setEditing(false)
+    setSaving(true)
+    try {
+      // Merge onto a FRESH read, not onto the copy this editor opened with.
+      // config/pod has no listener, so the screen can be minutes stale, and
+      // saving the stale copy is exactly how one host reverts another.
+      let latest = awards
+      try {
+        const fresh = await fs.fetchPodContent()
+        if (fresh?.awards) latest = fresh.awards
+      } catch { /* offline or preview — merge onto what we have */ }
+      const merged = mergeAwardPicks(latest, draft, myColumn)
+      await persist({ awards: merged })
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const rows = editing ? draft : awards
+  const dirty = editing && hasChanges(awards, draft, myColumn)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', flex: 1 }}>
           One pick per host, per category.
+          {myColumn
+            ? ` You edit the ${myColumn} column; a blank leaves what's already there.`
+            : ' Read-only — this account owns no column.'}
           {!stored && ` (Showing seeded ${POD_SEED_SEASON} data until you save an edit.)`}
         </div>
         {editing ? (
           <>
-            <button className="btn-primary" onClick={save} style={{ fontSize: 11, padding: '5px 12px' }}>Save</button>
+            <button className="btn-primary" onClick={save} disabled={saving || !dirty}
+                    style={{ fontSize: 11, padding: '5px 12px', opacity: saving || !dirty ? 0.5 : 1 }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
             <button onClick={() => setEditing(false)} style={{ fontSize: 11, padding: '5px 12px', color: 'var(--iff-subtext)' }}>Cancel</button>
           </>
-        ) : (
+        ) : myColumn ? (
           <button className="btn-outline" onClick={startEdit} style={{ fontSize: 11, padding: '5px 12px' }}>Edit</button>
-        )}
+        ) : null}
       </div>
 
       <div className="iff-card" style={{ overflowX: 'auto' }}>
@@ -421,7 +451,10 @@ function AwardsModule({ pod, persist, revealed, onReveal }) {
                 <td style={{ padding: '9px 12px', fontWeight: 700 }}>{a.category}</td>
                 {predictors.map((p) => (
                   <td key={p} style={{ padding: '9px 8px' }}>
-                    {editing ? (
+                    {/* Only your own column becomes an input. Everyone
+                        else's stays behind its bar even while you edit —
+                        editing your picks is not a reason to see theirs. */}
+                    {editing && p === myColumn ? (
                       <input
                         value={draft[i].picks[p] ?? ''}
                         onChange={(e) => {
@@ -434,7 +467,7 @@ function AwardsModule({ pod, persist, revealed, onReveal }) {
                     ) : (
                       <Spoiler
                         id={spoilerId(a.category, p)}
-                        value={a.picks?.[p]}
+                        value={(editing ? awards[i] : a)?.picks?.[p]}
                         revealed={revealed}
                         onReveal={onReveal}
                       />
@@ -508,7 +541,7 @@ function BoldCallsModule({ pod, persist, revealed, onReveal }) {
                   <div style={{ fontSize: 12.5, lineHeight: 1.5, display: 'flex', gap: 7 }}>
                     {/* The number stays legible; only the call is covered. */}
                     <span style={{ color: 'var(--iff-subtext)', flexShrink: 0 }}>{i + 1}.</span>
-                    <span style={{ minWidth: 0 }}>
+                    <span style={{ minWidth: 0, flex: 1 }}>
                       <Spoiler
                         id={spoilerId(host, i)}
                         value={call}

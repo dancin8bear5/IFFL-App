@@ -373,8 +373,32 @@ an unrevealed pick. The `.pod-spoiler` transition lives in `theme.css`, not
 inline, so `prefers-reduced-motion` can actually turn it off (the rule set by
 `.legacy-bar`).
 
-Read-mode only: Edit shows everything in the clear, since you can't fix a typo
-you can't read. **Bold calls already had one `<textarea>` per call** — that
+**A host owns exactly ONE column** (Sep 11). `services/podAwards.js`
+(11 tests) maps POD team → award column: `Jared`→Jared, `Bill`→Bill,
+`M. Zurek`→**Zurek**. Note the column names differ from the teams AND from
+the RANKINGS predictors, which use `Taylor Made` where awards use `Jared` —
+hence an explicit map. **No commissioner override**: a prediction somebody
+else can edit is not a prediction. An unknown team is read-only, never
+handed a column.
+
+**A save carries only what changed.** The old save replaced the whole
+awards array, so two hosts editing the same evening meant the second one
+wiped the first, and clearing a box wiped an existing pick. `mergeAwardPicks`
+now applies only the author's column, ignores blanks, and merges onto a
+**fresh `fetchPodContent()`** rather than the copy the editor opened with —
+`config/pod` has no listener, so the screen can be minutes stale. Stated
+trade-off: you cannot clear a pick by emptying the box, because that is
+indistinguishable from "didn't fill this one in". Retype over it.
+
+**The bar fills the whole field**, not just the words. Sized to the text it
+leaked pick LENGTH — "CMC" and "Jacory Croskey-Merritt" are different
+shapes, and in a column of three that is a real tell. The text still sets
+the column width, so revealing changes colour only and the table does not
+reflow (verified by measuring `<th>` widths before and after).
+
+Read-mode only for OTHER people's columns: your own becomes an input when
+you hit Edit, theirs stay behind their bars — editing your picks is not a
+reason to see theirs. **Bold calls already had one `<textarea>` per call** — that
 half of the request needed no restructuring. `RankingsModule` has the same
 bare-expression shape at `PodView.jsx:314` and is a one-line addition if the
 rankings ever want the same treatment.

@@ -1670,6 +1670,14 @@ a { color: inherit; text-decoration: none; }
   font: inherit;
   text-align: left;
   color: transparent;
+  /* Fill the whole field, not just the words. Sized to the text, the bar
+     leaked the length of a pick — "CMC" and "Jacory Croskey-Merritt" are
+     different shapes, and in a column of three that is a real tell. The
+     text still sets the column width, so revealing one changes colour and
+     nothing else; the table does not reflow. */
+  display: block;
+  width: 100%;
+  min-height: 1.35em;
   background: #000;
   border-radius: 4px;
   padding: 0 3px;

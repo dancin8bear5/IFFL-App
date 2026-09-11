@@ -10,24 +10,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import * as fs from '../services/firestoreService'
-import { computeTrueRecord, parseWeekScores } from '../services/trueRecord'
 import {
-  POD_PREDICTORS, POD_RANKINGS_2025, POD_AWARD_PREDICTORS,
-  POD_AWARDS_2025, POD_BOLD_CALLS_2025, POD_SEED_SEASON,
+  POD_AWARD_PREDICTORS, POD_AWARDS_2025, POD_BOLD_CALLS_2025, POD_SEED_SEASON,
 } from '../data/podData'
 import { TeamAvatar } from '../components/shared'
 import {
   spoilerId, isBlank, isRevealed, toggle as toggleSpoiler, loadStore, saveStore,
 } from '../services/podSpoiler'
-import { columnFor, mergeAwardPicks, hasChanges } from '../services/podAwards'
+import { columnFor, mergeAwardPicks, mergeBoldCalls, hasChanges } from '../services/podAwards'
+import GradeSheet from '../components/GradeSheet'
+import { usePowerRankings } from '../hooks/usePowerRankings'
+import '../styles/powerRankings.css'
 
 // Same preview switch the rest of the app uses — lets the POD screens be
 // exercised without Firebase. Compiled out of production builds.
 const DEV_PREVIEW =
   import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')
 
+// True Record was removed Sep 11 at the commissioner's request. It also
+// carried the ONLY weekly-score entry in the app, so nothing writes
+// weeklyScores/{season} any more and standings, seeds and the bracket sit
+// at whatever was already entered. `fs.saveWeekScores` and
+// `weeklyStats.parseWeekScores` are deliberately still there, so putting
+// score entry back is a form and not a rebuild.
 const MODULES = [
-  { key: 'trueRecord', label: 'True Record' },
   { key: 'rankings', label: 'Rankings' },
   { key: 'awards', label: 'Awards' },
   { key: 'bold', label: 'Bold Calls' },
@@ -38,13 +44,18 @@ const fmtPct = (n) => (Number.isFinite(n) ? `${(n * 100).toFixed(1)}%` : '—')
 const fmtLuck = (n) => (n === null || !Number.isFinite(n) ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)}`)
 
 export default function PodView() {
-  const { activeSeason, weeklyScores } = useApp()
-  const [module, setModule] = useState('trueRecord')
+  const [module, setModule] = useState('rankings')
   const [pod, setPod] = useState(null) // null = loading
   const [saving, setSaving] = useState(false)
   // Which entries have been clicked open. Lives in this browser only — see
   // services/podSpoiler.js for why it is keyed to the value and not the cell.
   const [revealed, setRevealed] = useState(loadStore)
+
+  /** Put every field back behind its bar. */
+  const resetReveals = useCallback(() => {
+    setRevealed({})
+    saveStore({})
+  }, [])
 
   const toggleReveal = useCallback((id, value) => {
     setRevealed((prev) => {
@@ -84,6 +95,17 @@ export default function PodView() {
           Private to Jared, M. Zurek & Bill — the rest of the league can't see this tab or its data.
           {saving && <span style={{ marginLeft: 8, color: 'var(--iff-gold)' }}>Saving…</span>}
         </div>
+        {/* Only offered once something is open — a permanent Reset on a
+            fully masked page is a button that does nothing. */}
+        {Object.keys(revealed).length > 0 && (
+          <button
+            className="btn-outline"
+            onClick={resetReveals}
+            style={{ fontSize: 11, padding: '5px 12px', marginTop: 8 }}
+          >
+            Reset · re-mask {Object.keys(revealed).length}
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -99,244 +121,42 @@ export default function PodView() {
         ))}
       </div>
 
-      {module === 'trueRecord' && <TrueRecordModule pod={pod} setPod={setPod} season={activeSeason} weeklyScores={weeklyScores} />}
-      {module === 'rankings' && <RankingsModule pod={pod} persist={persist} />}
+      {module === 'rankings' && <RankingsModule />}
       {module === 'awards' && <AwardsModule pod={pod} persist={persist} revealed={revealed} onReveal={toggleReveal} />}
       {module === 'bold' && <BoldCallsModule pod={pod} persist={persist} revealed={revealed} onReveal={toggleReveal} />}
     </div>
   )
 }
 
-// ── True Record ────────────────────────────────────────────────
-
-function TrueRecordModule({ pod, setPod, season, weeklyScores }) {
-  const [week, setWeek] = useState('')
-  const [paste, setPaste] = useState('')
-  const [parseErrors, setParseErrors] = useState([])
-  const [busy, setBusy] = useState(false)
-
-  // Scores now live in the league-readable weeklyScores/{season} doc so
-  // the Dashboard can chart them. config/pod.trueRecordWeeks is the old
-  // home and is still read as a fallback, so this module keeps working
-  // for any season not yet migrated (Admin → Data → Migrate Weekly
-  // Scores copies them across). True Record itself stays POD-only.
-  const legacyMap = pod.trueRecordWeeks?.[String(season)] ?? {}
-  const weeksMap = Object.keys(weeklyScores ?? {}).length > 0 ? weeklyScores : legacyMap
-  const weeks = useMemo(
-    () => Object.entries(weeksMap)
-      .map(([w, scores]) => ({ week: Number(w), scores }))
-      .sort((a, b) => a.week - b.week),
-    [weeksMap],
-  )
-  const rows = useMemo(() => computeTrueRecord(weeks, pod.actualRecords?.[String(season)] ?? {}), [weeks, pod, season])
-
-  async function addWeek() {
-    const wk = Number(week)
-    if (!Number.isFinite(wk) || wk < 1) { setParseErrors(['Enter a week number first.']); return }
-    const { scores, errors } = parseWeekScores(paste)
-    setParseErrors(errors)
-    if (errors.length > 0 || scores.length < 2) {
-      if (scores.length < 2 && errors.length === 0) setParseErrors(['Need at least two teams to rank a week.'])
-      return
-    }
-    setBusy(true)
-    try {
-      // Writes go to weeklyScores/ only — config/pod's copy is left
-      // frozen as the pre-migration backup rather than kept in sync,
-      // so there's exactly one source of truth going forward.
-      if (!DEV_PREVIEW) await fs.saveWeekScores(season, wk, scores)
-      setPod((prev) => ({
-        ...prev,
-        trueRecordWeeks: {
-          ...(prev.trueRecordWeeks ?? {}),
-          [String(season)]: { ...(prev.trueRecordWeeks?.[String(season)] ?? {}), [String(wk)]: scores },
-        },
-      }))
-      setPaste('')
-      setWeek('')
-    } catch (e) {
-      setParseErrors([`Save failed: ${e.message}`])
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6 }}>
-        Every week, each team is scored against <strong>all 11 others</strong> instead of just its scheduled
-        opponent — top scorer goes 11-0, last goes 0-11. <strong>+/-</strong> is actual wins minus what the
-        true-record rate says they earned: positive means the schedule has been kind.
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="iff-card empty-state" style={{ padding: 28 }}>
-          <div>No weeks entered yet for {season}. Add one below.</div>
-        </div>
-      ) : (
-        <div className="iff-card" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 520 }}>
-            <thead>
-              <tr style={{ color: 'var(--iff-subtext)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-                <th style={{ textAlign: 'left', padding: '10px 12px' }}>Team</th>
-                <th style={{ textAlign: 'right', padding: '10px 8px' }}>True W</th>
-                <th style={{ textAlign: 'right', padding: '10px 8px' }}>L</th>
-                <th style={{ textAlign: 'right', padding: '10px 8px' }}>Win %</th>
-                <th style={{ textAlign: 'right', padding: '10px 8px' }}>Avg Pts</th>
-                <th style={{ textAlign: 'right', padding: '10px 12px' }}>+/-</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.teamName} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--iff-divider)' }}>
-                  <td style={{ padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <TeamAvatar name={r.teamName} size={22} />
-                    <span style={{ fontWeight: 600 }}>{r.teamName}</span>
-                  </td>
-                  <td style={{ textAlign: 'right', padding: '9px 8px', fontWeight: 700 }}>{fmt1(r.wins)}</td>
-                  <td style={{ textAlign: 'right', padding: '9px 8px', color: 'var(--iff-subtext)' }}>{fmt1(r.losses)}</td>
-                  <td style={{ textAlign: 'right', padding: '9px 8px' }}>{fmtPct(r.winPct)}</td>
-                  <td style={{ textAlign: 'right', padding: '9px 8px' }}>{fmt1(r.avgPoints)}</td>
-                  <td style={{
-                    textAlign: 'right', padding: '9px 12px', fontWeight: 700,
-                    color: r.luck === null ? 'var(--iff-subtext)' : r.luck > 0 ? '#22C55E' : r.luck < 0 ? 'var(--iff-accent)' : 'inherit',
-                  }}>
-                    {fmtLuck(r.luck)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <div className="iff-card" style={{ padding: 14 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Add / Replace a Week</div>
-        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 8, lineHeight: 1.6 }}>
-          Paste one team and score per line — <code>Jared 128.4</code>, tabs or commas work too.
-          Re-entering a week overwrites it.
-        </div>
-        <input
-          type="number"
-          placeholder="Week #"
-          value={week}
-          onChange={(e) => setWeek(e.target.value)}
-          style={{ width: 110, marginBottom: 8 }}
-        />
-        <textarea
-          value={paste}
-          onChange={(e) => setPaste(e.target.value)}
-          placeholder={'Jared 128.4\nBill 134\nM. Zurek 130.88'}
-          rows={7}
-          style={{ width: '100%', fontFamily: 'monospace', fontSize: 12 }}
-        />
-        {parseErrors.length > 0 && (
-          <div style={{ fontSize: 11.5, color: 'var(--iff-accent)', marginTop: 6 }}>
-            {parseErrors.map((e, i) => <div key={i}>• {e}</div>)}
-          </div>
-        )}
-        <button className="btn-primary" onClick={addWeek} disabled={busy} style={{ marginTop: 10, fontSize: 12, padding: '7px 16px' }}>
-          {busy ? 'Saving…' : 'Save Week'}
-        </button>
-      </div>
-
-      {weeks.length > 0 && (
-        <div style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
-          Weeks entered: {weeks.map((w) => w.week).join(', ')}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Rankings ───────────────────────────────────────────────────
 
-function RankingsModule({ pod, persist }) {
-  const stored = pod.rankings
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(null)
-
-  const rankings = stored ?? POD_RANKINGS_2025
-  const predictors = pod.predictors ?? POD_PREDICTORS
-
-  const withAvg = useMemo(
-    () => rankings
-      .map((r) => {
-        const vals = predictors.map((p) => Number(r.ranks?.[p])).filter(Number.isFinite)
-        return { ...r, avg: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null }
-      })
-      .sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99)),
-    [rankings, predictors],
-  )
-
-  function startEdit() {
-    setDraft(JSON.parse(JSON.stringify(rankings)))
-    setEditing(true)
-  }
-  async function save() {
-    await persist({ rankings: draft, predictors })
-    setEditing(false)
-  }
-
-  const rows = editing ? draft : withAvg
-
+/**
+ * The Taylor Made grade sheet, the same component the Dashboard renders.
+ *
+ * The POD's OWN preseason rankings (each host ranking twelve teams) used to
+ * live here. That data is untouched in `config/pod.rankings` and in
+ * `POD_RANKINGS_2025`; this tab simply stops showing it.
+ *
+ * The release gate still applies: the hosts see what the league sees.
+ * Fetching an unreleased drop to show it here would undo the one rule the
+ * whole feature rests on.
+ */
+function RankingsModule() {
+  const { teams, loading, released } = usePowerRankings()
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', flex: 1 }}>
-          Preseason team-by-team rankings — unveiled one team at a time on the show.
-          {!stored && ' (Showing seeded ' + POD_SEED_SEASON + ' data until you save an edit.)'}
+    <div className="pr-page" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)' }}>
+        {loading
+          ? 'Loading…'
+          : teams.length
+            ? `Taylor Made Power Rankings · ${teams.length} of 12 released.`
+            : 'Nothing released yet — open a section in Admin → Season.'}
+      </div>
+      {!loading && teams.length > 0 && (
+        <div className="iff-card" style={{ overflow: 'hidden' }}>
+          <GradeSheet teams={teams} />
         </div>
-        {editing ? (
-          <>
-            <button className="btn-primary" onClick={save} style={{ fontSize: 11, padding: '5px 12px' }}>Save</button>
-            <button onClick={() => setEditing(false)} style={{ fontSize: 11, padding: '5px 12px', color: 'var(--iff-subtext)' }}>Cancel</button>
-          </>
-        ) : (
-          <button className="btn-outline" onClick={startEdit} style={{ fontSize: 11, padding: '5px 12px' }}>Edit</button>
-        )}
-      </div>
-
-      <div className="iff-card" style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 460 }}>
-          <thead>
-            <tr style={{ color: 'var(--iff-subtext)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-              <th style={{ textAlign: 'left', padding: '10px 12px' }}>Team</th>
-              {predictors.map((p) => <th key={p} style={{ textAlign: 'right', padding: '10px 8px' }}>{p}</th>)}
-              <th style={{ textAlign: 'right', padding: '10px 12px' }}>Avg</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={r.team} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--iff-divider)' }}>
-                <td style={{ padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <TeamAvatar name={r.team} size={22} />
-                  <span style={{ fontWeight: 600 }}>{r.team}</span>
-                </td>
-                {predictors.map((p) => (
-                  <td key={p} style={{ textAlign: 'right', padding: '9px 8px' }}>
-                    {editing ? (
-                      <input
-                        type="number"
-                        value={draft[i].ranks[p] ?? ''}
-                        onChange={(e) => {
-                          const next = [...draft]
-                          next[i] = { ...next[i], ranks: { ...next[i].ranks, [p]: e.target.value === '' ? null : Number(e.target.value) } }
-                          setDraft(next)
-                        }}
-                        style={{ width: 56, textAlign: 'right' }}
-                      />
-                    ) : (r.ranks?.[p] ?? '—')}
-                  </td>
-                ))}
-                <td style={{ textAlign: 'right', padding: '9px 12px', fontWeight: 700, color: 'var(--iff-gold)' }}>
-                  {editing ? '' : r.avg === null ? '—' : r.avg.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      )}
     </div>
   )
 }
@@ -354,9 +174,16 @@ function RankingsModule({ pod, persist }) {
  * A blank entry is returned untouched: a black bar over an empty cell would
  * advertise a pick nobody made.
  */
-function Spoiler({ id, value, revealed, onReveal, blank = '—' }) {
+function Spoiler({ id, value, revealed, onReveal, blank = '—', locked = false }) {
   if (isBlank(value)) return blank
   const shown = isRevealed(revealed, id, value)
+  // `locked` is someone else's field while you are editing yours. It is a
+  // plain span, not a button — no click, no keyboard, no reveal. Editing
+  // your own picks is not a reason to see theirs, and a bar that only
+  // LOOKS locked is the exact failure this guards against.
+  if (locked) {
+    return <span className="pod-spoiler" aria-label="Hidden — another host's entry">{value}</span>
+  }
   return (
     <button
       type="button"
@@ -442,7 +269,8 @@ function AwardsModule({ pod, persist, revealed, onReveal }) {
           <thead>
             <tr style={{ color: 'var(--iff-subtext)', fontSize: 10.5, textTransform: 'uppercase', letterSpacing: 0.4 }}>
               <th style={{ textAlign: 'left', padding: '10px 12px' }}>Category</th>
-              {predictors.map((p) => <th key={p} style={{ textAlign: 'left', padding: '10px 8px' }}>{p}</th>)}
+              {/* The three pick columns centre; Category stays left. */}
+              {predictors.map((p) => <th key={p} style={{ textAlign: 'center', padding: '10px 8px' }}>{p}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -450,7 +278,7 @@ function AwardsModule({ pod, persist, revealed, onReveal }) {
               <tr key={a.category} style={{ borderTop: i === 0 ? 'none' : '1px solid var(--iff-divider)' }}>
                 <td style={{ padding: '9px 12px', fontWeight: 700 }}>{a.category}</td>
                 {predictors.map((p) => (
-                  <td key={p} style={{ padding: '9px 8px' }}>
+                  <td key={p} style={{ padding: '9px 8px', textAlign: 'center' }}>
                     {/* Only your own column becomes an input. Everyone
                         else's stays behind its bar even while you edit —
                         editing your picks is not a reason to see theirs. */}
@@ -470,6 +298,7 @@ function AwardsModule({ pod, persist, revealed, onReveal }) {
                         value={(editing ? awards[i] : a)?.picks?.[p]}
                         revealed={revealed}
                         onReveal={onReveal}
+                        locked={editing}
                       />
                     )}
                   </td>
@@ -486,19 +315,37 @@ function AwardsModule({ pod, persist, revealed, onReveal }) {
 // ── Bold Calls ─────────────────────────────────────────────────
 
 function BoldCallsModule({ pod, persist, revealed, onReveal }) {
+  const { userTeam } = useApp()
   const stored = pod.boldCalls
   const calls = stored ?? POD_BOLD_CALLS_2025
   const hosts = Object.keys(calls)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  // Same rule as Awards: you own one card. Every host key here is also an
+  // award column, so the mapping is reused rather than duplicated.
+  const myHost = columnFor(userTeam, hosts)
 
   function startEdit() {
     setDraft(JSON.parse(JSON.stringify(calls)))
     setEditing(true)
   }
   async function save() {
-    await persist({ boldCalls: draft })
-    setEditing(false)
+    setSaving(true)
+    try {
+      // Merge onto a FRESH read — config/pod has no listener, so the copy
+      // on screen can be minutes old and saving it reverts another host.
+      let latest = calls
+      try {
+        const fresh = await fs.fetchPodContent()
+        if (fresh?.boldCalls) latest = fresh.boldCalls
+      } catch { /* offline or preview */ }
+      await persist({ boldCalls: mergeBoldCalls(latest, draft, myHost) })
+      setEditing(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const data = editing ? draft : calls
@@ -508,16 +355,22 @@ function BoldCallsModule({ pod, persist, revealed, onReveal }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', flex: 1 }}>
           Bold calls for the season — the ones we get to relitigate in December.
+          {myHost
+            ? ` You edit ${myHost}'s card; a blank leaves what's already there.`
+            : ' Read-only — this account owns no card.'}
           {!stored && ` (Showing seeded ${POD_SEED_SEASON} data until you save an edit.)`}
         </div>
         {editing ? (
           <>
-            <button className="btn-primary" onClick={save} style={{ fontSize: 11, padding: '5px 12px' }}>Save</button>
+            <button className="btn-primary" onClick={save} disabled={saving}
+                    style={{ fontSize: 11, padding: '5px 12px', opacity: saving ? 0.5 : 1 }}>
+              {saving ? 'Saving…' : 'Save'}
+            </button>
             <button onClick={() => setEditing(false)} style={{ fontSize: 11, padding: '5px 12px', color: 'var(--iff-subtext)' }}>Cancel</button>
           </>
-        ) : (
+        ) : myHost ? (
           <button className="btn-outline" onClick={startEdit} style={{ fontSize: 11, padding: '5px 12px' }}>Edit</button>
-        )}
+        ) : null}
       </div>
 
       <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
@@ -526,7 +379,10 @@ function BoldCallsModule({ pod, persist, revealed, onReveal }) {
             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, color: 'var(--iff-gold)' }}>{host}</div>
             {(data[host] ?? []).map((call, i) => (
               <div key={i} style={{ marginBottom: 7 }}>
-                {editing ? (
+                {/* Only your own card becomes editable. The other two stay
+                    behind their bars even while you edit — same rule as
+                    Awards, and the reason `locked` exists. */}
+                {editing && host === myHost ? (
                   <textarea
                     value={call}
                     onChange={(e) => {
@@ -544,17 +400,18 @@ function BoldCallsModule({ pod, persist, revealed, onReveal }) {
                     <span style={{ minWidth: 0, flex: 1 }}>
                       <Spoiler
                         id={spoilerId(host, i)}
-                        value={call}
+                        value={editing ? (calls[host] ?? [])[i] : call}
                         revealed={revealed}
                         onReveal={onReveal}
                         blank=""
+                        locked={editing}
                       />
                     </span>
                   </div>
                 )}
               </div>
             ))}
-            {editing && (
+            {editing && host === myHost && (
               <button
                 onClick={() => setDraft({ ...draft, [host]: [...draft[host], ''] })}
                 style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4 }}

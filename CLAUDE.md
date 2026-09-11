@@ -396,6 +396,38 @@ shapes, and in a column of three that is a real tell. The text still sets
 the column width, so revealing changes colour only and the table does not
 reflow (verified by measuring `<th>` widths before and after).
 
+**True Record was REMOVED (Sep 11) — and with it, weekly score entry.**
+The paste-a-week box lived inside that module and was the ONLY writer of
+`weeklyScores/{season}`. Nothing writes scores now, so standings, playoff
+seeds, the bracket and the scoring chart sit at whatever was already
+entered. Removed at the commissioner's request, with the consequence
+stated. **`fs.saveWeekScores` and `trueRecord.parseWeekScores` are
+deliberately still there** — restoring score entry is a form, not a rebuild.
+
+**The POD Rankings tab is now the Taylor Made grade sheet.**
+`components/GradeSheet.jsx` is shared by the Dashboard block and this tab
+so sorting and formatting cannot drift apart, and
+`hooks/usePowerRankings.js` owns the Firestore plumbing for both. **The
+release gate still applies in the POD** — the hosts see what the league
+sees; fetching an unreleased drop to show it here would undo the rule the
+whole feature rests on. The POD's own preseason rankings
+(`config/pod.rankings`, `POD_RANKINGS_2025`, `RankingsModule`) are
+untouched in data and code; the tab just stops showing them.
+
+**`locked` is the third Spoiler state.** Hidden is a button you can click
+open; `locked` is a plain `<span>` — no click, no keyboard, no reveal —
+used for everyone else's fields while you are editing yours, on Awards AND
+Bold Calls. Test it by asserting the TEXT stays absent after a click, not
+that a class is present: a bar that only looks locked is the exact failure
+this guards against.
+
+**Bold Calls has the same one-card rule and the same merge** as Awards
+(`mergeBoldCalls`), including the trailing-blank rule — "+ Add call" then
+Save without typing leaves no empty call behind.
+
+**Reset** in the POD header clears the reveal store and re-masks the page.
+It only appears once something is revealed.
+
 Read-mode only for OTHER people's columns: your own becomes an input when
 you hit Edit, theirs stay behind their bars — editing your picks is not a
 reason to see theirs. **Bold calls already had one `<textarea>` per call** — that

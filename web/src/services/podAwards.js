@@ -74,3 +74,32 @@ export function hasChanges(current, draft, column) {
   const merged = mergeAwardPicks(current, draft, column)
   return merged.some((row, i) => row !== (current ?? [])[i])
 }
+
+/**
+ * Bold Calls, same rules as the awards table.
+ *
+ * The shape differs — `{ Jared: [...], Bill: [...], Zurek: [...] }` rather
+ * than rows of picks — but the hazard is identical: one save used to
+ * replace the whole object, so the second host to save that evening wiped
+ * the first. Only the author's own list is applied, blank lines never
+ * overwrite, and the merge runs against a fresh read.
+ *
+ * A list can GROW (the "+ Add call" button), so a longer draft list is
+ * accepted; entries the draft leaves blank keep whatever was there.
+ */
+export function mergeBoldCalls(current, draft, host) {
+  const base = { ...(current ?? {}) }
+  if (!host) return base
+  const mine = (draft ?? {})[host]
+  if (!Array.isArray(mine)) return base
+  const existing = Array.isArray(base[host]) ? base[host] : []
+  const merged = []
+  for (let i = 0; i < Math.max(existing.length, mine.length); i++) {
+    const next = mine[i]
+    merged.push(isBlank(next) ? existing[i] : next)
+  }
+  // A trailing blank added and never filled in is not a call.
+  while (merged.length && isBlank(merged[merged.length - 1])) merged.pop()
+  base[host] = merged
+  return base
+}

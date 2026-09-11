@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  AWARD_COLUMN_BY_TEAM, columnFor, isBlank, mergeAwardPicks, hasChanges,
+  AWARD_COLUMN_BY_TEAM, columnFor, isBlank, mergeAwardPicks, hasChanges, mergeBoldCalls,
 } from './podAwards.js'
 
 const PRED = ['Jared', 'Bill', 'Zurek']
@@ -109,4 +109,60 @@ test('isBlank treats whitespace as empty', () => {
   for (const v of [null, undefined, '', ' ', '\t\n']) assert.equal(isBlank(v), true)
   assert.equal(isBlank('0'), false)
   assert.equal(isBlank('Bijan'), false)
+})
+
+// ── Bold Calls ────────────────────────────────────────────────
+const calls = () => ({
+  Jared: ['j one', 'j two'],
+  Bill: ['b one', 'b two'],
+  Zurek: ['z one', 'z two'],
+})
+
+test('bold calls: a blank line never overwrites an existing call', () => {
+  const draft = calls()
+  draft.Jared = ['', '   ']
+  assert.deepEqual(mergeBoldCalls(calls(), draft, 'Jared').Jared, ['j one', 'j two'])
+})
+
+test('bold calls: a save touches only the author', () => {
+  const draft = calls()
+  draft.Jared = ['changed', 'j two']
+  draft.Bill = ['HACKED', 'HACKED']
+  const out = mergeBoldCalls(calls(), draft, 'Jared')
+  assert.deepEqual(out.Jared, ['changed', 'j two'])
+  assert.deepEqual(out.Bill, ['b one', 'b two'])
+  assert.deepEqual(out.Zurek, ['z one', 'z two'])
+})
+
+test("bold calls: a stale draft cannot revert another host", () => {
+  const stale = calls()
+  stale.Jared = ['changed', 'j two']
+  const fresh = calls()
+  fresh.Bill = ['bill wrote this while jared typed', 'b two']
+  const out = mergeBoldCalls(fresh, stale, 'Jared')
+  assert.equal(out.Bill[0], 'bill wrote this while jared typed')
+  assert.equal(out.Jared[0], 'changed')
+})
+
+test('bold calls: the list can grow, and an unfilled new line is dropped', () => {
+  const draft = calls()
+  draft.Jared = ['j one', 'j two', 'a third call']
+  assert.deepEqual(mergeBoldCalls(calls(), draft, 'Jared').Jared, ['j one', 'j two', 'a third call'])
+  // "+ Add call" then Save without typing leaves no empty call behind
+  const empty = calls()
+  empty.Jared = ['j one', 'j two', '']
+  assert.deepEqual(mergeBoldCalls(calls(), empty, 'Jared').Jared, ['j one', 'j two'])
+})
+
+test('bold calls: no host, or a malformed draft, writes nothing', () => {
+  assert.deepEqual(mergeBoldCalls(calls(), calls(), null), calls())
+  assert.deepEqual(mergeBoldCalls(calls(), { Jared: 'not a list' }, 'Jared'), calls())
+  assert.deepEqual(mergeBoldCalls(calls(), null, 'Jared'), calls())
+  assert.deepEqual(mergeBoldCalls(null, null, 'Jared'), {})
+})
+
+test('bold calls: a host with nothing yet can write their first calls', () => {
+  const out = mergeBoldCalls({ Bill: ['b one'] }, { Jared: ['first'] }, 'Jared')
+  assert.deepEqual(out.Jared, ['first'])
+  assert.deepEqual(out.Bill, ['b one'])
 })

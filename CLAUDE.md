@@ -247,6 +247,16 @@ inline strings elsewhere. Hits on `Kyler Murray`, `Meta Knights` or
 `bill pony club` are the 2019 draft, old trades and `staticData` espnNames,
 not rankings prose.
 
+**The Grade Sheet waits for the LAST drop.** Every team's six grades, pivot
+and score in one grid is the whole document at a glance, so
+`isGradeSheetOut()` gates it on `4-1` — tested, not a JSX conditional. It is
+DERIVED from the payload, never hardcoded: a second copy would go stale the
+next time the generator ran and would put twelve placements in the bundle.
+Owner names come from `teamByEspnName` → `fantasyTeams`, so the grid shows
+`M. Zurek` where the cards show `Matt Zurek`. Abad's QB grade is
+`B (with Watson)` — too wide for a column, so the cell shows the letter and
+the full string is the `title`.
+
 **The ladder is derived, never stored.** A stored ladder has to carry all
 twelve rank→team pairs to be useful and that IS the reveal, so
 `ladderRows()` builds it from whichever drops are public.

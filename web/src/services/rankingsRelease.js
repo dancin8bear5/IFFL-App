@@ -121,3 +121,18 @@ export function releaseSummary(released) {
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
   return `${list} ${names.length === 1 ? 'is' : 'are'} live`
 }
+
+/**
+ * The grade sheet — every team's six grades, pivot and score in one grid —
+ * waits for the LAST drop.
+ *
+ * It is a complete summary of the document, so publishing it early hands
+ * over every placement at once. That is the same reason the ladder is
+ * derived rather than stored: a table of all twelve IS the reveal. Gated
+ * here rather than in the JSX so the rule is tested, not just written.
+ */
+export const GRADE_SHEET_DROP = '4-1'
+
+export function isGradeSheetOut(released) {
+  return isDropOut(released, GRADE_SHEET_DROP)
+}

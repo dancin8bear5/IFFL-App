@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {
   DROPS, DROP_KEYS, normalizeReleased, isDropOut, dropStates,
   releasedTeams, releasedRanks, isAnythingOut, ladderRows, releaseSummary,
+  isGradeSheetOut, GRADE_SHEET_DROP,
 } from './rankingsRelease.js'
 
 // A fixture, not the payload. The gating is about ranks and drop keys; tying
@@ -145,4 +146,25 @@ test('the summary never promises ranks that are not out', () => {
   // Introduction alone must not read as though the rankings have dropped.
   assert.ok(!/\d/.test(releaseSummary(['intro'])))
   assert.ok(!releaseSummary(['intro']).includes('twelve'))
+})
+
+test('THE GRADE SHEET WAITS FOR 4-1 — it is the whole document in one grid', () => {
+  assert.equal(isGradeSheetOut([]), false)
+  assert.equal(isGradeSheetOut(['intro']), false)
+  assert.equal(isGradeSheetOut(['intro', '12-9']), false)
+  assert.equal(isGradeSheetOut(['intro', '12-9', '8-5']), false, 'still closed with 8 of 12 out')
+  assert.equal(isGradeSheetOut(DROP_KEYS), true)
+  assert.equal(isGradeSheetOut(['4-1']), true)
+})
+
+test('the grade sheet fails closed on junk, like every other gate', () => {
+  for (const bad of [undefined, null, 'all', 4, {}, true]) {
+    assert.equal(isGradeSheetOut(bad), false, String(bad))
+  }
+})
+
+test('the grade sheet can only ever show teams that are released', () => {
+  // Opened out of order, it shows the four that are public and no more.
+  assert.deepEqual(ranksAt(['4-1']), [4, 3, 2, 1])
+  assert.equal(isGradeSheetOut(['4-1']), true)
 })

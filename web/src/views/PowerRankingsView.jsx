@@ -22,8 +22,10 @@ import { INITIAL_ROUTE } from '../services/routing'
 import * as fs from '../services/firestoreService'
 import {
   DROPS, dropStates, normalizeReleased, releasedTeams, ladderRows, isDropOut,
+  isGradeSheetOut,
 } from '../services/rankingsRelease'
 import { edition as EDITION, editionId as EDITION_ID } from '../data/powerRankingsMeta'
+import { teamByEspnName, teamByName } from '../data/staticData'
 import '../styles/powerRankings.css'
 
 // THE CONTENT IS NEVER BUNDLED, and there is deliberately no import of it
@@ -377,6 +379,71 @@ export default function PowerRankingsView({ embedded = false }) {
             )
           })}
         </section>
+
+        {/* The grade sheet. Gated to the LAST drop by isGradeSheetOut —
+            every team's grades, pivot and score in one grid is the entire
+            document at a glance, so it cannot appear while anything is
+            still held back. Derived from the payload, never hardcoded:
+            a second copy of these numbers would go stale the first time
+            the generator ran again, and would put all twelve placements
+            in the bundle. */}
+        {isGradeSheetOut(released) && teams.length > 0 && (
+        <section>
+          <details open={!embedded}>
+            <summary><span className="cond">The Grade Sheet</span></summary>
+            <div className="tablewrap">
+              <table className="gradesheet">
+                <thead>
+                  <tr>
+                    <th className="num">#</th>
+                    <th>Team</th>
+                    <th>Owner</th>
+                    <th className="num">QB</th>
+                    <th className="num">RB</th>
+                    <th className="num">WR</th>
+                    <th className="num">TE</th>
+                    <th className="num">Bench/Owner</th>
+                    <th>Pivot Player</th>
+                    <th className="num">Verdict</th>
+                    <th className="num">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...teams].sort((a, b) => a.rank - b.rank).map((t) => {
+                    const g = t.grades ?? {}
+                    // Short owner name from the app's own identity map, so the
+                    // grid stays narrow and reads like the rest of the app.
+                    // Falls back to the payload's full name if a team is ever
+                    // renamed out from under the map.
+                    const short = teamByName[teamByEspnName[String(t.team).toLowerCase()]]?.name
+                    // "B (with Watson)" is too wide for a grade column — the
+                    // letter goes in the cell, the whole thing in the tooltip.
+                    const cell = (v) => (
+                      <td className={`num v ${band(v)}`} title={v}>{String(v ?? '').split(' ')[0]}</td>
+                    )
+                    return (
+                      <tr key={t.rank}>
+                        <td className="num">{t.rank}</td>
+                        <td style={{ fontWeight: 600 }}>{t.team}</td>
+                        <td style={{ color: 'var(--mut)' }}>{short ?? t.owner}</td>
+                        {cell(g.QB)}{cell(g.RB)}{cell(g.WR)}{cell(g.TE)}
+                        <td className="num">
+                          <span className={`v ${band(g.DEPTH)}`}>{g.DEPTH}</span>
+                          <span style={{ color: 'var(--mut)' }}> / </span>
+                          <span className={`v ${band(g.OWNER)}`}>{g.OWNER}</span>
+                        </td>
+                        <td style={{ color: 'var(--mut)' }}>{t.pivot?.player}</td>
+                        <td className="num"><span className={`g ${band(t.overall)}`}>{t.overall}</span></td>
+                        <td className="num">{Number(t.score).toFixed(3)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+        )}
 
         <section>
           <div className="eyebrow">The Ladder · {data.edition}</div>

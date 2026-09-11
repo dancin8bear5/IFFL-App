@@ -253,12 +253,30 @@
 .pr-page .pr-embed section { margin-top: 14px; }
 .pr-page .pr-embed .drop { margin-top: 10px; }
 
-/* The grade sheet — eleven columns, so it scrolls sideways on a phone
-   inside the .tablewrap rather than squeezing the grades illegibly. The
-   overall chip keeps its band fill; the positional grades are text in the
-   band colour, same as the cards, so nothing here reads as a new idea. */
-.pr-page table.gradesheet { min-width: 860px; font-size: 13px; }
+/* The grade sheet — eleven columns, and the whole point is seeing all of
+   them at once, so it is tuned to FIT the Dashboard column rather than to
+   scroll inside it.
+
+   The width came from two places, neither of them the data: generous cell
+   padding across eleven columns, and the base table rule's blanket
+   `white-space: nowrap`, which forced "Horner Park Johnson-Rods" and
+   "Kenneth Walker III" onto single lines. The text columns wrap here; the
+   grade columns keep nowrap because "B+" has nowhere to wrap to and a
+   broken grade would be unreadable.
+
+   min-width stays low enough to fit a narrow desktop column but high
+   enough that a phone still scrolls rather than crushing eleven columns
+   into 360px. */
+.pr-page table.gradesheet { min-width: 520px; font-size: 12px; }
 .pr-page table.gradesheet th,
-.pr-page table.gradesheet td { padding: 7px 10px; }
+.pr-page table.gradesheet td { padding: 5px 6px; white-space: normal; }
+.pr-page table.gradesheet td.num { white-space: nowrap; }
+/* Headers may wrap — "Bench / Owner" over two lines costs a few pixels of
+   height and saves fifty of width, which is the trade the whole table is
+   making. The CELLS still refuse to wrap: "B+" has nowhere to break. */
+.pr-page table.gradesheet th.num { white-space: normal; }
 .pr-page table.gradesheet td.v { font-weight: 700; }
-.pr-page table.gradesheet .g { border-radius: 5px; padding: 1px 7px; color: var(--chip-ink); font-weight: 700; }
+.pr-page table.gradesheet .g { border-radius: 5px; padding: 1px 6px; color: var(--chip-ink); font-weight: 700; }
+/* The team column earns a floor: below this the long names wrap to three
+   lines and the row height doubles, which costs more than the width saves. */
+.pr-page table.gradesheet td:nth-child(2) { min-width: 104px; }

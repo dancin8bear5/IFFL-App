@@ -402,7 +402,7 @@ export default function PowerRankingsView({ embedded = false }) {
                     <th className="num">RB</th>
                     <th className="num">WR</th>
                     <th className="num">TE</th>
-                    <th className="num">Bench/Owner</th>
+                    <th className="num">Bench / Owner</th>
                     <th>Pivot Player</th>
                     <th className="num">Verdict</th>
                     <th className="num">Score</th>

@@ -17,10 +17,12 @@
 //   DO NOT NORMALISE WHITESPACE in the voice bodies. Corey Abad posts one
 //   thought per line and that shape IS the joke. Blank line is a new
 //   paragraph; a single newline is a <br>.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { INITIAL_ROUTE } from '../services/routing'
 import { DROPS, dropStates, isDropOut, isGradeSheetOut } from '../services/rankingsRelease'
 import { edition as EDITION, editionId as EDITION_ID } from '../data/powerRankingsMeta'
+import { ARTICLES } from '../data/articles'
+import { rankingsDeepLink } from '../services/archive'
 import GradeSheet from '../components/GradeSheet'
 import { usePowerRankings } from '../hooks/usePowerRankings'
 import '../styles/powerRankings.css'
@@ -177,8 +179,24 @@ function TeamCard({ team, open, onToggle }) {
  * words. The standalone page at #power-rankings still opens its sections,
  * because there it is the only thing on screen.
  */
-export default function PowerRankingsView({ embedded = false }) {
-  const { meta, released, bodies, loading, teams } = usePowerRankings(EDITION_ID)
+export default function PowerRankingsView({ embedded = false, edition = null }) {
+  // A shared link may name an edition: #power-rankings/2026-preseason/wayne-vh.
+  // Read from the boot snapshot for the same reason the team slug is (see
+  // below), and only when no edition was passed in — an archive opening a
+  // specific edition has already decided which one.
+  //
+  // COLD LOADS ONLY, deliberately. TabLayout normalises the hash back to the
+  // bare slug, so an in-session jump could not carry the edition anyway;
+  // that is why the archive opens an edition in an overlay rather than
+  // navigating to one.
+  const deep = useMemo(
+    () => (INITIAL_ROUTE.slug === 'power-rankings'
+      ? rankingsDeepLink(INITIAL_ROUTE.params, ARTICLES)
+      : { edition: null, team: null }),
+    [],
+  )
+  const editionId = edition ?? deep.edition ?? EDITION_ID
+  const { meta, released, bodies, loading, teams } = usePowerRankings(editionId)
 
   const drops = dropStates(released)
   const intro = isDropOut(released, 'intro') ? bodies.intro : null
@@ -189,11 +207,7 @@ export default function PowerRankingsView({ embedded = false }) {
   // From the boot-time snapshot, NOT from window.location.hash: this view
   // is lazy, so by the time it mounts TabLayout has already rewritten the
   // hash to the bare slug and the team segment is gone. See INITIAL_ROUTE.
-  const [openSlug, setOpenSlug] = useState(() => {
-    if (INITIAL_ROUTE.slug !== 'power-rankings') return null
-    const p = INITIAL_ROUTE.params
-    return p.length ? p[p.length - 1] : null
-  })
+  const [openSlug, setOpenSlug] = useState(() => deep.team)
   const deepRef = useRef(null)
   useEffect(() => {
     if (openSlug && deepRef.current) {

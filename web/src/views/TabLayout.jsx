@@ -28,6 +28,7 @@ const RookieDraftRoomView = lazy(() => import('./RookieDraftRoomView'))
 const HistoryView = lazy(() => import('./HistoryView'))
 const AdminView = lazy(() => import('./AdminView'))
 const PowerRankingsView = lazy(() => import('./PowerRankingsView'))
+const ArchiveView = lazy(() => import('./ArchiveView'))
 
 // `label` shows in the desktop sidebar; `short` fits the mobile tab bar.
 // `podOnly` marks a tab only the three POD hosts can see.
@@ -69,6 +70,12 @@ const TABS = [
   // nav — a preseason document doesn't earn a permanent row in either bar.
   // `urlOnly` keeps #power-rankings working while hiding it from both.
   { label: 'Power Rankings',   short: 'Rankings',  glyph: '📋', slug: 'power-rankings',
+    urlOnly: true },
+  // Same reasoning: reached from the Dashboard tile, which itself only
+  // appears once something has actually retired. Appended rather than
+  // inserted — the screen map below is positional, so a new tab anywhere
+  // else shifts every index after it.
+  { label: 'Archive',          short: 'Archive',   glyph: '🗄️', slug: 'archive',
     urlOnly: true },
 ]
 
@@ -245,6 +252,7 @@ export default function TabLayout({ tab, setTab }) {
         {activeTab === 7 && <HistoryView />}
         {activeTab === 8 && <AdminView />}
         {activeTab === 9 && <PowerRankingsView />}
+        {activeTab === 10 && <ArchiveView />}
       </Suspense>
     </ErrorBoundary>
   )

@@ -12,6 +12,8 @@ import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverla
 import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
 import { editionId as RANKINGS_EDITION_ID } from '../data/powerRankingsMeta'
+import { ARTICLES } from '../data/articles'
+import { hasArchive } from '../services/archive'
 import { releaseSummary } from '../services/rankingsRelease'
 import { DASHBOARD_SECTIONS } from '../services/dashboardSections'
 import { resolveLayout } from '../services/dashboardLayout'
@@ -829,6 +831,19 @@ export default function DashboardView({ setTab }) {
     />
   )
 
+  // The archive, which holds itself back until there is something in it:
+  // one edition of each kind means both are current, both are on this page,
+  // and a tile leading to an empty list would be a worse answer than no
+  // tile. Tab index 10 — see TABS in TabLayout.
+  const archiveTile = hasArchive(ARTICLES) && (
+    <HistoryTile
+      glyph="🗄️"
+      title="The Archive"
+      sub="Past rankings and odds"
+      onClick={() => setTab(10)}
+    />
+  )
+
   // ── Section registry ─────────────────────────────────────────
   //
   // WHAT each section is, where it sits by default and when it applies is
@@ -854,6 +869,7 @@ export default function DashboardView({ setTab }) {
     messages: messagesSection,
     rankings: rankingsTile,
     odds: oddsTile,
+    archive: archiveTile,
     rules: rulesSection,
     offers: offerBanners,
     parlay: parlayCard,

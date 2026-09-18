@@ -51,6 +51,10 @@ export const DASHBOARD_SECTIONS = [
   // The two long reads of the preseason, side by side at the top of the rail.
   { key: 'rankings',  label: 'Power Rankings',         glyph: '📊', rail: true, railSafe: true },
   { key: 'odds',      label: 'Championship odds',      glyph: '🎰', rail: true, railSafe: true, phases: ['preseason', 'regular'] },
+  // Appears only once an edition has actually retired — see
+  // services/archive.js. Until then there is nothing to archive and the
+  // tile would be a link to an empty page.
+  { key: 'archive',   label: 'Article archive',        glyph: '🗄️', rail: true, railSafe: true },
   { key: 'rules',     label: 'Rules & reminders',      glyph: '📜', rail: true, railSafe: true },
   { key: 'offers',    label: 'Incoming trade offers',  glyph: '✉️' },
   { key: 'parlay',    label: 'Low Points Parlay',      glyph: '🎯', phases: ['regular'] },

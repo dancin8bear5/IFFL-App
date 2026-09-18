@@ -139,7 +139,7 @@ test('with no override the live registry reproduces today’s Dashboard exactly'
   assert.deepEqual(keys(out), DASHBOARD_SECTIONS.map((s) => s.key))
   assert.deepEqual(
     keys(out.filter((s) => s.rail)),
-    ['rankings', 'odds', 'rules', 'history', 'match'],
+    ['rankings', 'odds', 'archive', 'rules', 'history', 'match'],
   )
 })
 

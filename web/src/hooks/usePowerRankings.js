@@ -9,7 +9,8 @@
 // reaches every open page within seconds without a reload.
 import { useEffect, useState } from 'react'
 import * as fs from '../services/firestoreService'
-import { normalizeReleased, releasedTeams } from '../services/rankingsRelease'
+import { releasedTeams } from '../services/rankingsRelease'
+import { releasedFor } from '../services/archive'
 import { editionId as EDITION_ID } from '../data/powerRankingsMeta'
 
 export function usePowerRankings(edition = EDITION_ID) {
@@ -22,7 +23,11 @@ export function usePowerRankings(edition = EDITION_ID) {
     return fs.listenToPowerRankingsMeta(edition, (m) => { setMeta(m); setLoading(false) })
   }, [edition])
 
-  const released = normalizeReleased(meta?.released)
+  // What this edition may show. The gate is the commissioner's `released`
+  // list for the CURRENT edition and everything for a retired one — see
+  // services/archive.js. It decides what is FETCHED, not just what renders,
+  // so an unreleased drop of the live edition is never sent to a browser.
+  const released = releasedFor(edition, EDITION_ID, meta?.released)
   const key = released.join(',')
 
   useEffect(() => {

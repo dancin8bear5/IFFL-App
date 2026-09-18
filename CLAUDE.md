@@ -218,6 +218,83 @@ re-adding its one line.
 opens the board in a `DetailOverlay`. `<OddsBoard embedded />` drops its own
 collapse control there — inside a popup the overlay is the reveal.
 
+### Admin → Layout — the Dashboard is arranged, not coded (Sep 18, 2026)
+Every "put X above Y" used to be a code change and a deploy, because the
+order and the columns were an array written inside `DashboardView`. The
+static half of that array is now `web/src/services/dashboardSections.js`
+(key, label, glyph, `rail`, `railSafe`, `phases`, `lead`) and the view keeps
+only a `key → node` map. `config/league.dashboardLayout` — an array of
+`{ key, column }` written from **Admin → Layout** — is folded over it by
+`web/src/services/dashboardLayout.js` (19 tests). `config/league` is a
+listener, so a rearrangement reaches the league with nobody reloading.
+
+**Four rules, each there because of how it fails without one:**
+- A section the stored layout doesn't mention keeps its **registry**
+  position — inserted after its nearest earlier neighbour, never appended.
+  Otherwise every section added later sinks to the bottom of the page weeks
+  after the change that caused it.
+- An unknown stored key is ignored, so deleting a section can't strand the
+  layout.
+- A stored `rail` for a section that isn't `railSafe` is **refused in the
+  resolver**, not just greyed out in the editor — a rule only the UI
+  enforces is a rule the database doesn't have. The rail is 270px (300px
+  past 1250px) and the twelve-team grid is not going in it.
+- A stored value that isn't a list reads as NO override, never as an empty
+  Dashboard.
+
+**Layout answers WHERE only.** Visibility is Admin → Areas, scheduling is
+`phases`, and `lead` still beats the stored order in its phase (the bracket
+during the playoffs is a schedule, not an arrangement). On a phone there is
+one column, so the column choice does nothing there — but the ORDER applies,
+because mobile renders the same list. Below 1120px the rail stacks under
+main.
+
+No drag-and-drop: the app has none anywhere and needs no dependency for
+this. Arrows move a section within its own column; changing column puts it
+at the end of the new one, which is the only position that means anything.
+
+### The archive — `#archive` (Sep 18, 2026)
+**The Dashboard shows the NEWEST edition of each kind; everything older is
+archive.** No date to set, no switch to forget. `web/src/data/articles.js`
+is the index — one entry per edition, metadata only, no prose — and
+`web/src/services/archive.js` (17 tests) derives current vs retired from it.
+`data/powerRankingsMeta.js` is now DERIVED from that index, so publishing
+next year's rankings is one entry in one file and last year's retires itself
+in the same edit.
+
+**It ships empty.** There is one edition of each kind today and both are
+current, so the archive is empty and its Dashboard tile is hidden — by
+design, since a tile leading to an empty page is worse than no tile. It
+fills the first time an edition is superseded.
+
+**A retired edition unlocks completely** (the commissioner's call). The
+release gate applies to the CURRENT edition only: `releasedFor()` returns
+the commissioner's list for the live edition and `DROP_KEYS` for a retired
+one. It costs one substitution because everything downstream — which drops
+are FETCHED, which sections render, whether the grade sheet appears — was
+already derived from that one list. **A malformed release list on the
+current edition still fails closed**, and there is a test that says so.
+
+**The odds moved to one module per edition** (`web/src/data/odds/2026.js`,
+listed in `odds/index.js`; `preseasonOdds.js` is now just a pointer at the
+newest). They stay BUNDLED, deliberately: the rankings are in Firestore
+because of the embargo, the odds have none, the prose has to be structured
+into tiers by hand so a deploy happens either way, and an edition is ~6KB.
+Revisit if the odds ever want a staged reveal. `OddsBoard` takes an
+`edition` prop and its collapse-state localStorage key is per-edition;
+favourite/longshot are derived per edition rather than at module scope.
+
+**Editions open in an OVERLAY on the archive page, not by navigating.**
+TabLayout normalises the hash back to the bare tab slug, so an in-session
+jump to `#power-rankings/2025-preseason` would lose the edition before that
+lazy view mounted. Shared links still work on a COLD load: `rankingsDeepLink`
+reads `INITIAL_ROUTE`, and which segment is the edition is decided by
+matching the known editions, not by counting — an unknown segment is read as
+a team, so a link to an edition that no longer exists doesn't blank the page.
+
+Archive is TAB INDEX 10, appended: the screen map is positional, so
+inserting anywhere else shifts every index after it.
+
 ### Power Rankings page — `#power-rankings` (Sep 10, 2026)
 Twelve collapsible team cards in **four independently gated sections**:
 Introduction (lookback + intro + the Machine's foreword), Ranks 12–9, 8–5,

@@ -9,17 +9,19 @@
 // of a show-more, and deliberate: a show-more hides the writing from
 // everyone who never presses it, and the writing is the point. The board
 // it collapses TO is the part that stays useful in November.
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { teamByName } from '../data/staticData'
-import { ODDS_SEASON, ODDS_TITLE, oddsTiers, oddsBoard } from '../data/preseasonOdds'
+import { currentOdds } from '../data/odds/index.js'
 import { SectionHeader, TeamAvatar } from './shared'
 import TeamLink from './TeamLink'
 
-const STORE_KEY = `iffl.odds.collapsed.${ODDS_SEASON}`
+// Per edition, so reading an archived board doesn't decide how this year's
+// one opens — and so a reader's choice survives next year's publish.
+const storeKey = (season) => `iffl.odds.collapsed.${season}`
 
-function loadCollapsed() {
-  try { return localStorage.getItem(STORE_KEY) === '1' } catch { return false }
+function loadCollapsed(season) {
+  try { return localStorage.getItem(storeKey(season)) === '1' } catch { return false }
 }
 
 /**
@@ -31,14 +33,15 @@ const oddsValue = (odds) => {
   const [n, d] = String(odds).split('/').map(Number)
   return Number.isFinite(n) && Number.isFinite(d) && d !== 0 ? n / d : Infinity
 }
-const prices = oddsBoard.map((t) => oddsValue(t.odds))
-const shortest = Math.min(...prices)
-const longest = Math.max(...prices)
+const priceMarks = (board) => {
+  const prices = board.map((t) => oddsValue(t.odds))
+  return { shortest: Math.min(...prices), longest: Math.max(...prices) }
+}
 
-function OddsBadge({ odds, big }) {
+function OddsBadge({ odds, big, marks }) {
   const v = oddsValue(odds)
-  const fav = v === shortest
-  const dog = v === longest
+  const fav = v === marks.shortest
+  const dog = v === marks.longest
   const hue = fav ? '#F4A261' : dog ? '#F87171' : null
   return (
     <span
@@ -75,7 +78,7 @@ function OddsBadge({ odds, big }) {
  * skips clicks that came from a link, and the chevron is a real button
  * carrying the keyboard path and aria-expanded.
  */
-function OddsCard({ entry, mine }) {
+function OddsCard({ entry, mine, marks }) {
   const team = teamByName[entry.team]
   const [open, setOpen] = useState(true)
   const toggle = () => setOpen((v) => !v)
@@ -115,7 +118,7 @@ function OddsCard({ entry, mine }) {
               <TeamLink name={entry.team}>{team?.owner ?? entry.team}</TeamLink>
             </span>
           </span>
-          <OddsBadge odds={entry.odds} big />
+          <OddsBadge odds={entry.odds} big marks={marks} />
           <button
             // The row toggles too, and this sits inside it — without
             // stopping the bubble the click fires both handlers and the
@@ -139,7 +142,7 @@ function OddsCard({ entry, mine }) {
 }
 
 /** The collapsed form: twelve lines, rank · logo · name · odds. */
-function CompactRow({ entry, mine, last }) {
+function CompactRow({ entry, mine, last, marks }) {
   return (
     <div
       style={{
@@ -158,7 +161,7 @@ function CompactRow({ entry, mine, last }) {
       <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {entry.name}
       </span>
-      <OddsBadge odds={entry.odds} />
+      <OddsBadge odds={entry.odds} marks={marks} />
     </div>
   )
 }
@@ -169,22 +172,24 @@ function CompactRow({ entry, mine, last }) {
  * collapse control is gone: the overlay already IS the reveal, and a
  * button that hides the sole contents of a popup helps nobody.
  */
-export default function OddsBoard({ embedded = false }) {
+export default function OddsBoard({ embedded = false, edition = currentOdds }) {
   const { userTeam } = useApp()
-  const [stored, setCollapsed] = useState(loadCollapsed)
+  const { season, title, tiers, board } = edition
+  const [stored, setCollapsed] = useState(() => loadCollapsed(season))
   const collapsed = embedded ? false : stored
+  const marks = useMemo(() => priceMarks(board), [board])
 
   function toggle() {
     const next = !stored
     setCollapsed(next)
-    try { localStorage.setItem(STORE_KEY, next ? '1' : '0') } catch { /* private mode */ }
+    try { localStorage.setItem(storeKey(season), next ? '1' : '0') } catch { /* private mode */ }
   }
 
   return (
     <div>
       {!embedded && (
         <SectionHeader
-          title={`🎰 ${ODDS_TITLE}`}
+          title={`🎰 ${title}`}
           actionLabel={collapsed ? '▾ Read the odds' : '▴ Collapse'}
           onAction={toggle}
         />
@@ -192,18 +197,19 @@ export default function OddsBoard({ embedded = false }) {
 
       {collapsed ? (
         <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>
-          {oddsBoard.map((entry, i) => (
+          {board.map((entry, i) => (
             <CompactRow
               key={entry.name}
               entry={entry}
               mine={entry.team === userTeam}
-              last={i === oddsBoard.length - 1}
+              last={i === board.length - 1}
+              marks={marks}
             />
           ))}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
-          {oddsTiers.map((tier) => (
+          {tiers.map((tier) => (
             <div key={tier.key}>
               {/* Tier heading, verbatim — including the "..." and the aside. */}
               <div
@@ -228,8 +234,8 @@ export default function OddsBoard({ embedded = false }) {
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {tier.teams.map((t) => {
-                  const entry = oddsBoard.find((b) => b.name === t.name)
-                  return <OddsCard key={t.name} entry={entry} mine={t.team === userTeam} />
+                  const entry = board.find((b) => b.name === t.name)
+                  return <OddsCard key={t.name} entry={entry} mine={t.team === userTeam} marks={marks} />
                 })}
               </div>
             </div>

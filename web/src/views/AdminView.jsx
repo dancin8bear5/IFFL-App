@@ -7,6 +7,8 @@ import { useApp } from '../context/AppContext'
 import { fantasyTeams, RULE_CATEGORIES, milestones } from '../data/staticData'
 import { PHASES, PHASE_META, resolvePhase } from '../services/seasonPhase'
 import { editionId as EDITION_ID } from '../data/powerRankingsMeta'
+import { DASHBOARD_SECTIONS } from '../services/dashboardSections'
+import { resolveLayout, toStored, moveSection, setColumn } from '../services/dashboardLayout'
 import { dropStates, normalizeReleased } from '../services/rankingsRelease'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
 import { useIsDesktop } from '../hooks/useBreakpoint'
@@ -68,6 +70,7 @@ const SECTION_GROUPS = [
       { id: 'Teams',   glyph: '👥', blurb: 'Assignment & auto-link' },
       { id: 'Access',  glyph: '🔑', blurb: 'Who gets in' },
       { id: 'Areas',   glyph: '🎛️', blurb: 'Tab kill-switches' },
+      { id: 'Layout',  glyph: '🧱', blurb: 'Arrange the Dashboard' },
       { id: 'Season',  glyph: '🗓️', blurb: 'Phase override & calendar' },
       { id: 'GroupMe', glyph: '🔔', blurb: 'DM mapping & pause' },
     ],
@@ -209,6 +212,7 @@ export default function AdminView() {
       {section === 'Keeper Import' && <KeeperImportSection />}
       {section === 'Rollover' && <RolloverSection />}
       {section === 'Areas' && <AreasSection />}
+      {section === 'Layout' && <LayoutSection />}
       {section === 'Season' && <SeasonSection />}
       {section === 'Rules' && <RulesAdminSection />}
       {section === 'Records' && <RecordsSection />}
@@ -1219,6 +1223,115 @@ function AreasSection() {
       ))}
     </div>
   )
+}
+
+// ── Layout — arrange the Dashboard ────────────────────────────
+//
+// The Dashboard's order and columns are a stored list now
+// (config/league.dashboardLayout) over the registry in
+// services/dashboardSections.js, so "put the odds above the rankings" is a
+// change the commissioner makes rather than a deploy.
+//
+// This screen only ever calls the pure movers in services/dashboardLayout.js
+// and saves the result — every rule about what is allowed lives there, and is
+// re-applied when the Dashboard reads the document. A rule the editor is the
+// only one enforcing is a rule the database doesn't have.
+
+function LayoutSection() {
+  const { dashboardLayout, saveDashboardLayout } = useApp()
+  const sections = resolveLayout(DASHBOARD_SECTIONS, dashboardLayout)
+  const dirty = dashboardLayout?.length > 0
+
+  // A refused move (the top row's ↑, a wide section aimed at the rail) comes
+  // back unchanged, and saving it would be a write that does nothing. The
+  // movers copy the array, so this has to compare the layouts themselves.
+  const apply = (next) => {
+    const after = toStored(next)
+    if (JSON.stringify(after) === JSON.stringify(toStored(sections))) return
+    saveDashboardLayout(after)
+  }
+
+  const column = (rail) => sections.filter((s) => !!s.rail === rail)
+
+  const Row = ({ sec, i, last }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: i ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+      <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{sec.glyph}</span>
+      {/* The label alone. "Too wide for the rail" was on every main-column
+          row, which is twelve copies of a sentence the intro already makes
+          — the greyed-out button says it where it matters. */}
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>{sec.label}</span>
+      <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        <button
+          onClick={() => apply(moveSection(sections, sec.key, 'up'))}
+          disabled={i === 0}
+          aria-label={`Move ${sec.label} up`}
+          style={{ ...MOVE_BTN, opacity: i === 0 ? 0.3 : 1 }}
+        >↑</button>
+        <button
+          onClick={() => apply(moveSection(sections, sec.key, 'down'))}
+          disabled={last}
+          aria-label={`Move ${sec.label} down`}
+          style={{ ...MOVE_BTN, opacity: last ? 0.3 : 1 }}
+        >↓</button>
+        <button
+          onClick={() => apply(setColumn(sections, sec.key, sec.rail ? 'main' : 'rail'))}
+          disabled={!sec.railSafe}
+          aria-label={`Move ${sec.label} to the ${sec.rail ? 'main column' : 'rail'}`}
+          title={sec.railSafe ? undefined : 'Too wide for the rail — the rail is a narrow column'}
+          style={{
+            ...MOVE_BTN, width: 74, padding: 0, fontSize: 10.5, fontWeight: 800,
+            whiteSpace: 'nowrap', opacity: sec.railSafe ? 1 : 0.3,
+          }}
+        >{sec.rail ? '← Main' : 'Rail →'}</button>
+      </span>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.6, padding: '0 4px' }}>
+        The order the league sees. Changes save straight away and reach everyone with the app
+        open — no reload. This decides WHERE a section sits, not whether it appears: switching
+        something off is <b>Areas</b>, and sections that only belong in part of the year (the
+        bracket, the parlay) still come and go with the calendar.
+        <br /><br />
+        The rail is a narrow column on the right of a desktop screen, so only tiles and short
+        cards can go in it. On a phone there is one column and everything renders in this
+        order, top to bottom.
+      </div>
+
+      {[[false, 'Main column'], [true, 'Right rail']].map(([rail, title]) => {
+        const list = column(rail)
+        return (
+          <div key={title} className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '11px 14px', fontSize: 12.5, fontWeight: 800, borderBottom: '1px solid var(--iff-divider)' }}>
+              {title}
+            </div>
+            {list.map((sec, i) => (
+              <Row key={sec.key} sec={sec} i={i} last={i === list.length - 1} />
+            ))}
+            {!list.length && (
+              <div style={{ padding: '14px', fontSize: 12, color: 'var(--iff-subtext)' }}>Nothing here.</div>
+            )}
+          </div>
+        )
+      })}
+
+      {dirty && (
+        <button
+          onClick={() => saveDashboardLayout([])}
+          style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 9, fontSize: 12, fontWeight: 700, background: 'var(--iff-elevated)', color: 'var(--iff-subtext)' }}
+        >
+          Reset to the default layout
+        </button>
+      )}
+    </div>
+  )
+}
+
+const MOVE_BTN = {
+  width: 30, height: 28, borderRadius: 8, background: 'var(--iff-elevated)',
+  fontSize: 13, fontWeight: 700, flexShrink: 0,
 }
 
 // ── Rules — commissioner manual entry ─────────────────────────

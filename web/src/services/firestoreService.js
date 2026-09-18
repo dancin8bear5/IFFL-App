@@ -188,6 +188,20 @@ export function setDisabledAreas(areaKeys) {
   return updateDoc(doc(db, COL.config, 'league'), { disabledAreas: areaKeys })
 }
 
+/**
+ * Commissioner: the Dashboard's arrangement — an array of
+ * `{ key, column }`, written whole from Admin → Layout.
+ *
+ * A full snapshot rather than a diff: the document should read as the
+ * layout, and a saved list of only the things that differ from whatever the
+ * code said at the time is unreadable a year later. Resolution rules —
+ * including what happens to a section the list doesn't mention — live in
+ * services/dashboardLayout.js.
+ */
+export function setDashboardLayout(layout) {
+  return updateDoc(doc(db, COL.config, 'league'), { dashboardLayout: layout })
+}
+
 export function listenToPlayers(callback) {
   const q = query(collection(db, COL.players), where('isActive', '==', true))
   return onSnapshot(q, (snap) => callback(snapToDocs(snap)))

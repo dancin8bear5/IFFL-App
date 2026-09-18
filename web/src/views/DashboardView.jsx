@@ -13,6 +13,8 @@ import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
 import { editionId as RANKINGS_EDITION_ID } from '../data/powerRankingsMeta'
 import { releaseSummary } from '../services/rankingsRelease'
+import { DASHBOARD_SECTIONS } from '../services/dashboardSections'
+import { resolveLayout } from '../services/dashboardLayout'
 import * as fs from '../services/firestoreService'
 import TeamLink from '../components/TeamLink'
 import AssetDetailView from '../components/AssetDetailView'
@@ -74,7 +76,7 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
-    weeklyRecords, seasonPhase, isPhase, phaseWindow,
+    weeklyRecords, seasonPhase, isPhase, phaseWindow, dashboardLayout,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -829,49 +831,50 @@ export default function DashboardView({ setTab }) {
 
   // ── Section registry ─────────────────────────────────────────
   //
-  // The blocks above are assembled TWICE — once for desktop, once for
-  // mobile — so a phase condition written into each block would have to be
-  // right in two places forever. One ordered list instead; both layouts map
-  // over it.
+  // WHAT each section is, where it sits by default and when it applies is
+  // declared in services/dashboardSections.js; this map supplies only the
+  // rendered node for each key. The blocks are assembled TWICE — once for
+  // desktop, once for mobile — so a condition written into a block would
+  // have to be right in two places forever.
   //
-  // `phases` absent = every phase, which is what most of the Dashboard is.
-  // `rail` marks the blocks that sit in the desktop right-hand column;
-  // dropping them from this list leaves exactly the desktop main order, so
-  // one array reproduces both layouts.
-  // `lead` promotes a section to the top in the phases that name it —
-  // during the playoffs the bracket is the reason people opened the app.
-  const SECTIONS = [
-    { key: 'closed',    node: closedNotice,     phases: ['dead'] },
-    { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
-    // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the
-    // In-Season Scoring block are off the Dashboard while the Taylor Made
-    // rankings take that slot. `powerChart`, `scoringSection` and the
-    // components behind them are all still here and still wired to their
-    // Admin → Areas kill switches — putting either back is re-adding its
-    // one line to this list:
-    //   { key: 'power',   node: powerChart },
-    //   { key: 'scoring', node: scoringSection, phases: ['regular', 'playoffs'] },
-    { key: 'playoffs',  node: playoffSection,   phases: ['regular', 'playoffs'], lead: ['playoffs'] },
-    { key: 'calendar',  node: calendar },
-    { key: 'messages',  node: messagesSection },
-    // The rankings tile sits directly above the odds tile at the top of
-    // the rail — the two long reads of the preseason, side by side.
-    { key: 'rankings',  node: rankingsTile,      rail: true },
-    { key: 'odds',      node: oddsTile,         rail: true, phases: ['preseason', 'regular'] },
-    { key: 'rules',     node: rulesSection,     rail: true },
-    { key: 'offers',    node: offerBanners },
-    { key: 'parlay',    node: parlayCard,       phases: ['regular'] },
-    { key: 'team',      node: teamCard },
-    { key: 'history',   node: historyTiles,     rail: true },
-    { key: 'match',     node: matchBanner,      rail: true },
-    { key: 'teams',     node: teamsGrid },
-    { key: 'standings', node: standingsSection },
-    { key: 'trades',    node: tradesSection },
-    { key: 'ledger',    node: ledgerLink },
-  ]
+  // `resolveLayout` folds the commissioner's stored arrangement
+  // (config/league.dashboardLayout, edited in Admin → Layout) over that
+  // registry. With nothing stored it returns the registry unchanged, which
+  // is the case every browser is in until somebody rearranges something.
+  const NODES = {
+    closed: closedNotice,
+    live: liveScores,
+    // HIDDEN, NOT REMOVED (Sep 10, 2026) — the components and their Admin →
+    // Areas kill switches are all still wired; restoring either means
+    // re-adding its line here AND its entry in dashboardSections.js:
+    //   power: powerChart,
+    //   scoring: scoringSection,
+    playoffs: playoffSection,
+    calendar,
+    messages: messagesSection,
+    rankings: rankingsTile,
+    odds: oddsTile,
+    rules: rulesSection,
+    offers: offerBanners,
+    parlay: parlayCard,
+    team: teamCard,
+    history: historyTiles,
+    match: matchBanner,
+    teams: teamsGrid,
+    standings: standingsSection,
+    trades: tradesSection,
+    ledger: ledgerLink,
+  }
 
-  // Stable sort: `lead` sections float up, everything else holds the order
-  // written above.
+  const SECTIONS = resolveLayout(DASHBOARD_SECTIONS, dashboardLayout)
+    .map((sec) => ({ ...sec, node: NODES[sec.key] }))
+
+  // Stable sort: `lead` sections float up, everything else holds the
+  // resolved order.
+  //
+  // `lead` beats the stored layout on purpose — it is a schedule, like
+  // `phases`, not an arrangement. During the playoffs the bracket is the
+  // reason people opened the app, wherever the layout put it.
   //
   // Falsy nodes are dropped rather than rendered — several blocks evaluate
   // to `false` (no scoring data, no matches), and both layouts space their

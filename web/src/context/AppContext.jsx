@@ -98,6 +98,7 @@ export function AppProvider({ children }) {
   const [parlayEntries, setParlayEntries] = useState([])
   // Commissioner kill-switches: area keys hidden from the whole league
   const [disabledAreas, setDisabledAreas] = useState(new Set())
+  const [dashboardLayout, setDashboardLayout] = useState([])
   const [rolloverArmed, setRolloverArmed] = useState(false)
   const [rookieDraft, setRookieDraft] = useState(null)
   const [liveScoresMode, setLiveScoresMode] = useState('off')
@@ -176,6 +177,7 @@ export function AppProvider({ children }) {
     setPhaseOverride(config.phaseOverride ?? '')
     setRulesVotingOpen(config.rulesVotingOpen ?? false)
     setDisabledAreas(new Set(config.disabledAreas ?? []))
+    setDashboardLayout(config.dashboardLayout ?? [])
     setRolloverArmed(config.rolloverArmed ?? false)
     setLiveScoresMode(config.liveScores ?? 'off')
     setIsCommissioner((config.authorizedUIDs ?? []).includes(uid))
@@ -379,6 +381,23 @@ export function AppProvider({ children }) {
       await fs.setDisabledAreas([...next]).catch(() => setDisabledAreas(disabledAreas))
     },
     [disabledAreas],
+  )
+
+  /**
+   * Commissioner: save the Dashboard arrangement (optimistic).
+   *
+   * The whole list every time — see fs.setDashboardLayout. Rearranging is a
+   * live change for everyone with the app open, because config/league is a
+   * listener; that is the point of storing it rather than shipping it.
+   */
+  const saveDashboardLayout = useCallback(
+    async (layout) => {
+      const prev = dashboardLayout
+      setDashboardLayout(layout)
+      if (DEV_PREVIEW) return
+      await fs.setDashboardLayout(layout).catch(() => setDashboardLayout(prev))
+    },
+    [dashboardLayout],
   )
 
   /** Commissioner: arm/disarm the season rollover safety switch (optimistic). */
@@ -795,6 +814,7 @@ export function AppProvider({ children }) {
     parlayConfig, parlayEntries, submitParlayPick,
     // area kill-switches
     disabledAreas, areaEnabled, toggleArea,
+    dashboardLayout, saveDashboardLayout,
     // rookie draft room (config only — the room loads its own picks)
     rookieDraft, rookieDraftLive: rookieDraft?.live === true, saveRookieDraft,
     // A dry-run list. These teams reach the room while it is still closed

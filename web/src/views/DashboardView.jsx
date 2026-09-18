@@ -35,6 +35,11 @@ import SettingsView from './SettingsView'
 
 const KEEPER_POS = ['QB', 'RB', 'WR', 'TE']
 
+// Named here rather than in the rankings view so the tile and the overlay
+// that opens it always carry the same label without the Dashboard having
+// to pull in the view to read it.
+const RANKINGS_TITLE = 'Taylor Made Power Rankings'
+
 // ── League Calendar tile palette ──────────────────────────────
 // The calendar tiles wear their milestone's own color at full strength
 // rather than as an accent on a dark card. It's the one strip on the
@@ -75,7 +80,7 @@ export default function DashboardView({ setTab }) {
   const [showSettings, setShowSettings] = useState(false)
   const [detailAsset, setDetailAsset] = useState(null)
   const [detailTrade, setDetailTrade] = useState(null)
-  const [historyView, setHistoryView] = useState(null) // 'trophy' | 'power' | 'odds'
+  const [historyView, setHistoryView] = useState(null) // 'trophy' | 'power' | 'odds' | 'rankings'
   // What the Power Rankings banner is allowed to claim. A listener on a
   // tiny doc that carries no content, so opening a section lights the
   // banner up for everyone without a reload.
@@ -794,21 +799,24 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
-  // The championship odds, written for the league and published here
-  // instead of the group chat. Retires itself once the season rolls past
-  // the one it was written for, rather than showing 2026's odds in 2027.
-  // The Power Rankings sit IN the Dashboard, not behind a link — the whole
-  // piece, in the main column, every section collapsed so it leads without
-  // burying everything under it. Renders only when something is actually
-  // released; an empty masthead over four locked bars helps nobody.
-  const rankingsBlock = areaEnabled('rankings') && rankingsSummary && (
-    <Suspense fallback={<LoadingList count={2} />}>
-      <PowerRankings embedded />
-    </Suspense>
+  // The Power Rankings are eight thousand words, so — like the odds — they
+  // sit in the rail as a tile and open in the standard overlay rather than
+  // leading the main column. Renders only when something is actually
+  // released; an empty masthead over four locked bars helps nobody, and the
+  // sub-line says exactly how much is out.
+  const rankingsTile = areaEnabled('rankings') && rankingsSummary && (
+    <HistoryTile
+      glyph="📊"
+      title={RANKINGS_TITLE}
+      sub={rankingsSummary}
+      onClick={() => setHistoryView('rankings')}
+    />
   )
 
-  // The odds are a long read, so they sit in the rail as a tile and open
-  // in the standard overlay rather than taking the top of the main column.
+  // The championship odds, written for the league and published here
+  // instead of the group chat. Also a long read, so also a rail tile that
+  // opens in the standard overlay. Retires itself once the season rolls
+  // past the one it was written for, rather than showing 2026's odds in 2027.
   const oddsLive = areaEnabled('odds') && activeSeason === ODDS_SEASON
   const oddsTile = oddsLive && (
     <HistoryTile
@@ -827,13 +835,12 @@ export default function DashboardView({ setTab }) {
   // over it.
   //
   // `phases` absent = every phase, which is what most of the Dashboard is.
-  // `rail` marks the three blocks that sit in the desktop right-hand column;
+  // `rail` marks the blocks that sit in the desktop right-hand column;
   // dropping them from this list leaves exactly the desktop main order, so
   // one array reproduces both layouts.
   // `lead` promotes a section to the top in the phases that name it —
   // during the playoffs the bracket is the reason people opened the app.
   const SECTIONS = [
-    { key: 'rankings',  node: rankingsBlock },
     { key: 'closed',    node: closedNotice,     phases: ['dead'] },
     { key: 'live',      node: liveScores,       phases: ['regular', 'playoffs'] },
     // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the
@@ -847,6 +854,9 @@ export default function DashboardView({ setTab }) {
     { key: 'playoffs',  node: playoffSection,   phases: ['regular', 'playoffs'], lead: ['playoffs'] },
     { key: 'calendar',  node: calendar },
     { key: 'messages',  node: messagesSection },
+    // The rankings tile sits directly above the odds tile at the top of
+    // the rail — the two long reads of the preseason, side by side.
+    { key: 'rankings',  node: rankingsTile,      rail: true },
     { key: 'odds',      node: oddsTile,         rail: true, phases: ['preseason', 'regular'] },
     { key: 'rules',     node: rulesSection,     rail: true },
     { key: 'offers',    node: offerBanners },
@@ -897,6 +907,18 @@ export default function DashboardView({ setTab }) {
       {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
       {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
       {historyView === 'power' && <PowerRankingsView onClose={() => setHistoryView(null)} />}
+      {historyView === 'rankings' && (
+        <DetailOverlay title={RANKINGS_TITLE} onBack={() => setHistoryView(null)} desktop="modal">
+          <Suspense fallback={<LoadingList count={2} />}>
+            {/* `embedded` stays on in here: it keeps every section
+                collapsed, which is what makes eight thousand words
+                navigable in a modal. The standalone #power-rankings route
+                still opens its sections, since there the piece is the only
+                thing on screen. */}
+            <PowerRankings embedded />
+          </Suspense>
+        </DetailOverlay>
+      )}
       {historyView === 'odds' && (
         <DetailOverlay title={ODDS_TITLE} onBack={() => setHistoryView(null)} desktop="modal">
           <div style={{ padding: '14px 16px 24px' }}>

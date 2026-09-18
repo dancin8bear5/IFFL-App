@@ -302,14 +302,17 @@ TabLayout's URL writer had already normalised the hash to the bare slug
 before it mounted. `routing.INITIAL_ROUTE` captures the route at module
 init, the same fix `AppContext` documents for `deepLinkedTeam`.
 
-**It renders INLINE on the Dashboard**, first in the main column, not behind
-a link — `<PowerRankingsView embedded />`. Embedded mode drops the 760px
-reading wrapper (the column already constrains it) and starts every section
-COLLAPSED; expanded inline would push the whole rest of the Dashboard below
-eight thousand words. The standalone `#power-rankings` route still exists
-for shareable links and opens its sections by default, since there it is the
-only thing on screen. The block renders only when a section is actually
-released. Release toggles live in **Admin → Season**.
+**On the Dashboard it is a RAIL TILE** (Sep 18, 2026), directly above the
+Championship Odds tile, opening `<PowerRankingsView embedded />` in the same
+`DetailOverlay` the odds board uses. It rendered inline in the main column
+until then; the two long reads of the preseason now sit together at the top
+of the rail instead. `embedded` stays on INSIDE the overlay — it drops the
+760px reading wrapper and starts every section COLLAPSED, which is what makes
+eight thousand words navigable in a popup. The standalone `#power-rankings`
+route is unchanged and still opens its sections, since there the piece is the
+only thing on screen. The tile renders only when a section is actually
+released, and its sub-line is `releaseSummary()` — it says how much is out.
+Release toggles live in **Admin → Season**.
 
 ### Earlier draft, built then pulled back out (Sep 10, 2026)
 A full implementation shipped and was **removed the same day** at the

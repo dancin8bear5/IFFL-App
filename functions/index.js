@@ -10,7 +10,7 @@ const {reconcile} = require("./tradeReconcile");
 const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
 const {runFeedSync} = require("./ifflFeedSync");
-const {parseScoreboard, currentWeek, inGameWindow} = require("./espnScores");
+const {parseScoreboard, parseStandings, currentWeek, inGameWindow} = require("./espnScores");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -927,6 +927,48 @@ exports.pollEspnScores = onSchedule(
       lastRunAt: admin.firestore.Timestamp.now(),
     }, {merge: true});
     console.log(`pollEspnScores: week ${board.week}, ${board.games.length} games, ${board.problems.length} problems`);
+  },
+);
+
+/**
+ * Current-season standings from ESPN's public v3 API (?view=mTeam) — same
+ * endpoint family as pollEspnScores, no key, no cookies.
+ *
+ * Writes espnStandings/{season}. The Dashboard's Standings section reads it
+ * in-season, and only for activeSeason — past seasons live in League
+ * History. Hourly is plenty: standings only move when a game goes final,
+ * and stat corrections land on Tuesdays.
+ */
+exports.pollEspnStandings = onSchedule(
+  {schedule: "every 60 minutes", timeZone: "America/Chicago", retryCount: 0},
+  async () => {
+    const cfgSnap = await db.doc("config/league").get();
+    const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
+    const ref = db.doc(`espnStandings/${season}`);
+
+    const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
+      `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mTeam`;
+    let data;
+    try {
+      const res = await fetch(url, {headers: {"User-Agent": "iffl-app/1.0"}});
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      data = await res.json();
+    } catch (e) {
+      console.error("pollEspnStandings: fetch failed:", e.message);
+      await ref.set({lastError: e.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true});
+      return;
+    }
+
+    const {standings, gamesPlayed, problems} = parseStandings(data);
+    await ref.set({
+      season,
+      standings,
+      gamesPlayed,
+      problems,
+      lastError: null,
+      lastRunAt: admin.firestore.Timestamp.now(),
+    }, {merge: true});
+    console.log(`pollEspnStandings: ${standings.length} teams, ${gamesPlayed} games played, ${problems.length} problems`);
   },
 );
 

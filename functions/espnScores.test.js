@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseScoreboard, currentWeek, inGameWindow, ESPN_TEAM_ID_TO_NAME } = require("./espnScores");
+const { parseScoreboard, parseStandings, currentWeek, inGameWindow, ESPN_TEAM_ID_TO_NAME } = require("./espnScores");
 
 const resp = (over = {}) => ({
   scoringPeriodId: 0,
@@ -78,4 +78,47 @@ test("the real 2026 preseason response yields a full week-1 slate at 0-0", () =>
   assert.equal(r.games.length, 6);
   assert.equal(r.problems.length, 0, "every id in a 12-team slate must resolve");
   assert.ok(r.games.every((g) => g.homeScore === 0 && !g.final));
+});
+
+// ── Standings ───────────────────────────────────────────────
+const team = (id, w, l, pf, seed, t = 0) => ({
+  id, playoffSeed: seed,
+  record: { overall: { wins: w, losses: l, ties: t, pointsFor: pf, pointsAgainst: 100 } },
+});
+
+test("standings follow ESPN's playoffSeed when it is a clean ranking", () => {
+  const { standings, problems, gamesPlayed } = parseStandings({ teams: [
+    team(10, 2, 1, 300.456, 2), team(6, 3, 0, 280, 1), team(5, 0, 3, 250, 3),
+  ] });
+  assert.deepEqual(standings.map((s) => s.teamName), ["Bill", "Jared", "M. Zurek"]);
+  assert.deepEqual(standings.map((s) => s.place), [1, 2, 3]);
+  assert.equal(standings[1].record, "2-1");
+  assert.equal(standings[1].pointsFor, 300.46);
+  assert.equal(gamesPlayed, 3);
+  assert.equal(problems.length, 0);
+  assert.equal("seed" in standings[0], false, "internal seed field is not written");
+});
+
+test("without clean seeds, rank by win% then points for", () => {
+  const { standings } = parseStandings({ teams: [
+    team(10, 1, 1, 200, 0), team(6, 1, 1, 250, 0), team(5, 2, 0, 150, 0),
+  ] });
+  assert.deepEqual(standings.map((s) => s.teamName), ["M. Zurek", "Bill", "Jared"]);
+});
+
+test("ties show in the record and count half a win", () => {
+  const { standings } = parseStandings({ teams: [team(10, 1, 0, 100, 0, 1), team(6, 1, 1, 500, 0)] });
+  assert.equal(standings[0].teamName, "Jared");
+  assert.equal(standings[0].record, "1-0-1");
+});
+
+test("an unknown ESPN team id is reported, never guessed", () => {
+  const { standings, problems } = parseStandings({ teams: [team(99, 1, 0, 100, 1), team(10, 0, 1, 90, 2)] });
+  assert.deepEqual(standings.map((s) => s.teamName), ["Jared"]);
+  assert.match(problems[0], /99/);
+});
+
+test("empty response → empty standings, no throw", () => {
+  assert.deepEqual(parseStandings({}).standings, []);
+  assert.deepEqual(parseStandings(null).standings, []);
 });

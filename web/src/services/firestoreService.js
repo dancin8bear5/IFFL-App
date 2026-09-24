@@ -610,6 +610,18 @@ export function listenToLiveScores(season, callback, onError) {
   )
 }
 
+// ── Current-season standings (ESPN v3, written by pollEspnStandings) ──
+export function listenToEspnStandings(season, callback, onError) {
+  return onSnapshot(
+    doc(db, 'espnStandings', String(season)),
+    (snap) => callback(snap.exists() ? snap.data() : null),
+    (err) => {
+      console.error(`listenToEspnStandings(${season}) failed:`, err)
+      onError?.(err)
+    },
+  )
+}
+
 /** 'off' | 'commissioner' | 'all' — who can see the live scoreboard. */
 export function setLiveScoresMode(mode) {
   return updateDoc(doc(db, COL.config, 'league'), { liveScores: mode })

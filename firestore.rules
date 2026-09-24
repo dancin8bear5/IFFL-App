@@ -210,6 +210,16 @@ service cloud.firestore {
       allow write: if isCommissioner();
     }
 
+    // ESPN v3 pulls, written only by Cloud Functions (admin SDK bypasses
+    // rules). Members read. espnLiveScores had no rule at all, so the live
+    // scoreboard was default-denied for every client.
+    match /espnLiveScores/{season} {
+      allow read: if isMember();
+    }
+    match /espnStandings/{season} {
+      allow read: if isMember();
+    }
+
     match /leagueHistory/{year} {
       allow read: if isMember();
       allow write: if isCommissioner();

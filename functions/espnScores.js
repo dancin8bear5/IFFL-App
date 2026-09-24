@@ -108,4 +108,58 @@ function inGameWindow(date, week = 1) {
   return false;
 }
 
-module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, inGameWindow };
+/**
+ * Current-season standings from ESPN's ?view=mTeam.
+ *
+ * Returns { standings: [{place, teamName, record, wins, losses, ties,
+ * pointsFor, pointsAgainst}], problems } — the same row shape as
+ * leagueHistory/{year}.standings, so the Dashboard renders either source
+ * with one component.
+ *
+ * Place: ESPN's own playoffSeed while it is a clean 1..N ranking (that is
+ * the league's tiebreak, not ours to reinvent). If it isn't — preseason, or
+ * a partial response — fall back to win% then points for. Unknown team ids
+ * are reported, never guessed.
+ */
+function parseStandings(data) {
+  const problems = [];
+  const rows = [];
+  for (const t of data?.teams ?? []) {
+    const name = ESPN_TEAM_ID_TO_NAME[t?.id];
+    if (!name) {
+      problems.push(`Unknown ESPN team id ${t?.id} in standings`);
+      continue;
+    }
+    const o = t?.record?.overall ?? {};
+    const wins = Number(o.wins ?? 0);
+    const losses = Number(o.losses ?? 0);
+    const ties = Number(o.ties ?? 0);
+    rows.push({
+      teamName: name,
+      wins, losses, ties,
+      record: ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`,
+      pointsFor: Math.round(Number(o.pointsFor ?? 0) * 100) / 100,
+      pointsAgainst: Math.round(Number(o.pointsAgainst ?? 0) * 100) / 100,
+      seed: Number(t?.playoffSeed ?? 0),
+    });
+  }
+
+  const seeds = rows.map((r) => r.seed);
+  const cleanSeeds = rows.length > 0 &&
+    new Set(seeds).size === rows.length &&
+    seeds.every((n) => n >= 1 && n <= rows.length);
+
+  const pct = (r) => {
+    const gp = r.wins + r.losses + r.ties;
+    return gp ? (r.wins + r.ties / 2) / gp : 0;
+  };
+  rows.sort(cleanSeeds
+    ? (a, b) => a.seed - b.seed
+    : (a, b) => pct(b) - pct(a) || b.pointsFor - a.pointsFor);
+
+  const standings = rows.map(({seed, ...r}, i) => ({place: i + 1, ...r}));
+  const gamesPlayed = Math.max(0, ...rows.map((r) => r.wins + r.losses + r.ties));
+  return { standings, gamesPlayed, problems: [...new Set(problems)] };
+}
+
+module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, inGameWindow };

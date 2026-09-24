@@ -78,7 +78,7 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
-    weeklyRecords, seasonPhase, isPhase, phaseWindow, dashboardLayout,
+    weeklyRecords, seasonPhase, isPhase, phaseWindow, dashboardLayout, isPreview,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -102,6 +102,15 @@ export default function DashboardView({ setTab }) {
   useEffect(() => {
     loadLeagueHistory()
   }, [loadLeagueHistory])
+
+  // Live current-season standings from ESPN (pollEspnStandings). Only
+  // listened to in-season — the section doesn't exist in any other phase.
+  const standingsLive = isPhase(['regular', 'playoffs'])
+  const [espnStandings, setEspnStandings] = useState(null)
+  useEffect(() => {
+    if (!standingsLive || isPreview) return
+    return fs.listenToEspnStandings(activeSeason, setEspnStandings, () => setEspnStandings(null))
+  }, [standingsLive, isPreview, activeSeason])
 
   const myAssets = useMemo(
     () => allDisplayAssets.filter((a) => a.teamName === userTeam),
@@ -634,7 +643,13 @@ export default function DashboardView({ setTab }) {
   // matches `activeSeason` exactly and never falls back to leagueHistory[0];
   // until the current season has standings, the section renders nothing.
   // Phase gating (regular + playoffs) is in dashboardSections.js.
-  const currentStandings = leagueHistory.find((h) => h.season === activeSeason)
+  // Source order: live ESPN pull for this season, then a leagueHistory doc
+  // for this season (e.g. the final table once it's imported). Never an
+  // older season.
+  const currentStandings =
+    (espnStandings?.season === activeSeason && espnStandings.standings?.length > 0 && espnStandings.gamesPlayed > 0)
+      ? espnStandings
+      : leagueHistory.find((h) => h.season === activeSeason)
   const standingsSection = currentStandings?.standings?.length > 0 && (
     <div>
       <SectionHeader title={`${currentStandings.season} Standings`} actionLabel="Full history" onAction={openHistory} />

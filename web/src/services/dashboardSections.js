@@ -62,7 +62,8 @@ export const DASHBOARD_SECTIONS = [
   { key: 'history',   label: 'History & Trophy tiles', glyph: '📚', rail: true, railSafe: true },
   { key: 'match',     label: 'Trade match banner',     glyph: '⇄',  rail: true, railSafe: true },
   { key: 'teams',     label: 'All teams grid',         glyph: '👥' },
-  { key: 'standings', label: 'Standings',              glyph: '📋' },
+  // In-season only, current season only — past seasons live in History.
+  { key: 'standings', label: 'Standings',              glyph: '📋', phases: ['regular', 'playoffs'] },
   { key: 'trades',    label: 'Recent trades',          glyph: '🤝' },
   { key: 'ledger',    label: 'Transaction log',        glyph: '🧾' },
 ]

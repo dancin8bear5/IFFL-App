@@ -628,16 +628,21 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
-  // League standings — absorbed from the retired League tab
-  const latestSeason = leagueHistory[0]
-  const standingsSection = latestSeason?.standings?.length > 0 && (
+  // League standings — absorbed from the retired League tab.
+  // CURRENT SEASON ONLY (Sep 23, 2026). A past season's final table is
+  // history, and it lives in League History — not on the Dashboard. So this
+  // matches `activeSeason` exactly and never falls back to leagueHistory[0];
+  // until the current season has standings, the section renders nothing.
+  // Phase gating (regular + playoffs) is in dashboardSections.js.
+  const currentStandings = leagueHistory.find((h) => h.season === activeSeason)
+  const standingsSection = currentStandings?.standings?.length > 0 && (
     <div>
-      <SectionHeader title={`${latestSeason.season} Standings`} actionLabel="Full history" onAction={openHistory} />
+      <SectionHeader title={`${currentStandings.season} Standings`} actionLabel="Full history" onAction={openHistory} />
       <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '9px 14px', fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--iff-divider)' }}>
           <span /><span>Team</span><span style={{ textAlign: 'center' }}>W-L</span><span style={{ textAlign: 'right' }}>PF</span>
         </div>
-        {[...latestSeason.standings].sort((a, b) => a.place - b.place).map((s) => (
+        {[...currentStandings.standings].sort((a, b) => a.place - b.place).map((s) => (
           <div
             key={s.teamName}
             style={{

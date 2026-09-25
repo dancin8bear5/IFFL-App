@@ -7,6 +7,8 @@
 #   FIREBASE_SA            deploy service-account JSON key
 #   VITE_FIREBASE_API_KEY  VITE_FIREBASE_APP_ID      (web/.env values)
 #   TELEGRAM_BOT_TOKEN     TELEGRAM_CHAT_ID          (optional TELEGRAM_THREAD_ID)
+#   SMOKE_EMAIL            SMOKE_PASSWORD            read-only account in config/league.smokeUIDs
+# Reporting is failure-only; set repo variable REPORT_ALWAYS=true to hear about green runs too.
 name: Deploy + verify
 
 on:
@@ -114,6 +116,9 @@ jobs:
           npx playwright install --with-deps chromium
           sleep 20   # CDN propagation
           PW_PROJECT=live SMOKE_URL=https://iffl-auth.web.app npx playwright test --project=live
+        env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
 
       - name: Auto-rollback hosting
         id: rollback
@@ -161,5 +166,6 @@ jobs:
           HEALTH: ${{ needs.deploy.outputs.health }}
           SHA: ${{ github.sha }}
           MSG: ${{ github.event.head_commit.message }}
+          REPORT_ALWAYS: ${{ vars.REPORT_ALWAYS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node .github/scripts/report.mjs

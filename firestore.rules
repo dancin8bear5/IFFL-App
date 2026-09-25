@@ -24,6 +24,20 @@ service cloud.firestore {
       );
     }
 
+    // The deploy agent's signed-in smoke-test account (Sep 25, 2026), listed
+    // in config/league.smokeUIDs. It READS what a member reads and WRITES
+    // nothing: every write rule checks isMember() / isCommissioner(), neither
+    // of which includes it. Its password is a GitHub secret, so it must never
+    // be able to touch league data. Rule of thumb: `allow read` uses
+    // isReader(); every write keeps isMember().
+    function isSmoke() {
+      return signedIn() && request.auth.uid in leagueConfig().get('smokeUIDs', []);
+    }
+
+    function isReader() {
+      return isMember() || isSmoke();
+    }
+
     // The voting member's own team, or '' for an authorized account that
     // has no team assigned. Reuses the leagueConfig() read isMember() already
     // paid for, so this costs nothing extra.
@@ -86,10 +100,10 @@ service cloud.firestore {
     // for. The real protection is that nothing unreleased is ever sent to
     // a browser or shipped in the bundle.
     match /powerRankings/{edition} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
       match /drops/{drop} {
-        allow read: if isMember();
+        allow read: if isReader();
         allow write: if isCommissioner();
       }
     }
@@ -108,7 +122,7 @@ service cloud.firestore {
     // scores each week; nobody loses an ability they had when this
     // data lived inside config/pod.
     match /weeklyScores/{season} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isPodMember();
     }
 
@@ -118,7 +132,7 @@ service cloud.firestore {
     // member-write rule would have to resolve playoff seeding inside the
     // rules themselves, which isn't worth the fragility.
     match /playoffs/{season} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
@@ -128,7 +142,7 @@ service cloud.firestore {
     // not just in the Settings UI, so nobody can repoint someone else's
     // picture by hand.
     match /teamAvatars/{teamName} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner() ||
         (signedIn() && leagueConfig().userTeamMap[request.auth.uid] == teamName);
     }
@@ -152,12 +166,12 @@ service cloud.firestore {
 
     // Rosters & league data — member reads, commissioner writes
     match /players/{playerId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
     match /draftPicks/{pickId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
@@ -179,7 +193,7 @@ service cloud.firestore {
     // rewritten afterwards by the person who made it. Correcting a pick is
     // a commissioner action, on purpose.
     match /rookieDraftPicks/{pickId} {
-      allow read: if isMember();
+      allow read: if isReader();
       // `testers` is a dry-run list: those teams can pick while the room is
       // still closed to the league, so the whole path — rules included —
       // can be proven before draft night rather than discovered during it.
@@ -206,7 +220,7 @@ service cloud.firestore {
     // the tab appears at all); only the commissioner sets the order or
     // opens the room.
     match /config/rookieDraft {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
@@ -214,10 +228,10 @@ service cloud.firestore {
     // rules). Members read. espnLiveScores had no rule at all, so the live
     // scoreboard was default-denied for every client.
     match /espnLiveScores/{season} {
-      allow read: if isMember();
+      allow read: if isReader();
     }
     match /espnStandings/{season} {
-      allow read: if isMember();
+      allow read: if isReader();
     }
 
     // Agent #3 league notes. Drafts are written by Cloud Functions and are
@@ -226,7 +240,7 @@ service cloud.firestore {
     // sending or sent; only the sender function (admin SDK) writes those.
     // Approving requires a real send time.
     match /leagueNotes/{noteId} {
-      allow read: if isCommissioner() || (isMember() && resource.data.status == 'sent');
+      allow read: if isCommissioner() || (isReader() && resource.data.status == 'sent');
       allow update: if isCommissioner()
         && resource.data.status in ['draft', 'approved', 'failed']
         && request.resource.data.status in ['draft', 'approved', 'rejected']
@@ -235,7 +249,7 @@ service cloud.firestore {
     }
 
     match /leagueHistory/{year} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
@@ -243,35 +257,35 @@ service cloud.firestore {
     // player season/week lines, and drafts. Seeded once by
     // web/scripts/import-history.mjs; read-only league data thereafter.
     match /historyTeamSeasons/{year} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
     match /historyMatchups/{year} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
     match /historyPlayerSeasons/{year} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
     match /historyPlayerWeeks/{yearWeek} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
     match /historyDrafts/{year} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
     // Precomputed chart feeds (scoring by season, draft spend + ROI). These
     // exist so the Trophy Room doesn't have to pull every draft and player
     // season into the browser to draw three charts.
     match /historyAggregates/{docId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
     match /messages/{messageId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
@@ -279,7 +293,7 @@ service cloud.firestore {
     // respond (accept/decline); executing (asset transfers + completed
     // status) happens with commissioner privileges.
     match /trades/{tradeId} {
-      allow read: if isMember();
+      allow read: if isReader();
       // Members propose (status 'proposed'); the commissioner can also
       // create a trade directly as 'completed' — recording a deal that
       // happened outside the app (e.g. executed on ESPN).
@@ -305,7 +319,7 @@ service cloud.firestore {
     // anything. It costs one extra document read per vote, which is a fine
     // price for a once-per-trade write.
     match /tradeVotes/{voteId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow create: if isMember()
         && voteId == request.resource.data.tradeId + '_' + request.auth.uid
         && request.resource.data.uid == request.auth.uid
@@ -317,7 +331,7 @@ service cloud.firestore {
     // Rule proposals + voting — members propose anytime; votes only while
     // the commissioner has the portal open; status changes commissioner-only
     match /rules/{ruleId} {
-      allow read: if isMember();
+      allow read: if isReader();
       // Members propose; the commissioner can also enter rules directly
       // with any status (manual entry / seeding passed rules)
       allow create: if isCommissioner() ||
@@ -336,12 +350,12 @@ service cloud.firestore {
     // Entries: one per team per week (doc id season_week_team); a member may
     // write only their own team's entry and only before the lock.
     match /config/parlay {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
     match /parlayEntries/{entryId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow create, update: if isCommissioner() || (
         isMember() &&
         request.resource.data.teamName == leagueConfig().userTeamMap[request.auth.uid] &&
@@ -353,13 +367,13 @@ service cloud.firestore {
 
     // Week results (book, bet slip link, hit/miss, payout) — commissioner only
     match /parlayWeeks/{weekId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
     // Game & player extremes (Trophy Room records) — commissioner-entered
     match /leagueRecords/{recordId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow write: if isCommissioner();
     }
 
@@ -422,20 +436,20 @@ service cloud.firestore {
     // written only by the commissioner (entries ride along with executeTrade
     // and repair batches). Never updated or deleted — it's an audit log.
     match /transactions/{txId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow create: if isCommissioner();
       allow update, delete: if false;
     }
 
     match /playerFMK/{fmkId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow create, update: if isMember() && request.resource.data.userId == request.auth.uid;
       allow delete: if isMember() && resource.data.userId == request.auth.uid;
     }
 
     // Legacy star-interest system — same ownership model
     match /playerInterests/{interestId} {
-      allow read: if isMember();
+      allow read: if isReader();
       allow create: if isMember() && request.resource.data.userId == request.auth.uid;
       allow delete: if isMember() && resource.data.userId == request.auth.uid;
     }

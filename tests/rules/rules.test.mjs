@@ -12,6 +12,7 @@ let env
 const MEMBER = 'member-uid'
 const OUTSIDER = 'outsider-uid'
 const COMMISH = 'commish-uid'
+const SMOKE = 'smoke-uid'
 
 before(async () => {
   env = await initializeTestEnvironment({
@@ -28,6 +29,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'config/league'), {
       userTeamMap: { [MEMBER]: 'Bill' },
       authorizedUIDs: [COMMISH],
+      smokeUIDs: [SMOKE],
       activeSeasonYear: 2026,
     })
     for (const p of ['espnLiveScores/2026', 'espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025']) {
@@ -74,3 +76,17 @@ test('a sent note cannot be edited by anyone', () =>
   assertFails(updateDoc(doc(as(COMMISH), 'leagueNotes/sent1'), { status: 'draft' })))
 test('clients cannot create notes', () =>
   assertFails(setDoc(doc(as(COMMISH), 'leagueNotes/new1'), { status: 'draft', body: 'x' })))
+
+// ── Deploy agent's smoke account: reads everything a member reads, writes nothing ──
+for (const path of ['espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025', 'leagueNotes/sent1']) {
+  test(`smoke account reads ${path}`, () => assertSucceeds(getDoc(doc(as(SMOKE), path))))
+}
+test('smoke account cannot read a draft note', () => assertFails(getDoc(doc(as(SMOKE), 'leagueNotes/draft1'))))
+test('smoke account cannot propose a trade', () =>
+  assertFails(setDoc(doc(as(SMOKE), 'trades/t1'), { status: 'proposed', proposingTeamName: 'Bill', receivingTeamName: 'Ryan' })))
+test('smoke account cannot propose a rule', () =>
+  assertFails(setDoc(doc(as(SMOKE), 'rules/r1'), { status: 'proposed', title: 'x' })))
+test('smoke account cannot write FMK signals', () =>
+  assertFails(setDoc(doc(as(SMOKE), 'playerFMK/f1'), { userId: SMOKE, signal: 'F' })))
+test('smoke account cannot write league config', () =>
+  assertFails(updateDoc(doc(as(SMOKE), 'config/league'), { activeSeasonYear: 1999 })))

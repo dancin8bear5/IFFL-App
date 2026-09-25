@@ -1,5 +1,6 @@
 // Build-state report → Telegram. Pure formatter + one POST.
-// No token configured → prints the report and exits 0 (never fails the run).
+// Failure-only (Jared, Sep 25): a green run prints to the Actions log and sends
+// nothing. REPORT_ALWAYS=true sends every run. No token → print only; never fails the run.
 export function format(e) {
   const icon = (r) => (r === 'success' ? '✅' : r === 'skipped' || !r ? '⏭' : '❌')
   const ok = e.TEST === 'success' && e.DEPLOY === 'success' && e.SMOKE === 'success' && e.HEALTH === 'success'
@@ -16,9 +17,15 @@ export function format(e) {
   return { ok, text: lines.filter(Boolean).join('\n') }
 }
 
+export const shouldSend = (ok, always) => !ok || String(always) === 'true'
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { text } = format(process.env)
+  const { ok, text } = format(process.env)
   console.log(text)
+  if (!shouldSend(ok, process.env.REPORT_ALWAYS)) {
+    console.log('(green — failure-only reporting, nothing sent)')
+    process.exit(0)
+  }
   const { TELEGRAM_BOT_TOKEN: t, TELEGRAM_CHAT_ID: chat, TELEGRAM_THREAD_ID: thread } = process.env
   if (t && chat) {
     const body = { chat_id: chat, text, disable_web_page_preview: true, ...(thread ? { message_thread_id: Number(thread) } : {}) }

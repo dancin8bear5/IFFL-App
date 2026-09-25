@@ -56,8 +56,8 @@ push → unit tests (web + functions) → vite build → rules emulator tests
 - On a smoke failure: `firebase hosting:clone iffl-auth:<prev> iffl-auth:live`, or alert only (see open decisions).
 - **Done when:** a failed run posts ❌ with the failing step named.
 
-## Open decisions
-- [ ] Deploy branch: `main`, or keep the `claude/*` branch flow?
-- [ ] Auto-rollback, or alert-only?
-- [ ] Report on every run, or only on failure?
-- [ ] Test account for authenticated smoke: create one, or stay on `?preview=1` only?
+## Decisions (Sep 25, 2026)
+- [x] Deploy branch: `main`, merged by PR (main is branch-protected).
+- [x] On a smoke failure: auto-rollback of hosting. Rules and functions are not rolled back.
+- [x] Reporting: failures only. Repo variable `REPORT_ALWAYS=true` turns on every-run reports.
+- [x] Signed-in smoke: yes, as a read-only account in `config/league.smokeUIDs`, with secrets `SMOKE_EMAIL` / `SMOKE_PASSWORD`. It can read but can't write anything.

@@ -43,7 +43,12 @@ beforeEach(async () => {
 const as = (uid) => env.authenticatedContext(uid).firestore()
 const anon = () => env.unauthenticatedContext().firestore()
 
-for (const path of ['espnLiveScores/2026', 'espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025', 'config/league']) {
+// config/league is deliberately readable by ANY signed-in user — the client
+// reads it at first login to resolve membership, before it has a team.
+test('any signed-in user reads config/league (membership lookup)', () => assertSucceeds(getDoc(doc(as(OUTSIDER), 'config/league'))))
+test('signed-out cannot read config/league', () => assertFails(getDoc(doc(anon(), 'config/league'))))
+
+for (const path of ['espnLiveScores/2026', 'espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025']) {
   test(`member reads ${path}`, () => assertSucceeds(getDoc(doc(as(MEMBER), path))))
   test(`outsider cannot read ${path}`, () => assertFails(getDoc(doc(as(OUTSIDER), path))))
   test(`signed-out cannot read ${path}`, () => assertFails(getDoc(doc(anon(), path))))

@@ -1,0 +1,207 @@
+season,round,slot,slot_confidence,price,player,position,nfl_team,fantasy_team,espn_overall_pick
+2017,1,1.01,exact,12,Corey Davis,WR,Ten,Jared,76
+2017,1,1.02,exact,10,Leonard Fournette,RB,Jax,Ryan,81
+2017,1,1.03,exact,8,Christian McCaffrey,RB,Car,Cantone,82
+2017,1,1.04,exact,6,Dalvin Cook,RB,Min,Foley,79
+2017,1,,round only,2,Deshaun Watson,QB,Hou,M. Zurek,78
+2017,1,,round only,2,Kareem Hunt,RB,KC,Eric,70
+2017,1,,round only,2,Mike Williams,WR,LAC,M. Zurek,84
+2017,1,,round only,2,Samaje Perine,RB,Wsh,Faybik,85
+2017,2,,round only,1,Alvin Kamara,RB,NO,Faybik,77
+2017,2,,round only,1,D'Onta Foreman,RB,Hou,Vince,69
+2017,2,,round only,1,Evan Engram,TE,NYG,Foley,87
+2017,2,,round only,1,Jamaal Williams,RB,GB,M. Zurek,88
+2017,2,,round only,1,James Conner,RB,Pit,Dugan,80
+2017,2,,round only,1,John Ross,WR,Cin,Ryan,83
+2017,2,,round only,1,Marlon Mack,RB,Ind,Bill,72
+2017,2,,round only,1,Mitchell Trubisky,QB,Chi,Ryan,71
+2017,2,,round only,1,O.J. Howard,TE,TB,Jared,73
+2017,2,,round only,1,Zay Jones,WR,Buf,Cantone,75
+2018,1,1.01,exact,12,Saquon Barkley,RB,NYG,Jared,71
+2018,1,1.02,exact,10,Royce Freeman,RB,Den,Cantone,72
+2018,1,1.03,exact,,,,,,
+2018,1,1.04,exact,6,Sam Darnold,QB,NYJ,Dugan,69
+2018,1,1.05,exact,4,Ronald Jones,RB,TB,Jared,83
+2018,1,,round only,2,Baker Mayfield,QB,Cle,Eric,75
+2018,1,,round only,2,Calvin Ridley,WR,Atl,Foley,73
+2018,1,,round only,2,Josh Rosen,QB,Ari,Faybik,67
+2018,1,,round only,2,Kerryon Johnson,RB,Det,Ryan,65
+2018,1,,round only,2,Nick Chubb,RB,Cle,Dugan,81
+2018,1,,round only,2,Rashaad Penny,RB,Sea,Vince,66
+2018,1,,round only,2,Sony Michel,RB,NE,Cantone,84
+2018,2,,round only,1,Anthony Miller,WR,Chi,Cantone,96
+2018,2,,round only,1,Antonio Callaway,WR,Cle,Faybik,79
+2018,2,,round only,1,Christian Kirk,WR,Ari,Eric,87
+2018,2,,round only,1,Derrius Guice,RB,Wsh,Vince,78
+2018,2,,round only,1,James Washington,WR,ATL,Dugan,93
+2018,2,,round only,1,Jordan Wilkins,RB,Ind,Dugan,105
+2018,2,,round only,1,Josh Allen,QB,Buf,Abad,64
+2018,2,,round only,1,Lamar Jackson,QB,Bal,M. Zurek,70
+2018,2,,round only,1,Michael Gallup,WR,Dal,Cantone,108
+2018,2,,round only,1,Mike Gesicki,TE,CIN,Jason,74
+2018,2,,round only,1,Nyheim Hines,RB,Ind,Ryan,77
+2019,1,1.01,exact,12,Kyler Murray,QB,Ari,Dugan,74
+2019,1,1.02,exact,10,Josh Jacobs,RB,LV,Abad,81
+2019,1,1.03,exact,8,David Montgomery,RB,Chi,Vince,75
+2019,1,1.04,exact,6,Miles Sanders,RB,Phi,Vince,78
+2019,1,1.05,exact,4,Dwayne Haskins Jr.,QB,Wsh,Ryan,79
+2019,1,,round only,2,A.J. Brown,WR,Ten,Ryan,91
+2019,1,,round only,2,Darrell Henderson Jr.,RB,LAR,Cantone,87
+2019,1,,round only,2,Devin Singletary,RB,Buf,Foley,77
+2019,1,,round only,2,DK Metcalf,WR,Sea,Eric,76
+2019,1,,round only,2,N'Keal Harry,WR,NE,Cantone,84
+2019,1,,round only,2,Parris Campbell,WR,DAL,Vince,83
+2019,1,,round only,2,T.J. Hockenson,TE,Det,Vince,82
+2019,2,,round only,1,Alexander Mattison,RB,Min,Faybik,80
+2019,2,,round only,1,Andy Isabella,WR,Ari,Dugan,86
+2019,2,,round only,1,Damien Harris,RB,BUF,Cantone,108
+2019,2,,round only,1,Daniel Jones,QB,NYG,Vince,95
+2019,2,,round only,1,Darwin Thompson,RB,KC,Bill,85
+2019,2,,round only,1,Deebo Samuel,WR,SF,Bill,73
+2019,2,,round only,1,J.J. Arcega-Whiteside,WR,Phi,Abad,93
+2019,2,,round only,1,Justice Hill,RB,Bal,Eric,88
+2019,2,,round only,1,Marquise Brown,WR,Bal,Cantone,96
+2019,2,,round only,1,Mecole Hardman,WR,KC,Bill,97
+2019,2,,round only,1,Miles Boykin,WR,CHI,Vince,107
+2019,2,,round only,1,Noah Fant,TE,Den,Foley,89
+2020,1,1.01,exact,12,Jonathan Taylor,RB,Ind,Abad,50
+2020,1,1.02,exact,10,Clyde Edwards-Helaire,RB,KC,Abad,44
+2020,1,1.03,exact,8,J.K. Dobbins,RB,Bal,A. Zurek,77
+2020,1,1.04,exact,6,Joe Burrow,QB,Cin,Faybik,8
+2020,1,1.05,exact,4,D'Andre Swift,RB,Det,Ryan,59
+2020,1,,round only,2,Cam Akers,RB,LAR,Wayne,20
+2020,1,,round only,2,CeeDee Lamb,WR,Dal,Dugan,16
+2020,1,,round only,2,Henry Ruggs III,WR,LV,Foley,71
+2020,1,,round only,2,Jerry Jeudy,WR,Den,Ryan,56
+2020,1,,round only,2,Justin Herbert,QB,LAC,Ryan,52
+2020,1,,round only,2,Tua Tagovailoa,QB,Mia,Abad,46
+2020,2,,round only,1,Adam Trautman,TE,DEN,Abad,45
+2020,2,,round only,1,AJ Dillon,RB,GB,Jared,70
+2020,2,,round only,1,Antonio Gibson,RB,Wsh,Jared,63
+2020,2,,round only,1,Chase Claypool,WR,Pit,Dugan,15
+2020,2,,round only,1,Cole Kmet,TE,Chi,Foley,72
+2020,2,,round only,1,Denzel Mims,WR,NYJ,Faybik,3
+2020,2,,round only,1,Jalen Reagor,WR,Phi,Jared,67
+2020,2,,round only,1,Justin Jefferson,WR,Min,Jared,65
+2020,2,,round only,1,Michael Pittman Jr.,WR,Ind,Wayne,25
+2020,2,,round only,1,Tee Higgins,WR,Cin,A. Zurek,82
+2020,2,,round only,1,Zack Moss,RB,Buf,Ryan,54
+2021,1,1.01,exact,12,Najee Harris,RB,Pit,Foley,77
+2021,1,1.02,exact,10,Trevor Lawrence,QB,Jax,Cantone,57
+2021,1,1.03,exact,8,Justin Fields,QB,Chi,A. Zurek,84
+2021,1,1.04,exact,6,Kyle Pitts,TE,Atl,Abad,44
+2021,1,1.05,exact,4,Javonte Williams,RB,Den,Faybik,3
+2021,1,,round only,2,DeVonta Smith,WR,Phi,Abad,39
+2021,1,,round only,2,Ja'Marr Chase,WR,Cin,Cantone,58
+2021,1,,round only,2,Jaylen Waddle,WR,Mia,Cantone,56
+2021,1,,round only,2,Michael Carter,RB,NYJ,Cantone,55
+2021,1,,round only,2,Travis Etienne Jr.,RB,Jax,Jared,75
+2021,1,,round only,2,Trey Lance,QB,SF,Jared,68
+2021,1,,round only,2,Trey Sermon,RB,SF,A. Zurek,87
+2021,2,,round only,1,Amon-Ra St. Brown,WR,Det,Faybik,5
+2021,2,,round only,1,Chuba Hubbard,RB,Car,M. Zurek,28
+2021,2,,round only,1,Dee Eskridge,WR,MIA,Foley,78
+2021,2,,round only,1,Elijah Moore,WR,NYJ,M. Zurek,29
+2021,2,,round only,1,Kenneth Gainwell,RB,Phi,A. Zurek,85
+2021,2,,round only,1,Mac Jones,QB,NE,Abad,43
+2021,2,,round only,1,Nico Collins,WR,Hou,Ryan,53
+2021,2,,round only,1,Rashod Bateman,WR,Bal,Jared,72
+2021,2,,round only,1,Rondale Moore,WR,Ari,Dugan,14
+2021,2,,round only,1,Terrace Marshall Jr.,WR,Car,Wayne,19
+2021,2,,round only,1,Zach Wilson,QB,NYJ,Jared,73
+2022,1,,round only,2,Breece Hall,RB,NYJ,Abad,55
+2022,1,,round only,2,Chris Olave,WR,NO,Dugan,25
+2022,1,,round only,2,Christian Watson,WR,GB,Cantone,75
+2022,1,,round only,2,Drake London,WR,Atl,A. Zurek,98
+2022,1,,round only,2,Garrett Wilson,WR,NYJ,Faybik,2
+2022,1,,round only,2,James Cook,RB,Buf,Cantone,78
+2022,1,,round only,2,Jameson Williams,WR,Det,Jared,83
+2022,1,,round only,2,Kenneth Walker III,RB,Sea,Faybik,9
+2022,1,,round only,2,Malik Willis,QB,Ten,Abad,59
+2022,1,,round only,2,Rachaad White,RB,TB,Cantone,74
+2022,1,,round only,2,Skyy Moore,WR,KC,Dugan,27
+2022,1,,round only,2,Treylon Burks,WR,Ten,A. Zurek,93
+2022,2,,round only,1,Alec Pierce,WR,Ind,Jason,17
+2022,2,,round only,1,Brian Robinson Jr.,RB,Wsh,Wayne,29
+2022,2,,round only,1,Dameon Pierce,RB,Hou,Foley,90
+2022,2,,round only,1,David Bell,WR,CLE,Foley,91
+2022,2,,round only,1,Desmond Ridder,QB,Atl,Bill,53
+2022,2,,round only,1,George Pickens,WR,Pit,Dugan,20
+2022,2,,round only,1,Isaiah Spiller,RB,LAC,Bill,49
+2022,2,,round only,1,Jahan Dotson,WR,Wsh,A. Zurek,94
+2022,2,,round only,1,Jalen Tolbert,WR,MIA,Wayne,35
+2022,2,,round only,1,Kenny Pickett,QB,Pit,Wayne,38
+2022,2,,round only,1,Romeo Doubs,WR,GB,Dugan,26
+2022,2,,round only,1,Tyrion Davis-Price,RB,GB,M. Zurek,41
+2022,2,,round only,1,Wan'Dale Robinson,WR,NYG,Jared,82
+2023,1,,round only,2,Anthony Richardson,QB,Ind,Ryan,62
+2023,1,,round only,2,Bijan Robinson,RB,Atl,Dugan,17
+2023,1,,round only,2,Bryce Young,QB,Car,Abad,54
+2023,1,,round only,2,C.J. Stroud,QB,Hou,A. Zurek,91
+2023,1,,round only,2,Dalton Kincaid,TE,Buf,A. Zurek,96
+2023,1,,round only,2,Jahmyr Gibbs,RB,Det,A. Zurek,89
+2023,1,,round only,2,Jaxon Smith-Njigba,WR,Sea,Jared,78
+2023,1,,round only,2,Jonathan Mingo,WR,Car,Foley,81
+2023,1,,round only,2,Jordan Addison,WR,Min,Abad,48
+2023,1,,round only,2,Michael Mayer,TE,LV,Dugan,22
+2023,1,,round only,2,Quentin Johnston,WR,LAC,Foley,80
+2023,1,,round only,2,Zach Charbonnet,RB,Sea,Jared,72
+2023,1,,round only,2,Zay Flowers,WR,Bal,Jared,76
+2023,2,,round only,1,Chase Brown,RB,Cin,Ryan,59
+2023,2,,round only,1,De'Von Achane,RB,Mia,Wayne,29
+2023,2,,round only,1,Kendre Miller,RB,NO,Cantone,71
+2023,2,,round only,1,Marvin Mims Jr.,WR,Den,A. Zurek,100
+2023,2,,round only,1,Rashee Rice,WR,KC,Cantone,69
+2023,2,,round only,1,Roschon Johnson,RB,Chi,Cantone,65
+2023,2,,round only,1,Sam LaPorta,TE,Det,Cantone,70
+2023,2,,round only,1,Tank Bigsby,RB,Jax,Jared,73
+2023,2,,round only,1,Tyjae Spears,RB,Ten,Bill,45
+2023,2,,round only,1,Zach Evans,RB,NYJ,Ryan,60
+2024,1,,round only,2,Bo Nix,QB,Den,Faybik,3
+2024,1,,round only,2,Brian Thomas Jr.,WR,Jax,Faybik,6
+2024,1,,round only,2,Caleb Williams,QB,Chi,Abad,61
+2024,1,,round only,2,Jayden Daniels,QB,Wsh,Jason,18
+2024,1,,round only,2,Jonathon Brooks,RB,Car,Foley,98
+2024,1,,round only,2,Keon Coleman,WR,Buf,Foley,92
+2024,1,,round only,2,Ladd McConkey,WR,LAC,Bill,54
+2024,1,,round only,2,Malik Nabers,WR,NYG,Jared,81
+2024,1,,round only,2,Marvin Harrison Jr.,WR,Ari,Bill,50
+2024,1,,round only,2,Rome Odunze,WR,Chi,Foley,89
+2024,1,,round only,2,Trey Benson,RB,Ari,Faybik,9
+2024,1,,round only,2,Xavier Worthy,WR,KC,Dugan,25
+2024,2,,round only,1,Adonai Mitchell,WR,Ind,Foley,95
+2024,2,,round only,1,Blake Corum,RB,LAR,Bill,53
+2024,2,,round only,1,Brock Bowers,TE,LV,Jared,84
+2024,2,,round only,1,Drake Maye,QB,NE,M. Zurek,47
+2024,2,,round only,1,J.J. McCarthy,QB,Min,Jason,15
+2024,2,,round only,1,Ja'Lynn Polk,WR,NO,Cantone,79
+2024,2,,round only,1,Jaylen Wright,RB,Mia,Wayne,41
+2024,2,,round only,1,MarShawn Lloyd,RB,GB,Bill,55
+2024,2,,round only,1,Michael Penix Jr.,QB,Atl,Dugan,22
+2024,2,,round only,1,Ricky Pearsall,WR,SF,A. Zurek,100
+2024,2,,round only,1,Troy Franklin,WR,Den,Wayne,37
+2024,2,,round only,1,Xavier Legette,WR,Car,Cantone,72
+2025,1,,round only,2,Ashton Jeanty,RB,LV,Jared,69
+2025,1,,round only,2,Cam Ward,QB,Ten,A. Zurek,86
+2025,1,,round only,2,Colston Loveland,TE,Chi,Abad,44
+2025,1,,round only,2,Emeka Egbuka,WR,TB,Jason,11
+2025,1,,round only,2,Kaleb Johnson,RB,Pit,Bill,35
+2025,1,,round only,2,Omarion Hampton,RB,LAC,M. Zurek,27
+2025,1,,round only,2,Quinshon Judkins,RB,Cle,Abad,42
+2025,1,,round only,2,RJ Harvey,RB,Den,Wayne,25
+2025,1,,round only,2,Tetairoa McMillan,WR,Car,Jared,70
+2025,1,,round only,2,Travis Hunter,WR,Jax,Abad,41
+2025,1,,round only,2,TreVeyon Henderson,RB,NE,Ryan,53
+2025,1,,round only,2,Tyler Warren,TE,Ind,Jason,8
+2025,2,,round only,1,Bhayshul Tuten,RB,Jax,Foley,75
+2025,2,,round only,1,Cam Skattebo,RB,NYG,Jared,63
+2025,2,,round only,1,Elijah Arroyo,TE,SEA,Jason,10
+2025,2,,round only,1,Jack Bech,WR,LV,Bill,33
+2025,2,,round only,1,Jaxson Dart,QB,NYG,Ryan,57
+2025,2,,round only,1,Jayden Higgins,WR,Hou,Faybik,1
+2025,2,,round only,1,Jaydon Blue,RB,Dal,Bill,36
+2025,2,,round only,1,Kyle Williams,WR,NE,Jason,12
+2025,2,,round only,1,Luther Burden III,WR,Chi,Jared,71
+2025,2,,round only,1,Mason Taylor,TE,NYJ,Wayne,22
+2025,2,,round only,1,Matthew Golden,WR,GB,Ryan,55
+2025,2,,round only,1,Tre' Harris,WR,LAC,Ryan,51

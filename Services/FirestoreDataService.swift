@@ -266,6 +266,20 @@ class FirestoreDataService: ObservableObject {
         ], completion: completion)
     }
 
+    /// Receiving team counters: marks original as .countered and creates the counter-offer document atomically.
+    func counterOffer(originalTradeId: String, counter: Trade, completion: @escaping (Error?) -> Void) {
+        let batch = db.batch()
+        let originalRef = db.collection(Col.trades).document(originalTradeId)
+        batch.updateData(["status": TradeStatus.countered.rawValue], forDocument: originalRef)
+        let counterRef = db.collection(Col.trades).document()
+        do {
+            try batch.setData(from: counter, forDocument: counterRef)
+            batch.commit(completion: completion)
+        } catch {
+            completion(error)
+        }
+    }
+
     /// Commissioner-only: atomically transfers all assets and marks the trade completed.
     /// Call this after the ESPN confirmation email is received and verified.
     func executeTrade(tradeId: String, completion: @escaping (Error?) -> Void) {

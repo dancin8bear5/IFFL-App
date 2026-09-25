@@ -15,14 +15,14 @@ struct RostersView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.iffBg.ignoresSafeArea()
+                Color.beltBg.ignoresSafeArea()
                 VStack(spacing: 0) {
                     Picker("Mode", selection: $mode) {
                         ForEach(RosterMode.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     .padding()
-                    .background(Color.iffBg)
+                    .background(Color.beltBg)
 
                     if mode == .teams {
                         TeamRosterView()
@@ -37,7 +37,7 @@ struct RostersView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(Color.iffSubtext)
+                            .foregroundColor(Color.beltSubtext)
                     }
                 }
             }
@@ -81,16 +81,16 @@ struct TeamRosterView: View {
                                     Label(on ? "Uninterested" : "Interested",
                                           systemImage: on ? "star.slash" : "star")
                                 }
-                                .tint(Color.iffAccent)
+                                .tint(Color.beltAccent)
                             }
                         }
-                        .listRowBackground(Color.iffSurface)
+                        .listRowBackground(Color.beltSurface)
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
                     }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
-                .background(Color.iffBg)
+                .background(Color.beltBg)
             }
         }
     }
@@ -131,22 +131,22 @@ struct AllAssetsView: View {
 
     private var searchBar: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundColor(Color.iffSubtext)
+            Image(systemName: "magnifyingglass").foregroundColor(Color.beltSubtext)
             TextField("Search players & picks…", text: $searchText)
                 .foregroundColor(.white)
                 .autocapitalization(.none)
             if !searchText.isEmpty {
                 Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundColor(Color.iffSubtext)
+                    Image(systemName: "xmark.circle.fill").foregroundColor(Color.beltSubtext)
                 }
             }
         }
         .padding(10)
-        .background(Color.iffSurface)
+        .background(Color.beltSurface)
         .cornerRadius(10)
         .padding(.horizontal)
         .padding(.vertical, 8)
-        .background(Color.iffBg)
+        .background(Color.beltBg)
     }
 
     private var filterBar: some View {
@@ -155,22 +155,22 @@ struct AllAssetsView: View {
                 ForEach(allPositions, id: \.self) { pos in
                     positionChip(pos)
                 }
-                Divider().frame(height: 20).background(Color.iffSubtext.opacity(0.3))
+                Divider().frame(height: 20).background(Color.beltSubtext.opacity(0.3))
                 Button {
                     sortDesc.toggle()
                 } label: {
                     Label(sortDesc ? "↓ Price" : "↑ Price", systemImage: "arrow.up.arrow.down")
                         .font(.caption.bold())
-                        .foregroundColor(Color.iffAccent)
+                        .foregroundColor(Color.beltAccent)
                         .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(Color.iffSurface)
+                        .background(Color.beltSurface)
                         .clipShape(Capsule())
                 }
             }
             .padding(.horizontal)
             .padding(.vertical, 6)
         }
-        .background(Color.iffBg)
+        .background(Color.beltBg)
     }
 
     private func positionChip(_ pos: String) -> some View {
@@ -188,9 +188,9 @@ struct AllAssetsView: View {
         } label: {
             Text(pos)
                 .font(.caption.bold())
-                .foregroundColor(selected ? .white : Color.iffSubtext)
+                .foregroundColor(selected ? .white : Color.beltSubtext)
                 .padding(.horizontal, 10).padding(.vertical, 6)
-                .background(selected ? Color.iffAccent : Color.iffSurface)
+                .background(selected ? Color.beltAccent : Color.beltSurface)
                 .clipShape(Capsule())
         }
     }
@@ -210,16 +210,16 @@ struct AllAssetsView: View {
                             Label(on ? "Uninterested" : "Interested",
                                   systemImage: on ? "star.slash" : "star")
                         }
-                        .tint(Color.iffAccent)
+                        .tint(Color.beltAccent)
                     }
                 }
-                .listRowBackground(Color.iffSurface)
+                .listRowBackground(Color.beltSurface)
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
-        .background(Color.iffBg)
+        .background(Color.beltBg)
     }
 }
 
@@ -241,7 +241,7 @@ struct TeamSwitcherView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
         }
-        .background(Color.iffSurface)
+        .background(Color.beltSurface)
     }
 }
 
@@ -262,10 +262,10 @@ struct TeamChip: View {
                     .font(.caption.bold())
                     .lineLimit(1)
             }
-            .foregroundColor(isSelected ? .white : Color.iffSubtext)
+            .foregroundColor(isSelected ? .white : Color.beltSubtext)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isSelected ? Color.iffAccent : Color.iffElevated)
+            .background(isSelected ? Color.beltAccent : Color.beltElevated)
             .clipShape(Capsule())
         }
     }
@@ -284,7 +284,7 @@ struct RosterDetailView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             List {
                 ForEach(assets) { item in
                     NavigationLink(destination: AssetDetailView(asset: item)) {
@@ -299,10 +299,10 @@ struct RosterDetailView: View {
                                 Label(on ? "Uninterested" : "Interested",
                                       systemImage: on ? "star.slash" : "star")
                             }
-                            .tint(Color.iffAccent)
+                            .tint(Color.beltAccent)
                         }
                     }
-                    .listRowBackground(Color.iffSurface)
+                    .listRowBackground(Color.beltSurface)
                     .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
                 }
             }

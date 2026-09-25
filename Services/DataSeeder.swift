@@ -3,7 +3,7 @@ import Firebase
 import FirebaseFirestore
 
 // MARK: - DataSeeder
-// One-time operation to populate Firestore from the 2026 IFFL Keeper Master List.
+// One-time operation to populate Firestore from the 2026 Keeper Master List.
 // The commissioner triggers this from AdminView. It is idempotent: if the
 // "players" collection already has documents it will abort cleanly.
 //
@@ -109,8 +109,8 @@ class DataSeeder {
                 SeasonMilestone(name: "Rookie Draft Pick Lottery",  description: "Mid February",                       date: date("2026-02-11")),
                 SeasonMilestone(name: "NFL Draft",                  description: "Draft Date — approx April 23rd",     date: nil),
                 SeasonMilestone(name: "Rookie Draft",               description: "NFL Training Camp Opens",            date: date("2026-07-23")),
-                SeasonMilestone(name: "Select Keepers",             description: "2-4 Days prior to IFFL Auction",     date: nil),
-                SeasonMilestone(name: "IFFL Auction Draft",         description: "Last Monday of August",              date: nil),
+                SeasonMilestone(name: "Select Keepers",             description: "2-4 Days prior to Auction",          date: nil),
+                SeasonMilestone(name: "Auction Draft",              description: "Last Monday of August",              date: nil),
                 SeasonMilestone(name: "League Dues Paid",           description: "Auction Draft",                      date: date("2026-08-31")),
                 SeasonMilestone(name: "NFL Season Start",           description: "1st Day of NFL Season",              date: date("2026-09-10")),
                 SeasonMilestone(name: "Rosters Frozen",             description: "NFL Week 17",                        date: date("2027-01-03"))

@@ -1,0 +1,171 @@
+# Agent #1 — deploy + verify. Spec: docs/agents/01-deploy-agent.md
+#
+#   test ─▶ deploy ─▶ live smoke ─(fail)▶ auto-rollback hosting
+#                   └▶ critical-process health ─▶ Telegram report
+#
+# Secrets (repo → Settings → Secrets → Actions):
+#   FIREBASE_SA            deploy service-account JSON key
+#   VITE_FIREBASE_API_KEY  VITE_FIREBASE_APP_ID      (web/.env values)
+#   TELEGRAM_BOT_TOKEN     TELEGRAM_CHAT_ID          (optional TELEGRAM_THREAD_ID)
+#   SMOKE_EMAIL            SMOKE_PASSWORD            read-only account in config/league.smokeUIDs
+# Reporting is failure-only; set repo variable REPORT_ALWAYS=true to hear about green runs too.
+name: Deploy + verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+env:
+  TZ: America/Chicago
+  NODE_VERSION: '22'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - run: npm i -g firebase-tools@13
+      - name: Install
+        run: |
+          (cd web && npm ci)
+          (cd functions && npm ci)
+          (cd tests/rules && npm ci)
+      - name: Unit tests — web
+        run: cd web && npm test
+      - name: Unit tests — functions
+        run: cd functions && node --test *.test.js
+      - name: Unit tests — CI scripts
+        run: node --test .github/scripts/*.test.mjs
+      - name: Rules — emulator
+        run: cd tests/rules && npm test
+      - name: Smoke — preview build (every phase)
+        run: |
+          cd web
+          npx playwright install --with-deps chromium
+          PW_PROJECT=preview npx playwright test --project=preview
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-preview, path: web/test-results, retention-days: 7 }
+
+  deploy:
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: { contents: read }
+    outputs:
+      prev_version: ${{ steps.prev.outputs.version }}
+      smoke: ${{ steps.smoke.outcome }}
+      rolled_back: ${{ steps.rollback.outcome == 'success' }}
+      health: ${{ steps.health.outcome }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '${{ env.NODE_VERSION }}' }
+      - run: npm i -g firebase-tools@13
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SA }}
+          token_format: access_token
+
+      - name: Record the live hosting version (rollback target)
+        id: prev
+        run: |
+          v=$(curl -fsS -H "Authorization: Bearer ${{ steps.auth.outputs.access_token }}" \
+            https://firebasehosting.googleapis.com/v1beta1/sites/iffl-auth/channels/live \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const n=JSON.parse(s).release?.version?.name||"";console.log(n.split("/").pop())})')
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Live version before deploy: ${v:-<none>}"
+
+      - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        run: |
+          cd web && npm ci
+          {
+            echo "VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY"
+            echo "VITE_FIREBASE_AUTH_DOMAIN=iffl-auth.firebaseapp.com"
+            echo "VITE_FIREBASE_PROJECT_ID=iffl-auth"
+            echo "VITE_FIREBASE_MESSAGING_SENDER_ID=876749980452"
+            echo "VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID"
+          } > .env
+          npm run build
+
+      - name: Deploy hosting + rules + functions
+        run: |
+          (cd functions && npm ci)
+          firebase deploy --project iffl-auth --only hosting,firestore:rules,functions --non-interactive
+
+      - name: Smoke — live site
+        id: smoke
+        continue-on-error: true
+        run: |
+          cd web
+          npx playwright install --with-deps chromium
+          sleep 20   # CDN propagation
+          PW_PROJECT=live SMOKE_URL=https://iffl-auth.web.app npx playwright test --project=live
+        env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+
+      - name: Auto-rollback hosting
+        id: rollback
+        if: steps.smoke.outcome == 'failure' && steps.prev.outputs.version != ''
+        run: |
+          firebase hosting:clone "iffl-auth:@${{ steps.prev.outputs.version }}" iffl-auth:live --project iffl-auth
+          echo "Rolled hosting back to ${{ steps.prev.outputs.version }}. Rules and functions were NOT rolled back."
+
+      - name: Critical-process health
+        id: health
+        continue-on-error: true
+        env:
+          HEALTH_OUT: ${{ runner.temp }}/health.md
+        run: node functions/scripts/check-health.js
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deploy-report
+          path: |
+            ${{ runner.temp }}/health.md
+            web/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Fail the run if smoke or health failed
+        if: steps.smoke.outcome == 'failure' || steps.health.outcome == 'failure'
+        run: exit 1
+
+  report:
+    needs: [test, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
+          TEST: ${{ needs.test.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+          SMOKE: ${{ needs.deploy.outputs.smoke }}
+          ROLLED_BACK: ${{ needs.deploy.outputs.rolled_back }}
+          HEALTH: ${{ needs.deploy.outputs.health }}
+          SHA: ${{ github.sha }}
+          MSG: ${{ github.event.head_commit.message }}
+          REPORT_ALWAYS: ${{ vars.REPORT_ALWAYS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/report.mjs

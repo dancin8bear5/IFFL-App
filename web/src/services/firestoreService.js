@@ -622,6 +622,41 @@ export function listenToEspnStandings(season, callback, onError) {
   )
 }
 
+// ── League notes (agent #3) — commissioner approval queue ──────
+// Drafts are written by Cloud Functions. The client only moves a note
+// between draft / approved / rejected; firestore.rules forbids anything
+// else, and only the sender function marks a note sent.
+export function listenToNoteQueue(callback, onError) {
+  return onSnapshot(
+    query(collection(db, 'leagueNotes'), where('status', 'in', ['draft', 'approved', 'failed'])),
+    (snap) => callback(snapToDocs(snap).sort((a, b) => (tsToDate(b.createdAt) ?? 0) - (tsToDate(a.createdAt) ?? 0))),
+    (err) => { console.error('listenToNoteQueue failed:', err); onError?.(err) },
+  )
+}
+
+export function saveNoteDraft(id, { body, sendAt, destination }) {
+  return updateDoc(doc(db, 'leagueNotes', id), {
+    status: 'draft', body, destination,
+    proposedSendAt: Timestamp.fromDate(sendAt),
+    updatedAt: Timestamp.now(),
+  })
+}
+
+export function approveNote(id, { body, sendAt, destination }) {
+  if (!body?.trim()) throw new Error('Empty note')
+  if (!(sendAt instanceof Date) || Number.isNaN(+sendAt)) throw new Error('Pick a send time')
+  return updateDoc(doc(db, 'leagueNotes', id), {
+    status: 'approved', body: body.trim(), destination,
+    sendAt: Timestamp.fromDate(sendAt),
+    approvedAt: Timestamp.now(), updatedAt: Timestamp.now(),
+  })
+}
+
+export function setNoteStatus(id, status) {
+  if (!['draft', 'rejected'].includes(status)) throw new Error(`Clients cannot set ${status}`)
+  return updateDoc(doc(db, 'leagueNotes', id), { status, updatedAt: Timestamp.now() })
+}
+
 /** 'off' | 'commissioner' | 'all' — who can see the live scoreboard. */
 export function setLiveScoresMode(mode) {
   return updateDoc(doc(db, COL.config, 'league'), { liveScores: mode })

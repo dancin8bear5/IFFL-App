@@ -220,6 +220,20 @@ service cloud.firestore {
       allow read: if isMember();
     }
 
+    // Agent #3 league notes. Drafts are written by Cloud Functions and are
+    // commissioner-only until SENT. Clients can move a note between
+    // draft / approved / rejected (and reopen a failed one) — never to
+    // sending or sent; only the sender function (admin SDK) writes those.
+    // Approving requires a real send time.
+    match /leagueNotes/{noteId} {
+      allow read: if isCommissioner() || (isMember() && resource.data.status == 'sent');
+      allow update: if isCommissioner()
+        && resource.data.status in ['draft', 'approved', 'failed']
+        && request.resource.data.status in ['draft', 'approved', 'rejected']
+        && (request.resource.data.status != 'approved' || request.resource.data.sendAt is timestamp);
+      allow create, delete: if false;
+    }
+
     match /leagueHistory/{year} {
       allow read: if isMember();
       allow write: if isCommissioner();

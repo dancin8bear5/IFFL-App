@@ -67,3 +67,10 @@ test('NO client can mark a note sent — only the sender function', async () => 
   await assertFails(updateDoc(doc(as(COMMISH), 'leagueNotes/draft1'), { status: 'sent' }))
   await assertFails(updateDoc(doc(as(MEMBER), 'leagueNotes/draft1'), { status: 'approved' }))
 })
+
+test('approving without a send time is refused', () =>
+  assertFails(updateDoc(doc(as(COMMISH), 'leagueNotes/draft1'), { status: 'approved' })))
+test('a sent note cannot be edited by anyone', () =>
+  assertFails(updateDoc(doc(as(COMMISH), 'leagueNotes/sent1'), { status: 'draft' })))
+test('clients cannot create notes', () =>
+  assertFails(setDoc(doc(as(COMMISH), 'leagueNotes/new1'), { status: 'draft', body: 'x' })))

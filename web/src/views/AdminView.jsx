@@ -60,6 +60,7 @@ const SECTION_GROUPS = [
       { id: 'Rules',    glyph: '📜', blurb: 'Proposals & voting' },
       { id: 'Records',  glyph: '🏆', blurb: 'Trophy Room extremes' },
       { id: 'Messages', glyph: '💬', blurb: 'League broadcast' },
+      { id: 'Notes',    glyph: '📝', blurb: 'Agent drafts — approve what + when' },
       { id: 'Parlay',   glyph: '🎯', blurb: 'Open the week, record results' },
       { id: 'Standings', glyph: '📊', blurb: 'Records & playoff bracket' },
     ],
@@ -223,6 +224,7 @@ export default function AdminView() {
       {section === 'Trade Signals' && <TradeSignalsSection />}
       {section === 'Feed' && <FeedSection />}
       {section === 'Messages' && <MessagesSection />}
+      {section === 'Notes' && <NotesSection />}
       {section === 'Parlay' && <ParlaySection />}
       {section === 'Standings' && <StandingsSection />}
       {section === 'Teams' && <TeamsSection />}
@@ -1138,6 +1140,7 @@ const APP_AREAS = [
   { group: 'Agents', items: [
     // Server-side: pollWeeklyScores reads config/league.disabledAreas.
     { key: 'weeklyAgent', label: 'Weekly scores from ESPN (Tue 10 AM)', glyph: '📊' },
+    { key: 'notesAgent',  label: 'League notes drafting (recap)', glyph: '📝' },
   ]},
 ]
 
@@ -2691,6 +2694,120 @@ function MessagesSection() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Notes (agent #3) ──────────────────────────────────────────
+// The approval gate. The agent drafts; nothing goes out until Jared
+// approves the words AND the time here. Rules enforce the same thing:
+// clients can't write sending/sent, and approving needs a send time.
+const tsDate = (v) => (v?.toDate ? v.toDate() : v ? new Date(v) : null)
+
+function NotesSection() {
+  const { isPreview } = useApp()
+  const [notes, setNotes] = useState(null)
+  const [err, setErr] = useState(null)
+  useEffect(() => {
+    if (isPreview) { import('../data/previewData').then((d) => setNotes(d.previewNotes ?? [])); return }
+    return fs.listenToNoteQueue(setNotes, (e) => setErr(e.message))
+  }, [isPreview])
+
+  if (err) return <div className="iff-card" style={{ padding: 14, color: '#EF4444' }}>Couldn’t load notes: {err}</div>
+  if (!notes) return <LoadingList />
+  if (notes.length === 0) {
+    return (
+      <div className="iff-card" style={{ padding: 16, fontSize: 13, color: 'var(--iff-subtext)', lineHeight: 1.5 }}>
+        No drafts waiting. The recap is drafted every Tuesday after weekly scores land; you’ll get a GroupMe DM when one is ready.
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {notes.map((n) => <NoteCard key={n.id} note={n} />)}
+    </div>
+  )
+}
+
+function NoteCard({ note }) {
+  const [body, setBody] = useState(note.body ?? note.draftBody ?? '')
+  const [when, setWhen] = useState(toLocalInput(tsDate(note.sendAt) ?? tsDate(note.proposedSendAt)))
+  const [dest, setDest] = useState(note.destination ?? 'groupme')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const approved = note.status === 'approved'
+  const failed = note.status === 'failed'
+  const locked = approved
+
+  async function act(fn, ok) {
+    setBusy(true); setMsg(null)
+    try { await fn(); setMsg(ok) } catch (e) { setMsg(`⚠️ ${e.message}`) } finally { setBusy(false) }
+  }
+  const sendAt = when ? new Date(when) : null
+  const badge = approved ? { t: 'APPROVED', c: 'var(--iff-green)' } : failed ? { t: 'FAILED', c: '#EF4444' } : { t: 'DRAFT', c: 'var(--iff-gold)' }
+
+  return (
+    <div className="iff-card" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 15, fontWeight: 800 }}>
+          {note.type === 'recap' ? `Week ${note.week} recap` : note.type}
+        </span>
+        <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.5, color: badge.c }}>{badge.t}</span>
+        <span style={{ fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+          written by {note.writer ?? 'agent'}{note.writerError ? ' (Claude unavailable)' : ''}
+        </span>
+      </div>
+
+      {note.flags?.length > 0 && (
+        <div style={{ fontSize: 12, color: '#F59E0B', lineHeight: 1.4 }}>
+          ⚠️ Numbers not in the data: <b>{note.flags.join(', ')}</b> — check or delete before approving.
+        </div>
+      )}
+      {failed && note.lastError && <div style={{ fontSize: 12, color: '#EF4444' }}>Last error: {note.lastError}</div>}
+
+      <textarea rows={8} value={body} disabled={locked || busy} onChange={(e) => setBody(e.target.value)}
+        style={{ resize: 'vertical', fontSize: 13, lineHeight: 1.5 }} aria-label="Note text" />
+      <div style={{ fontSize: 10.5, color: body.length > 1000 ? '#EF4444' : 'var(--iff-subtext)', textAlign: 'right' }}>
+        {body.length}/1000 (GroupMe limit)
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <label style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
+          Send
+          <input type="datetime-local" value={when} disabled={locked || busy} onChange={(e) => setWhen(e.target.value)} />
+        </label>
+        <label style={{ fontSize: 12, display: 'flex', gap: 6, alignItems: 'center' }}>
+          to
+          <select value={dest} disabled={locked || busy} onChange={(e) => setDest(e.target.value)}>
+            <option value="groupme">GroupMe group</option>
+            <option value="app">App messages</option>
+          </select>
+        </label>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+        {!approved && !failed && (
+          <button disabled={busy} onClick={() => act(() => fs.saveNoteDraft(note.id, { body, sendAt: sendAt ?? new Date(), destination: dest }), 'Saved')}>
+            Save draft
+          </button>
+        )}
+        {(approved || failed) && (
+          <button disabled={busy} onClick={() => act(() => fs.setNoteStatus(note.id, 'draft'), approved ? 'Pulled back to draft' : 'Reopened')}>
+            {approved ? 'Unapprove' : 'Reopen'}
+          </button>
+        )}
+        <button disabled={busy} style={{ color: '#EF4444' }} onClick={() => act(() => fs.setNoteStatus(note.id, 'rejected'), 'Rejected')}>
+          Reject
+        </button>
+        {!approved && !failed && (
+          <button className="btn-primary" disabled={busy || !body.trim() || !sendAt || body.length > 1000}
+            onClick={() => act(() => fs.approveNote(note.id, { body, sendAt, destination: dest }),
+              `Approved — sends ${sendAt?.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`)}>
+            Approve & schedule
+          </button>
+        )}
+      </div>
+      {msg && <div style={{ fontSize: 12, color: msg.startsWith('⚠️') ? '#EF4444' : 'var(--iff-green)', textAlign: 'right' }}>{msg}</div>}
     </div>
   )
 }

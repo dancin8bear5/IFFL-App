@@ -52,3 +52,15 @@ test('phone width has no horizontal scroll', async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
   expect(overflow).toBeLessThanOrEqual(1)
 })
+
+test('Admin → Notes renders the approval queue', async ({ page }) => {
+  const errors = watchErrors(page)
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/?preview=1#admin')
+  await page.getByText('Notes', { exact: true }).first().click({ timeout: 15_000 })
+  await expect(page.getByText('Week 3 recap', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Approve & schedule' })).toBeVisible()
+  await expect(page.getByText(/Numbers not in the data/)).toBeVisible()
+  await page.screenshot({ path: 'test-results/admin-notes.png', fullPage: true })
+  expect(errors, errors.join('\n')).toEqual([])
+})

@@ -11,6 +11,7 @@ const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./e
 const gmailWatch = require("./gmailWatch");
 const {runFeedSync} = require("./ifflFeedSync");
 const {parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, currentWeek, inGameWindow} = require("./espnScores");
+const notes = require("./leagueNotes");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -36,6 +37,9 @@ const GMAIL_REFRESH_TOKEN = defineSecret("GMAIL_REFRESH_TOKEN");
 // Jason's league data feed base URL — unguessable path is the only guard,
 // so it lives as a secret, never in git.
 const IFFL_FEED_URL = defineSecret("IFFL_FEED_URL");
+// Agent #3 recap drafting. Must exist before deploy:
+//   firebase functions:secrets:set ANTHROPIC_API_KEY
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 const ESPN_TRADE_LABEL = "espn-trade";
 // Mirrors web/src/data/staticData.js ESPN_LEAGUE_ID — the two runtimes
 // share no module, the same way ESPN_TEAM_MAP is duplicated in tradeIngest.
@@ -1035,15 +1039,117 @@ async function runWeeklyScores(reason) {
     : "📊 Weekly scores: no completed week yet — nothing written.";
   await sendGroupMeDM(COMMISSIONER_TEAM_NAME, msg).catch(() => {});
   console.log("weeklyScores:", msg);
+
+  if (latest) {
+    await draftRecapNote({season, week: latest, data, standings: st.standings, cfg})
+      .catch((e) => console.error("draftRecapNote failed:", e.message));
+  }
 }
 
+// ── Agent #3 — league notes (docs/agents/03-league-notes-agent.md) ──
+// Drafts only. Nothing reaches the league until Jared approves the body
+// AND the send time in Admin → Notes; sendLeagueNotes is the only writer
+// of sending/sent (firestore.rules keeps clients out of both).
+
+async function claudeDraft(prompt, model) {
+  const key = ANTHROPIC_API_KEY.value();
+  if (!key) return null;
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+    body: JSON.stringify({model, max_tokens: 700, messages: [{role: "user", content: prompt}]}),
+  });
+  if (!res.ok) throw new Error(`Claude HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  const j = await res.json();
+  return (j.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim() || null;
+}
+
+async function draftRecapNote({season, week, data, standings, cfg}) {
+  if ((cfg.disabledAreas ?? []).includes("notesAgent")) return;
+  const ref = db.doc(`leagueNotes/recap-${season}-w${week}`);
+  const existing = (await ref.get()).data();
+  // Never touch a note Jared already acted on.
+  if (existing && existing.status !== "draft") return;
+
+  const facts = notes.recapFacts({season, week, games: parseScoreboard(data, week).games, standings});
+  if (!facts.games.length) return;
+
+  let body = null;
+  let writer = "claude";
+  let writerError = null;
+  try {
+    body = await claudeDraft(notes.recapPrompt(facts, cfg.notesVoice ?? ""), cfg.notesModel ?? "claude-sonnet-4-5");
+  } catch (e) {
+    writerError = e.message;
+  }
+  if (!body) { body = notes.templateRecap(facts); writer = "template"; }
+  const flags = notes.factCheck(body, facts);
+
+  const now = Date.now();
+  await ref.set({
+    type: "recap", status: "draft", season, week,
+    draftBody: body, body,
+    proposedSendAt: admin.firestore.Timestamp.fromMillis(now + 2 * 60 * 60 * 1000),
+    destination: existing?.destination ?? "groupme",
+    facts, flags, writer, writerError,
+    createdAt: existing?.createdAt ?? admin.firestore.Timestamp.now(),
+    updatedAt: admin.firestore.Timestamp.now(),
+  }, {merge: true});
+
+  await sendGroupMeDM(COMMISSIONER_TEAM_NAME,
+    `📝 Week ${week} recap drafted (${writer}) → Admin → Notes to approve.` +
+    (flags.length ? `\n⚠️ Numbers not in the data: ${flags.join(", ")}` : "") +
+    (writerError ? `\n(Claude unavailable: ${writerError.slice(0, 80)})` : "")).catch(() => {});
+}
+
+async function postToGroup(text) {
+  const token = GROUPME_TOKEN.value();
+  if (!token) throw new Error("GROUPME_TOKEN not set");
+  const res = await fetch(`https://api.groupme.com/v3/groups/${GROUPME_GROUP_ID}/messages?token=${token}`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({message: {source_guid: crypto.randomUUID(), text: text.slice(0, 1000)}}),
+  });
+  if (!res.ok) throw new Error(`GroupMe post HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
+
+async function deliverNote(note) {
+  if (note.destination === "app") {
+    await db.collection("messages").add({content: note.body, timestamp: admin.firestore.Timestamp.now(), source: "leagueNotes"});
+    return "app";
+  }
+  const gm = (await db.doc("config/groupme").get()).data() ?? {};
+  const mode = groupMeMode(gm);
+  if (mode === "paused") throw Object.assign(new Error("GroupMe is paused"), {retry: true});
+  if (mode === "commissioner") {
+    await sendGroupMeDM(COMMISSIONER_TEAM_NAME, `[would have posted to the league]\n${note.body}`);
+    return "commissioner-test";
+  }
+  await postToGroup(note.body);
+  return "groupme";
+}
+
+exports.sendLeagueNotes = onSchedule(
+  {schedule: "every 5 minutes", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN], retryCount: 0},
+  async () => {
+    const results = await notes.runSender({
+      db,
+      nowMs: () => Date.now(),
+      stamp: () => admin.firestore.Timestamp.now(),
+      deliver: deliverNote,
+      onFailure: (id, e) => sendGroupMeDM(COMMISSIONER_TEAM_NAME, `❌ Note ${id} failed to send: ${e.message}`).catch(() => {}),
+    });
+    if (results.length) console.log("sendLeagueNotes:", JSON.stringify(results));
+  },
+);
+
 exports.pollWeeklyScores = onSchedule(
-  {schedule: "every tuesday 10:00", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN], retryCount: 1},
+  {schedule: "every tuesday 10:00", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retryCount: 1},
   () => runWeeklyScores("schedule"),
 );
 
 exports.pollWeeklyForce = onSchedule(
-  {schedule: "every 60 minutes", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN], retryCount: 0},
+  {schedule: "every 60 minutes", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retryCount: 0},
   async () => {
     const st = (await db.doc("config/weeklyPoller").get()).data();
     if (st?.forceRun === true) await runWeeklyScores("force");

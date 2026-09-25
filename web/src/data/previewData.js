@@ -513,3 +513,18 @@ export const previewRookieDraftPicks = [
   { id: '2027_1.02', season: 2027, slot: '1.02', round: 1, pickNumber: 2, teamName: 'Foley',   name: 'Nicholas Singleton', position: 'RB', nflTeam: 'Green Bay Packers' },
   { id: '2027_1.03', season: 2027, slot: '1.03', round: 1, pickNumber: 3, teamName: 'Jason',   name: 'Arch Manning',     position: 'QB', nflTeam: 'New York Giants' },
 ]
+
+// Admin → Notes (agent #3) sample queue.
+export const previewNotes = [
+  {
+    id: 'recap-2026-w3', type: 'recap', status: 'draft', week: 3, writer: 'claude',
+    body: '🏈 IFFL Week 3 recap\n• Jared 141.2 def. Bill 99.4 — Bill’s pony club got put out to pasture.\n• Ryan 101 def. Abad 100.1. Abad lost by 0.9. Brutal.\n🔥 High: Jared (141.2)  🧊 Low: Bill (99.4)',
+    proposedSendAt: new Date(Date.now() + 2 * 3600e3), destination: 'groupme', flags: [],
+    createdAt: new Date(),
+  },
+  {
+    id: 'recap-2026-w2', type: 'recap', status: 'approved', week: 2, writer: 'template',
+    body: '🏈 IFFL Week 2 recap\n• Foley 120 def. Wayne 88', sendAt: new Date(Date.now() + 3600e3),
+    destination: 'app', flags: ['188'], createdAt: new Date(Date.now() - 7 * 864e5),
+  },
+]

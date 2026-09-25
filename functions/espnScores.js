@@ -179,4 +179,55 @@ function parseStandings(data) {
   return { standings, gamesPlayed, problems: [...new Set(problems)] };
 }
 
-module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, inGameWindow, centralDayHour };
+/**
+ * Every COMPLETE regular-season week, in the weeklyScores/{season} shape
+ * the charts, parlay and bracket already read:
+ *   { weeks: { "3": [{teamName, points}], ... }, completeWeeks: [1,2,3], problems }
+ *
+ * Complete = every regular-season matchup in that period has a winner
+ * (ESPN leaves 'UNDECIDED' on in-progress AND unplayed games). A week with
+ * one game still open is left out entirely, never half-written — the
+ * charts would read the missing teams as absent, the parlay as zeros.
+ *
+ * Playoff periods (playoffTierType other than NONE) are excluded: only the
+ * bracket teams play, and a 4-team week would skew every weekly median.
+ * Returns ALL finished weeks, so each run also heals a missed week.
+ */
+function parseWeeklyScores(data) {
+  const problems = [];
+  const byWeek = new Map();
+  for (const m of data?.schedule ?? []) {
+    const tier = m?.playoffTierType ?? "NONE";
+    if (tier !== "NONE") continue;
+    const wk = Number(m?.matchupPeriodId);
+    if (!Number.isFinite(wk) || wk < 1) continue;
+    if (!byWeek.has(wk)) byWeek.set(wk, {open: false, scores: []});
+    const w = byWeek.get(wk);
+    if (!m.winner || m.winner === "UNDECIDED") w.open = true;
+    for (const side of [m.home, m.away]) {
+      if (!side || side.teamId == null) continue;
+      const name = ESPN_TEAM_ID_TO_NAME[side.teamId];
+      if (!name) { problems.push(`Unknown ESPN team id ${side.teamId} in week ${wk}`); continue; }
+      const pts = Number(side.totalPoints);
+      if (!Number.isFinite(pts)) { problems.push(`No score for ${name} in week ${wk}`); w.open = true; continue; }
+      w.scores.push({teamName: name, points: Math.round(pts * 100) / 100});
+    }
+  }
+  const weeks = {};
+  const completeWeeks = [];
+  for (const [wk, w] of [...byWeek.entries()].sort((a, b) => a[0] - b[0])) {
+    if (w.open || w.scores.length === 0) continue;
+    weeks[String(wk)] = w.scores.sort((a, b) => a.teamName.localeCompare(b.teamName));
+    completeWeeks.push(wk);
+  }
+  return {weeks, completeWeeks, problems: [...new Set(problems)]};
+}
+
+/** { teamName: {wins, losses, ties} } from parseStandings rows. */
+function recordsFromStandings(standings) {
+  const out = {};
+  for (const r of standings ?? []) out[r.teamName] = {wins: r.wins, losses: r.losses, ties: r.ties};
+  return out;
+}
+
+module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, inGameWindow, centralDayHour };

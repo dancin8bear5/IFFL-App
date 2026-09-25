@@ -1135,6 +1135,10 @@ const APP_AREAS = [
     { key: 'scoring',  label: 'In-season scoring charts', glyph: '📈' },
     { key: 'playoffs', label: 'Playoff bracket', glyph: '🏆' },
   ]},
+  { group: 'Agents', items: [
+    // Server-side: pollWeeklyScores reads config/league.disabledAreas.
+    { key: 'weeklyAgent', label: 'Weekly scores from ESPN (Tue 10 AM)', glyph: '📊' },
+  ]},
 ]
 
 function AreasSection() {

@@ -10,7 +10,7 @@ const {reconcile} = require("./tradeReconcile");
 const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
 const {runFeedSync} = require("./ifflFeedSync");
-const {parseScoreboard, parseStandings, currentWeek, inGameWindow} = require("./espnScores");
+const {parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, currentWeek, inGameWindow} = require("./espnScores");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -969,6 +969,84 @@ exports.pollEspnStandings = onSchedule(
       lastRunAt: admin.firestore.Timestamp.now(),
     }, {merge: true});
     console.log(`pollEspnStandings: ${standings.length} teams, ${gamesPlayed} games played, ${problems.length} problems`);
+  },
+);
+
+/**
+ * Agent #2 — weekly scores from ESPN (docs/agents/02-weekly-dashboard-agent.md).
+ *
+ * Tuesday 10:00 CT, after MNF and Monday stat corrections. Writes every
+ * COMPLETE regular-season week plus season W-L into weeklyScores/{season},
+ * the doc the scoring chart, parlay and bracket already read. Idempotent:
+ * each week is a keyed map entry, so a re-run overwrites and a missed
+ * Tuesday heals itself next time.
+ *
+ * Kill switch: 'weeklyAgent' in config/league.disabledAreas.
+ * Health: config/weeklyPoller (checked by the deploy workflow).
+ * Backfill/force: set config/weeklyPoller.forceRun = true, it runs within
+ * the hour via pollWeeklyForce and clears the flag.
+ */
+async function runWeeklyScores(reason) {
+  const cfg = (await db.doc("config/league").get()).data() ?? {};
+  const stateRef = db.doc("config/weeklyPoller");
+  if ((cfg.disabledAreas ?? []).includes("weeklyAgent")) {
+    console.log("weeklyScores: disabled via Admin → Areas");
+    await stateRef.set({lastRunAt: admin.firestore.Timestamp.now(), lastError: null, skipped: "disabled"}, {merge: true});
+    return;
+  }
+  const season = cfg.activeSeasonYear ?? new Date().getFullYear();
+  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
+    `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mMatchupScore&view=mTeam`;
+  let data;
+  try {
+    const res = await fetch(url, {headers: {"User-Agent": "iffl-app/1.0"}});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  } catch (e) {
+    console.error("weeklyScores: fetch failed:", e.message);
+    await stateRef.set({lastError: e.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true});
+    await sendGroupMeDM(COMMISSIONER_TEAM_NAME, `⚠️ Weekly scores: ESPN fetch failed (${e.message}).`).catch(() => {});
+    return;
+  }
+
+  const {weeks, completeWeeks, problems} = parseWeeklyScores(data);
+  const st = parseStandings(data);
+  const records = st.standings.length ? recordsFromStandings(st.standings) : null;
+  const allProblems = [...problems, ...st.problems];
+
+  if (completeWeeks.length) {
+    await db.doc(`weeklyScores/${season}`).set({
+      season: Number(season),
+      weeks,
+      ...(records ? {records} : {}),
+      updatedAt: admin.firestore.Timestamp.now(),
+      source: "espn",
+    }, {merge: true});
+  }
+  const latest = completeWeeks[completeWeeks.length - 1] ?? null;
+  await stateRef.set({
+    season, latestWeek: latest, completeWeeks, problems: allProblems,
+    lastError: null, lastRunAt: admin.firestore.Timestamp.now(), reason, forceRun: false, skipped: null,
+  }, {merge: true});
+
+  const msg = latest
+    ? `📊 Weekly scores: week ${latest} written (${completeWeeks.length} weeks on file)` +
+      (allProblems.length ? `\n⚠️ ${allProblems.length} problem(s): ${allProblems.slice(0, 3).join("; ")}` : " · 0 problems")
+    : "📊 Weekly scores: no completed week yet — nothing written.";
+  await sendGroupMeDM(COMMISSIONER_TEAM_NAME, msg).catch(() => {});
+  console.log("weeklyScores:", msg);
+}
+
+exports.pollWeeklyScores = onSchedule(
+  {schedule: "every tuesday 10:00", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN], retryCount: 1},
+  () => runWeeklyScores("schedule"),
+);
+
+exports.pollWeeklyForce = onSchedule(
+  {schedule: "every 60 minutes", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN], retryCount: 0},
+  async () => {
+    const st = (await db.doc("config/weeklyPoller").get()).data();
+    if (st?.forceRun === true) await runWeeklyScores("force");
   },
 );
 

@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseScoreboard, parseStandings, currentWeek, inGameWindow, ESPN_TEAM_ID_TO_NAME } = require("./espnScores");
+const { parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, currentWeek, inGameWindow, ESPN_TEAM_ID_TO_NAME } = require("./espnScores");
 
 const resp = (over = {}) => ({
   scoringPeriodId: 0,
@@ -132,4 +132,49 @@ test("TNF at 7:15 PM CT counts even though it is already Friday in UTC", () => {
   assert.equal(inGameWindow(snf), true);
   const tueMorning = new Date("2026-09-15T14:00:00Z"); // Tue 9 AM CDT
   assert.equal(inGameWindow(tueMorning), false);
+});
+
+// ── Weekly scores (agent #2) ────────────────────────────────
+const mu = (wk, h, hp, a, ap, winner = "HOME", tier) => ({
+  matchupPeriodId: wk, winner, ...(tier ? { playoffTierType: tier } : {}),
+  home: { teamId: h, totalPoints: hp }, away: { teamId: a, totalPoints: ap },
+});
+
+test("complete weeks come out in the weeklyScores shape", () => {
+  const r = parseWeeklyScores({ schedule: [
+    mu(1, 10, 101.234, 6, 99), mu(1, 5, 80, 2, 120, "AWAY"),
+    mu(2, 10, 90, 5, 91, "AWAY"), mu(2, 6, 0, 2, 0, "UNDECIDED"),
+  ] });
+  assert.deepEqual(r.completeWeeks, [1]);
+  assert.deepEqual(Object.keys(r.weeks), ["1"]);
+  assert.equal(r.weeks["1"].length, 4);
+  assert.deepEqual(r.weeks["1"].find((s) => s.teamName === "Jared"), { teamName: "Jared", points: 101.23 });
+});
+
+test("a week with ONE open game is left out entirely, never half-written", () => {
+  const r = parseWeeklyScores({ schedule: [mu(3, 10, 100, 6, 90), mu(3, 5, 50, 2, 40, "UNDECIDED")] });
+  assert.deepEqual(r.completeWeeks, []);
+  assert.deepEqual(r.weeks, {});
+});
+
+test("playoff periods are excluded", () => {
+  const r = parseWeeklyScores({ schedule: [mu(15, 10, 100, 6, 90, "HOME", "WINNERS_BRACKET"), mu(14, 10, 1, 6, 2, "AWAY", "NONE")] });
+  assert.deepEqual(r.completeWeeks, [14]);
+});
+
+test("unknown team ids are reported, and the rest of the week survives", () => {
+  const r = parseWeeklyScores({ schedule: [mu(1, 99, 100, 6, 90)] });
+  assert.match(r.problems[0], /99/);
+  assert.deepEqual(r.weeks["1"], [{ teamName: "Bill", points: 90 }]);
+});
+
+test("a missing score holds the week back", () => {
+  const r = parseWeeklyScores({ schedule: [{ matchupPeriodId: 1, winner: "HOME", home: { teamId: 10 }, away: { teamId: 6, totalPoints: 1 } }] });
+  assert.deepEqual(r.completeWeeks, []);
+  assert.match(r.problems[0], /No score for Jared/);
+});
+
+test("records come from standings rows", () => {
+  const { standings } = parseStandings({ teams: [team(10, 2, 1, 300, 1), team(6, 1, 2, 250, 2, 0)] });
+  assert.deepEqual(recordsFromStandings(standings), { Jared: { wins: 2, losses: 1, ties: 0 }, Bill: { wins: 1, losses: 2, ties: 0 } });
 });

@@ -98,9 +98,26 @@ function parseScoreboard(data, week) {
  * poller returns early instead of burning a run every three minutes for
  * five months. Hours are US Central, matching every other schedule here.
  */
+/**
+ * Day-of-week and hour in US Central for an absolute instant.
+ *
+ * NOT date.getDay()/getHours(): those use the PROCESS timezone, and Cloud
+ * Functions run in UTC — the `timeZone` on onSchedule only sets when the
+ * job fires, not what the code inside sees. In UTC a 7:15 PM CT Thursday
+ * kickoff is 00:15 Friday, so TNF (and late SNF/MNF) fell outside every
+ * window and the scoreboard never polled them.
+ */
+function centralDayHour(date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago", weekday: "short", hour: "numeric", hourCycle: "h23",
+  }).formatToParts(date);
+  const wd = parts.find((p) => p.type === "weekday").value;
+  const hour = Number(parts.find((p) => p.type === "hour").value);
+  return { day: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd), hour };
+}
+
 function inGameWindow(date, week = 1) {
-  const day = date.getDay(); // 0 Sun … 6 Sat
-  const hour = date.getHours();
+  const { day, hour } = centralDayHour(date); // 0 Sun … 6 Sat, US Central
   if (day === 0) return hour >= 11 && hour <= 23; // Sunday: early games → SNF
   if (day === 1) return hour >= 18 || hour <= 1; // MNF, into the small hours
   if (day === 4) return hour >= 18 || hour <= 1; // TNF
@@ -162,4 +179,4 @@ function parseStandings(data) {
   return { standings, gamesPlayed, problems: [...new Set(problems)] };
 }
 
-module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, inGameWindow };
+module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, inGameWindow, centralDayHour };

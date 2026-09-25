@@ -52,7 +52,9 @@ test("an explicit week overrides the response's own", () => {
 });
 
 test("game windows cover TNF, Sunday and MNF — and nothing else", () => {
-  const at = (day, hour) => { const d = new Date(2026, 8, 6 + day); d.setHours(hour, 0, 0, 0); return d; };
+  // Absolute instants in US Central (Sep 2026 = CDT, UTC-5), so this passes
+  // in any process timezone — CI and Cloud Functions both run in UTC.
+  const at = (day, hour) => new Date(Date.UTC(2026, 8, 6 + day, hour + 5));
   assert.equal(inGameWindow(at(0, 13)), true, "Sunday afternoon");
   assert.equal(inGameWindow(at(0, 9)), false, "Sunday pre-dawn is not football");
   assert.equal(inGameWindow(at(4, 20)), true, "Thursday night");
@@ -121,4 +123,13 @@ test("an unknown ESPN team id is reported, never guessed", () => {
 test("empty response → empty standings, no throw", () => {
   assert.deepEqual(parseStandings({}).standings, []);
   assert.deepEqual(parseStandings(null).standings, []);
+});
+
+test("TNF at 7:15 PM CT counts even though it is already Friday in UTC", () => {
+  const tnf = new Date("2026-09-11T00:15:00Z"); // Thu Sep 10, 7:15 PM CDT
+  assert.equal(inGameWindow(tnf), true);
+  const snf = new Date("2026-09-14T02:30:00Z"); // Sun Sep 13, 9:30 PM CDT
+  assert.equal(inGameWindow(snf), true);
+  const tueMorning = new Date("2026-09-15T14:00:00Z"); // Tue 9 AM CDT
+  assert.equal(inGameWindow(tueMorning), false);
 });

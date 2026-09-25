@@ -16,6 +16,10 @@
 # Pull latest + pod install + open Xcode (run this before every archive)
 cd ~/claude-agents/apps/iffl-web-app && pod install && open CodeRed.xcworkspace
 
+# Deploys are CI now (Sep 25, 2026): merge a PR into main → .github/workflows/deploy.yml
+# tests, deploys, smokes the live site, auto-rolls hosting back on failure, reports to Telegram.
+# The manual commands below still work as a fallback.
+
 # Deploy Cloud Functions
 cd ~/claude-agents/apps/iffl-web-app && firebase deploy --only functions
 
@@ -28,6 +32,26 @@ cd ~/claude-agents/apps/iffl-web-app/web && npm run dev
 # Pull from active branch
 cd ~/claude-agents/apps/iffl-web-app && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
 ```
+
+## Agents (Sep 25, 2026) — specs in `docs/agents/`
+| # | Agent | Where | Key files |
+|---|---|---|---|
+| 1 | Deploy + verify | GitHub Actions on `main` | `.github/workflows/deploy.yml`, `web/e2e/`, `tests/rules/`, `functions/pollerHealth.js` |
+| 2 | Weekly scores | `pollWeeklyScores` Tue 10:00 CT | `functions/espnScores.js` `parseWeeklyScores` |
+| 3 | League notes | `sendLeagueNotes` every 5 min + Admin → Notes | `functions/leagueNotes.js` |
+| 4 | Waiver targets | Mac launchd, analytics repo | `iffl-analytics-agent/waiver_scout.py` |
+| 5 | Start/sit | Mac launchd, analytics repo | `iffl-analytics-agent/start_sit.py` |
+
+- **Weekly scores are written again** — by agent #2, from ESPN, every complete
+  regular-season week (the note under POD below about nothing writing them is
+  history). Kill switch: Admin → Areas → Agents. Health: `config/weeklyPoller`.
+- **League notes never send themselves.** Drafts are commissioner-only; only
+  `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
+- **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection
+  the client reads has no rule.** Add the rule, not an exception.
+- **Cloud Functions run in UTC.** Anything reading day/hour must go through
+  `centralDayHour()` in `espnScores.js`; `getDay()` shifted TNF out of the
+  scoreboard window until Sep 25.
 
 ## Web app (`web/`) at a glance
 - Vite + React 18 + Firebase JS SDK v10. Same Firebase project/collections as iOS — zero data migration.

@@ -160,7 +160,10 @@ export function phaseBounds(now, milestones) {
     start: start.date,
     end: next.date,
     next: next.phase,
-    daysLeft: Math.ceil((+next.date - t) / DAY),
+    // Wall-clock days, not raw ms / DAY: a window that crosses a DST change
+    // is an hour long or short, and ceil() turned that hour into a whole
+    // extra day in any US timezone (73 → 74 across Nov 1).
+    daysLeft: Math.ceil((+next.date - t + (new Date(t).getTimezoneOffset() - next.date.getTimezoneOffset()) * 60000) / DAY),
   }
 }
 

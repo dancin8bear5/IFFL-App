@@ -1,0 +1,69 @@
+// Firestore rules semantics, against the emulator (CI: deploy.yml).
+// The static "does every collection HAVE a rule" check lives in
+// web/src/services/rulesCoverage.test.js and runs anywhere.
+import test, { before, after, beforeEach } from 'node:test'
+import { readFileSync } from 'node:fs'
+import {
+  initializeTestEnvironment, assertSucceeds, assertFails,
+} from '@firebase/rules-unit-testing'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+
+let env
+const MEMBER = 'member-uid'
+const OUTSIDER = 'outsider-uid'
+const COMMISH = 'commish-uid'
+
+before(async () => {
+  env = await initializeTestEnvironment({
+    projectId: 'demo-iffl',
+    firestore: { rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8') },
+  })
+})
+after(() => env?.cleanup())
+
+beforeEach(async () => {
+  await env.clearFirestore()
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore()
+    await setDoc(doc(db, 'config/league'), {
+      userTeamMap: { [MEMBER]: 'Bill' },
+      authorizedUIDs: [COMMISH],
+      activeSeasonYear: 2026,
+    })
+    for (const p of ['espnLiveScores/2026', 'espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025']) {
+      await setDoc(doc(db, p), { season: 2026 })
+    }
+    await setDoc(doc(db, 'leagueNotes/draft1'), { status: 'draft', body: 'secret' })
+    await setDoc(doc(db, 'leagueNotes/sent1'), { status: 'sent', body: 'hello league' })
+  })
+})
+
+const as = (uid) => env.authenticatedContext(uid).firestore()
+const anon = () => env.unauthenticatedContext().firestore()
+
+for (const path of ['espnLiveScores/2026', 'espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025', 'config/league']) {
+  test(`member reads ${path}`, () => assertSucceeds(getDoc(doc(as(MEMBER), path))))
+  test(`outsider cannot read ${path}`, () => assertFails(getDoc(doc(as(OUTSIDER), path))))
+  test(`signed-out cannot read ${path}`, () => assertFails(getDoc(doc(anon(), path))))
+}
+
+for (const path of ['espnLiveScores/2026', 'espnStandings/2026']) {
+  test(`no client writes ${path} — functions only`, async () => {
+    await assertFails(setDoc(doc(as(MEMBER), path), { hacked: true }))
+    await assertFails(setDoc(doc(as(COMMISH), path), { hacked: true }))
+  })
+}
+
+test('member cannot rewrite league config', () =>
+  assertFails(updateDoc(doc(as(MEMBER), 'config/league'), { activeSeasonYear: 1999 })))
+
+// ── League notes (agent #3): drafts are commissioner-only ──
+test('member cannot read a draft note', () => assertFails(getDoc(doc(as(MEMBER), 'leagueNotes/draft1'))))
+test('member reads a sent note', () => assertSucceeds(getDoc(doc(as(MEMBER), 'leagueNotes/sent1'))))
+test('commissioner reads a draft note', () => assertSucceeds(getDoc(doc(as(COMMISH), 'leagueNotes/draft1'))))
+test('commissioner can approve a draft', () =>
+  assertSucceeds(updateDoc(doc(as(COMMISH), 'leagueNotes/draft1'), { status: 'approved', sendAt: new Date() })))
+test('NO client can mark a note sent — only the sender function', async () => {
+  await assertFails(updateDoc(doc(as(COMMISH), 'leagueNotes/draft1'), { status: 'sent' }))
+  await assertFails(updateDoc(doc(as(MEMBER), 'leagueNotes/draft1'), { status: 'approved' }))
+})

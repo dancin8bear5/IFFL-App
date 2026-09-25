@@ -73,3 +73,9 @@ data/big-board-*.csv
 # repo, and this repo is public. Ranks are revealed in drops; a copy here
 # is a copy anyone can read early.
 web/src/data/powerRankings2026.json
+
+# Playwright / rules tests
+web/test-results/
+web/playwright-report/
+web/e2e-results.json
+tests/rules/node_modules/

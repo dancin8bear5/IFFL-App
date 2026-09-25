@@ -1,7 +1,8 @@
 name: iOS Build & Upload
+# Manual only (Sep 2026): web is the distribution plan, and main now
+# auto-deploys the web app — a push must not also cut a TestFlight build.
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 jobs:
   build-ios:
     runs-on: macos-13

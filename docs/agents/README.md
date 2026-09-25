@@ -11,6 +11,16 @@ Build specs for the six agents in Todoist → Fantasy (`IFFL` label). Build them
 | 5 | Start/sit | Analytics Engine (Rudy / ACC) | Jared only | [05-start-sit-agent.md](05-start-sit-agent.md) |
 | 6 | Design + usability review | GitHub Actions + Claude API | Jared (Todoist tickets) | [06-design-review-agent.md](06-design-review-agent.md) |
 
+## Status — Sep 25, 2026
+
+#1–#5 are built and unit-tested. #6 isn't started. Go-live needs these one-time steps:
+
+1. **Service account:** create `iffl-deployer` with these roles: Firebase Admin, Cloud Functions Admin, Cloud Run Admin, Service Account User, Secret Manager Viewer, Cloud Scheduler Admin, Artifact Registry Administrator. Store its JSON key as the GitHub secret `FIREBASE_SA`.
+2. **More GitHub secrets:** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_APP_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (optional: `TELEGRAM_THREAD_ID`).
+3. **Anthropic key:** `firebase functions:secrets:set ANTHROPIC_API_KEY`. It must exist before the first deploy that includes agent #3.
+4. **Ship it:** open a PR from `claude/insanity-league-ios-app-g73Jo` into `main` (main is branch-protected), then merge.
+5. **Mac:** `launchctl load ~/Library/LaunchAgents/com.iffl.start-sit.plist` after copying it from the analytics folder. Optionally add `TODOIST_API_TOKEN` to secrets.env so the fade/watch tags sync live.
+
 ## Rules every agent follows
 
 - **Fail closed.** If an agent can't verify something, it stops and reports. It never guesses. This is the same no-guess rule as the ESPN parsers.

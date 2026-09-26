@@ -22,7 +22,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test:
+  build:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -52,16 +52,17 @@ jobs:
           plutil -lint GoogleService-Info.plist
       - name: Pods
         run: pod install
-      - name: Unit tests (simulator)
+      - name: Compile app for simulator
+        # Build gate: catches Swift compile errors on every push. The XCTest target is Xcode's empty
+        # template and isn't wired to Pods (needs a Podfile test target) — add unit tests there first.
         run: |
           set -o pipefail
-          xcodebuild test -workspace CodeRed.xcworkspace -scheme CodeRed \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
-            -only-testing:CodeRedTests CODE_SIGNING_ALLOWED=NO | tail -200
+          xcodebuild build -workspace CodeRed.xcworkspace -scheme CodeRed \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -200
 
   deploy:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
-    needs: [test]
+    needs: [build]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -109,7 +110,7 @@ jobs:
 
   report:
     if: always()
-    needs: [test, deploy]
+    needs: [build, deploy]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

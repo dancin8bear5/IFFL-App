@@ -1,0 +1,180 @@
+# RENDERED by brain/deploy/render.py (template: ios.yml) — edit there, then re-render.
+# Deploy Captain: build → test → deploy → probe → rollback-on-fail → estate report → Claude fix PR.
+name: Deploy Captain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-captain-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  ESTATE_SUPABASE_URL: ${{ secrets.ESTATE_SUPABASE_URL }}
+  ESTATE_SUPABASE_ANON_KEY: ${{ secrets.ESTATE_SUPABASE_ANON_KEY }}
+  ESTATE_INGEST_TOKEN: ${{ secrets.ESTATE_INGEST_TOKEN }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: GoogleService-Info.plist (real from secret, else test placeholder)
+        env:
+          PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          # Deliberately not in git (CLAUDE.md). Unit tests only need a well-formed file.
+          if [ -n "$PLIST" ]; then printf '%s' "$PLIST" > GoogleService-Info.plist; exit 0; fi
+          cat > GoogleService-Info.plist <<'PLIST_EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>API_KEY</key><string>AIzaSyA-ci-placeholder-not-a-real-key-00</string>
+          <key>GCM_SENDER_ID</key><string>000000000000</string>
+          <key>PLIST_VERSION</key><string>1</string>
+          <key>BUNDLE_ID</key><string>com.thebelt.app</string>
+          <key>PROJECT_ID</key><string>ci-placeholder</string>
+          <key>STORAGE_BUCKET</key><string>ci-placeholder.appspot.com</string>
+          <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000</string>
+          <key>CLIENT_ID</key><string>000000000000-ci.apps.googleusercontent.com</string>
+          <key>REVERSED_CLIENT_ID</key><string>com.googleusercontent.apps.000000000000-ci</string>
+          <key>IS_ADS_ENABLED</key><false/><key>IS_ANALYTICS_ENABLED</key><false/>
+          <key>IS_APPINVITE_ENABLED</key><false/><key>IS_GCM_ENABLED</key><true/><key>IS_SIGNIN_ENABLED</key><true/>
+          </dict></plist>
+          PLIST_EOF
+          plutil -lint GoogleService-Info.plist
+      - name: Pods
+        run: pod install
+      - name: Compile app for simulator
+        # Build gate: catches Swift compile errors on every push. The XCTest target is Xcode's empty
+        # template and isn't wired to Pods (needs a Podfile test target) — add unit tests there first.
+        run: |
+          set -o pipefail
+          xcodebuild build -workspace CodeRed.xcworkspace -scheme CodeRed \
+            -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO | tail -200
+
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: GoogleService-Info.plist (required to ship)
+        env:
+          PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
+        run: |
+          if [ -z "$PLIST" ]; then
+            echo "::error::GOOGLE_SERVICE_INFO_PLIST secret not set — add GOOGLE_SERVICE_INFO_PLIST_FILE=<path> to the vault and run set-secrets.sh"
+            exit 1
+          fi
+          printf '%s' "$PLIST" > GoogleService-Info.plist && plutil -lint GoogleService-Info.plist
+      - name: Pods
+        run: pod install
+      - uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.P12_DISTRIBUTION_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.P12_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+      - name: Provisioning profile + export options
+        env:
+          PROFILE_B64: ${{ secrets.DISTRIBUTION_PROVISIONING_PROFILE_BASE64 }}
+          EXPORT_B64: ${{ secrets.EXPORT_OPTIONS_BASE64 }}
+        run: |
+          dir="$HOME/Library/MobileDevice/Provisioning Profiles"; mkdir -p "$dir"
+          echo -n "$PROFILE_B64" | base64 --decode -o "$RUNNER_TEMP/p.mobileprovision"
+          uuid="$(security cms -D -i "$RUNNER_TEMP/p.mobileprovision" | plutil -extract UUID raw -)"
+          cp "$RUNNER_TEMP/p.mobileprovision" "$dir/$uuid.mobileprovision"
+          echo -n "$EXPORT_B64" | base64 --decode -o "$RUNNER_TEMP/ExportOptions.plist"
+      - name: Archive + export (build number = UTC timestamp, always increasing)
+        run: |
+          set -o pipefail
+          xcodebuild -workspace CodeRed.xcworkspace -scheme CodeRed -configuration Release \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" CURRENT_PROJECT_VERSION="$(date -u +%Y%m%d%H%M)" archive | tail -100
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" -exportPath "$RUNNER_TEMP/build" | tail -50
+          ls "$RUNNER_TEMP"/build/*.ipa
+      - uses: apple-actions/upload-testflight-build@v3
+        with:
+          app-path: ${{ runner.temp }}/build/*.ipa
+          issuer-id: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          api-key-id: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          api-private-key: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+      - name: Report upload
+        run: bash .github/estate-report.sh probe ok "TestFlight upload accepted — processing on App Store Connect"
+
+  report:
+    if: always()
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - name: Report run to estate
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY' > "$RUNNER_TEMP/verdict"
+          import json, os
+          n = json.loads(os.environ["NEEDS"])
+          failed = [k for k, v in n.items() if v["result"] == "failure"]
+          ran = [k for k, v in n.items() if v["result"] == "success"]
+          if not failed:
+              print("ok\tgreen: " + ", ".join(ran))
+          elif n.get("rollback", {}).get("result") == "success":
+              print("error\tfailed at %s — rolled back to last green" % ", ".join(failed))
+          else:
+              print("error\tfailed at " + ", ".join(failed))
+          PY
+          IFS=$'\t' read -r status summary < "$RUNNER_TEMP/verdict"
+          bash .github/estate-report.sh run "$status" "[$GITHUB_EVENT_NAME $GITHUB_REF_NAME] $summary" "$NEEDS"
+
+  claude-fix:
+    # Main-branch failures only. Opens a fix PR; never pushes to main, never merges.
+    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [report]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+      id-token: write
+    env:
+      HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+      - name: Claude — diagnose and open fix PR
+        if: env.HAS_CLAUDE == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Deploy Captain fixer for ${{ github.repository }}.
+            The Deploy Captain workflow failed on `main` at ${{ github.sha }}.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            1. Read the failed logs: `gh run view ${{ github.run_id }} --log-failed`.
+            2. If an open PR from a `claude/fix-*` branch already targets this failure,
+               comment on it with the new evidence and stop.
+            3. Root-cause it. "Flaky" is not a root cause.
+               - Code/config cause → minimal fix on branch `claude/fix-${{ github.run_id }}`,
+                 commit, push, and `gh pr create --base main` with a body stating
+                 cause, fix, and how you verified it. Run the repo's build/test locally first.
+               - Infra cause (missing secret, expired credential, host unreachable) → no code
+                 change; open one issue titled "Deploy Captain: <cause>" with the exact fix
+                 the owner must do, unless an open issue with that title exists.
+            Never push to `main`. Never merge. Never skip, disable, or delete a test.
+            Never commit secrets. Keep the diff minimal.
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(python3:*),Bash(pip:*),Bash(bash:*),Bash(ls:*),Bash(cat:*)"

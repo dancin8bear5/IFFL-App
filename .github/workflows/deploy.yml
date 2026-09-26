@@ -93,6 +93,9 @@ jobs:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: |
+          # A config that cannot work must never reach a build. Sep 26, 2026: a
+          # bad API key deployed green because nothing in the pipeline signed in.
+          node .github/scripts/check-firebase-env.mjs
           cd web && npm ci
           {
             echo "VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY"

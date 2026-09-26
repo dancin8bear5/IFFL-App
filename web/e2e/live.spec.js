@@ -42,7 +42,7 @@ const SMOKE_PASSWORD = process.env.SMOKE_PASSWORD
 test.describe('signed in', () => {
   test.skip(!SMOKE_EMAIL || !SMOKE_PASSWORD, 'SMOKE_EMAIL / SMOKE_PASSWORD not set')
 
-  test('dashboard and history load with no permission errors', async ({ page }) => {
+  test('dashboard loads with no permission errors', async ({ page }) => {
     const errors = []
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
     page.on('console', (m) => {
@@ -55,8 +55,11 @@ test.describe('signed in', () => {
     await page.getByRole('button', { name: 'Sign in with Email' }).click()
     await expect(page.getByText(/EST\. 2008/).first()).toBeVisible({ timeout: 30_000 })
     await page.waitForLoadState('networkidle')
+    // Visit History for its Firestore reads, but don't require the tab: an
+    // Admin → Areas switch can hide it from non-admins (the smoke account is
+    // one), and a hidden tab is correct behaviour, not a failure. What must
+    // hold everywhere is "no permission errors".
     await page.goto('/#history')
-    await expect(page.getByText(/League History/i).first()).toBeVisible({ timeout: 20_000 })
     await page.waitForLoadState('networkidle')
     expect(errors, errors.join('\n')).toEqual([])
   })

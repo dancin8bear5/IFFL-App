@@ -4,7 +4,7 @@ import FirebaseAuth
 // MARK: - App Entry Point
 
 @main
-struct IFFLApp: App {
+struct BeltApp: App {
     @StateObject private var authService = AuthenticationService()
     @StateObject private var appState   = AppState()
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -16,7 +16,7 @@ struct IFFLApp: App {
     var body: some Scene {
         WindowGroup {
             if authService.isLoggedIn {
-                IFFLContentView()
+                BeltContentView()
                     .environmentObject(appState)
                     .onAppear {
                         if let user = Auth.auth().currentUser {
@@ -72,7 +72,7 @@ struct IFFLApp: App {
 
 // MARK: - Root Tab Container
 
-struct IFFLContentView: View {
+struct BeltContentView: View {
     @EnvironmentObject var appState: AppState
     @State private var selectedTab: Int = 0
 

@@ -32,7 +32,7 @@ struct LeagueView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.iffBg.ignoresSafeArea()
+                Color.beltBg.ignoresSafeArea()
                 VStack(spacing: 0) {
                     tabPicker
                     webContent
@@ -44,7 +44,7 @@ struct LeagueView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(Color.iffSubtext)
+                            .foregroundColor(Color.beltSubtext)
                     }
                 }
             }
@@ -62,7 +62,7 @@ struct LeagueView: View {
         }
         .pickerStyle(.segmented)
         .padding()
-        .background(Color.iffBg)
+        .background(Color.beltBg)
         .onChange(of: activeTab) { _ in
             isLoading = true
             loadFailed = false
@@ -89,13 +89,13 @@ struct LeagueView: View {
             Spacer()
             Image(systemName: "flag.checkered")
                 .font(.system(size: 56))
-                .foregroundColor(Color.iffAccent)
+                .foregroundColor(Color.beltAccent)
             Text("Season Over")
                 .font(.system(size: 28, weight: .bold))
                 .foregroundColor(.white)
             Text("The " + String(appState.activeSeason - 1) + " season has concluded.\nScores will return in the fall.")
                 .font(.subheadline)
-                .foregroundColor(Color.iffSubtext)
+                .foregroundColor(Color.beltSubtext)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
@@ -110,14 +110,14 @@ struct LeagueView: View {
                     WebViewContainer(url: url, isLoading: $isLoading, loadFailed: $loadFailed)
                 }
                 if isLoading && !loadFailed {
-                    Color.iffBg
-                    ProgressView().tint(Color.iffAccent).scaleEffect(1.4)
+                    Color.beltBg
+                    ProgressView().tint(Color.beltAccent).scaleEffect(1.4)
                 }
                 if loadFailed {
                     VStack(spacing: 16) {
                         Image(systemName: "wifi.slash")
                             .font(.system(size: 44))
-                            .foregroundColor(Color.iffSubtext)
+                            .foregroundColor(Color.beltSubtext)
                         Text("Couldn't load page")
                             .font(.headline).foregroundColor(.white)
                         Button {
@@ -126,7 +126,7 @@ struct LeagueView: View {
                         } label: {
                             Text("Retry")
                         }
-                        .buttonStyle(IFFLPrimaryButtonStyle())
+                        .buttonStyle(BeltPrimaryButtonStyle())
                     }
                 }
             }
@@ -154,51 +154,51 @@ struct LocalStandingsView: View {
                             HStack(spacing: 4) {
                                 Text("🏆").font(.caption)
                                 Text(season.champion)
-                                    .font(.caption.bold()).foregroundColor(Color.iffGold)
+                                    .font(.caption.bold()).foregroundColor(Color.beltGold)
                             }
                         }
                         Spacer()
                     }
                     .padding()
 
-                    Divider().background(Color.iffElevated)
+                    Divider().background(Color.beltElevated)
 
                     ForEach(season.standings.sorted { $0.place < $1.place }, id: \.teamName) { finish in
                         HStack(spacing: 12) {
                             Text("\(finish.place)")
                                 .font(.system(size: 15, weight: .bold))
-                                .foregroundColor(finish.place <= 3 ? Color.iffGold : Color.iffSubtext)
+                                .foregroundColor(finish.place <= 3 ? Color.beltGold : Color.beltSubtext)
                                 .frame(width: 26, alignment: .center)
                             Text(finish.teamName)
                                 .font(.subheadline).foregroundColor(.white)
                             Spacer()
                             if let record = finish.record {
                                 Text(record)
-                                    .font(.subheadline.monospacedDigit()).foregroundColor(Color.iffSubtext)
+                                    .font(.subheadline.monospacedDigit()).foregroundColor(Color.beltSubtext)
                             }
                             if let pts = finish.pointsFor {
                                 Text(String(format: "%.0f pts", pts))
-                                    .font(.caption).foregroundColor(Color.iffSubtext)
+                                    .font(.caption).foregroundColor(Color.beltSubtext)
                                     .frame(width: 56, alignment: .trailing)
                             }
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 10)
-                        .background(finish.place % 2 == 0 ? Color.iffElevated.opacity(0.3) : Color.clear)
+                        .background(finish.place % 2 == 0 ? Color.beltElevated.opacity(0.3) : Color.clear)
                     }
                 }
-                .iffCard()
+                .beltCard()
                 .padding()
             }
         } else {
             VStack(spacing: 16) {
                 Spacer()
                 Image(systemName: "list.number")
-                    .font(.system(size: 48)).foregroundColor(Color.iffSubtext)
+                    .font(.system(size: 48)).foregroundColor(Color.beltSubtext)
                 Text("No standings data")
-                    .font(.headline).foregroundColor(Color.iffSubtext)
+                    .font(.headline).foregroundColor(Color.beltSubtext)
                 Text("Seed league history from the Admin panel.")
-                    .font(.caption).foregroundColor(Color.iffSubtext.opacity(0.7))
+                    .font(.caption).foregroundColor(Color.beltSubtext.opacity(0.7))
                 Spacer()
             }
         }

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - League Milestones (update dates each season)
 
-private struct IFFLMilestone {
+private struct BeltMilestone {
     let name: String
     let icon: String
     let color: Color
@@ -12,13 +12,13 @@ private struct IFFLMilestone {
         Calendar.current.date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
     }
 
-    static let all: [IFFLMilestone] = [
-        IFFLMilestone(name: "Rookie Draft",         icon: "graduationcap.fill",      color: .purple,       date: make(6, 21)),
-        IFFLMilestone(name: "Keeper Declaration",   icon: "person.badge.clock.fill", color: .cyan,         date: make(7, 15)),
-        IFFLMilestone(name: "Auction Draft",        icon: "dollarsign.circle.fill",  color: Color.iffGold, date: make(8, 22)),
-        IFFLMilestone(name: "NFL Kickoff",          icon: "football.fill",           color: .green,        date: make(9, 10)),
-        IFFLMilestone(name: "Trade Deadline",       icon: "arrow.2.squarepath",      color: .orange,       date: make(11, 4)),
-        IFFLMilestone(name: "IFFL Playoffs",        icon: "trophy.fill",             color: Color.iffAccent, date: make(12, 10)),
+    static let all: [BeltMilestone] = [
+        BeltMilestone(name: "Rookie Draft",         icon: "graduationcap.fill",      color: .purple,       date: make(6, 21)),
+        BeltMilestone(name: "Keeper Declaration",   icon: "person.badge.clock.fill", color: .cyan,         date: make(7, 15)),
+        BeltMilestone(name: "Auction Draft",        icon: "dollarsign.circle.fill",  color: Color.beltGold, date: make(8, 22)),
+        BeltMilestone(name: "NFL Kickoff",          icon: "football.fill",           color: .green,        date: make(9, 10)),
+        BeltMilestone(name: "Trade Deadline",       icon: "arrow.2.squarepath",      color: .orange,       date: make(11, 4)),
+        BeltMilestone(name: "Playoffs",             icon: "trophy.fill",             color: Color.beltAccent, date: make(12, 10)),
     ]
 }
 
@@ -48,21 +48,22 @@ struct DashboardView: View {
             .prefix(5))
     }
 
-    private var upcomingMilestones: [IFFLMilestone] {
+    private var upcomingMilestones: [BeltMilestone] {
         let now = Date()
-        return IFFLMilestone.all.filter { $0.date > now }
+        return BeltMilestone.all.filter { $0.date > now }
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.iffBg.ignoresSafeArea()
+                Color.beltBg.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 20) {
                         header
                         if appState.isInitialLoadComplete {
                             myTeamCard
                                 .transition(.opacity.combined(with: .move(edge: .top)))
+                            trophyRoomLink
                             if appState.myMatchCount > 0 { matchNotificationCard }
                             if !upcomingMilestones.isEmpty { keeperCalendarSection }
                             teamGridSection
@@ -79,7 +80,7 @@ struct DashboardView: View {
                 .overlay(alignment: .topTrailing) {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape.fill")
-                            .foregroundColor(Color.iffSubtext)
+                            .foregroundColor(Color.beltSubtext)
                             .font(.body)
                             .padding(16)
                     }
@@ -96,17 +97,45 @@ struct DashboardView: View {
 
     private var header: some View {
         VStack(spacing: 6) {
-            Text("IFFL")
+            Text("Insanity League")
                 .font(.system(size: 56, weight: .black, design: .rounded))
-                .foregroundColor(Color.iffAccent)
-            Text("Insanity Fantasy Football League")
-                .font(.caption).foregroundColor(Color.iffSubtext)
+                .foregroundColor(Color.beltAccent)
+            Text("Fantasy Football League")
+                .font(.caption).foregroundColor(Color.beltSubtext)
             Text("EST. 2008")
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundColor(Color.iffSubtext.opacity(0.5))
+                .foregroundColor(Color.beltSubtext.opacity(0.5))
                 .tracking(4)
         }
         .padding(.top, 16)
+    }
+
+    // MARK: Trophy Room
+
+    private var trophyRoomLink: some View {
+        NavigationLink {
+            TrophyCaseView().environmentObject(appState)
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color.beltGold.opacity(0.18)).frame(width: 44, height: 44)
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 20)).foregroundColor(Color.beltGold)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("League Trophy Room")
+                        .font(.headline).foregroundColor(.white)
+                    Text("Career stats, belts & finishes for every team")
+                        .font(.caption).foregroundColor(Color.beltSubtext)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundColor(Color.beltSubtext)
+            }
+            .padding()
+            .beltCard()
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: My Team Card
@@ -117,7 +146,7 @@ struct DashboardView: View {
 
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("My Team").font(.caption).foregroundColor(Color.iffSubtext)
+                    Text("My Team").font(.caption).foregroundColor(Color.beltSubtext)
                     HStack(spacing: 8) {
                         Text(appState.userTeam)
                             .font(.system(size: 24, weight: .black)).foregroundColor(.white)
@@ -125,44 +154,44 @@ struct DashboardView: View {
                             HStack(spacing: 2) {
                                 ForEach(0..<belts, id: \.self) { _ in
                                     Image(systemName: "trophy.fill")
-                                        .font(.system(size: 10)).foregroundColor(Color.iffGold)
+                                        .font(.system(size: 10)).foregroundColor(Color.beltGold)
                                 }
                             }
                         }
                     }
                     if belts > 0 {
                         Text("\(belts)× League Champion")
-                            .font(.caption2).foregroundColor(Color.iffGold.opacity(0.8))
+                            .font(.caption2).foregroundColor(Color.beltGold.opacity(0.8))
                     }
                 }
                 Spacer()
                 if let logoName = appState.userSettings.teamLogoName {
                     Image(systemName: logoName)
-                        .font(.system(size: 32)).foregroundColor(Color.iffAccent.opacity(0.55))
+                        .font(.system(size: 32)).foregroundColor(Color.beltAccent.opacity(0.55))
                 }
             }
             .padding([.horizontal, .top], 16)
             .padding(.bottom, 12)
 
-            Divider().background(Color.iffElevated).padding(.horizontal)
+            Divider().background(Color.beltElevated).padding(.horizontal)
 
             HStack(spacing: 0) {
                 statCell(value: "$\(myCapTotal)", label: String(appState.activeSeason) + " Cap")
-                Divider().frame(height: 32).background(Color.iffElevated)
+                Divider().frame(height: 32).background(Color.beltElevated)
                 statCell(value: "\(appState.myMatchCount)", label: "Trade Matches")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
 
             if !myTopAssets.isEmpty {
-                Divider().background(Color.iffElevated).padding(.horizontal)
+                Divider().background(Color.beltElevated).padding(.horizontal)
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Top Players")
-                        .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                        .font(.caption.bold()).foregroundColor(Color.beltSubtext)
                     ForEach(myTopAssets) { asset in
                         HStack(spacing: 8) {
                             Text(asset.position)
-                                .font(.caption2.bold()).foregroundColor(Color.iffAccent)
+                                .font(.caption2.bold()).foregroundColor(Color.beltAccent)
                                 .frame(width: 28, alignment: .leading)
                             Text(asset.name)
                                 .font(.subheadline).foregroundColor(.white).lineLimit(1)
@@ -176,30 +205,30 @@ struct DashboardView: View {
                 .padding(.vertical, 10)
             }
 
-            Divider().background(Color.iffElevated).padding(.horizontal)
+            Divider().background(Color.beltElevated).padding(.horizontal)
 
             HStack(spacing: 12) {
                 Button { selectedTab = 1 } label: {
                     Label("Roster", systemImage: "person.3.fill")
                         .font(.caption.bold()).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(IFFLOutlineButtonStyle())
+                .buttonStyle(BeltOutlineButtonStyle())
 
                 Button { selectedTab = 2 } label: {
                     Label("Market", systemImage: "arrow.2.squarepath")
                         .font(.caption.bold()).frame(maxWidth: .infinity)
                 }
-                .buttonStyle(IFFLOutlineButtonStyle())
+                .buttonStyle(BeltOutlineButtonStyle())
             }
             .padding()
         }
-        .iffCard()
+        .beltCard()
     }
 
     private func statCell(value: String, label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 17, weight: .bold)).foregroundColor(Color.iffGold)
-            Text(label).font(.caption2).foregroundColor(Color.iffSubtext)
+            Text(value).font(.system(size: 17, weight: .bold)).foregroundColor(Color.beltGold)
+            Text(label).font(.caption2).foregroundColor(Color.beltSubtext)
         }
         .frame(maxWidth: .infinity)
     }
@@ -210,21 +239,21 @@ struct DashboardView: View {
         Button { selectedTab = 2 } label: {
             HStack(spacing: 12) {
                 ZStack {
-                    Circle().fill(Color.iffAccent.opacity(0.15)).frame(width: 40, height: 40)
+                    Circle().fill(Color.beltAccent.opacity(0.15)).frame(width: 40, height: 40)
                     Image(systemName: "arrow.2.squarepath")
-                        .font(.system(size: 17)).foregroundColor(Color.iffAccent)
+                        .font(.system(size: 17)).foregroundColor(Color.beltAccent)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("\(appState.myMatchCount) Trade Match\(appState.myMatchCount == 1 ? "" : "es")")
                         .font(.subheadline.bold()).foregroundColor(.white)
                     Text("Mutual trade interest detected")
-                        .font(.caption).foregroundColor(Color.iffSubtext)
+                        .font(.caption).foregroundColor(Color.beltSubtext)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").font(.caption).foregroundColor(Color.iffSubtext)
+                Image(systemName: "chevron.right").font(.caption).foregroundColor(Color.beltSubtext)
             }
             .padding()
-            .iffCard()
+            .beltCard()
         }
     }
 
@@ -272,13 +301,13 @@ struct DashboardView: View {
                             Text("\(trade.proposingTeamName) ↔ \(trade.receivingTeamName)")
                                 .font(.subheadline.bold()).foregroundColor(.white)
                             Text(trade.proposerAssetNames.prefix(2).joined(separator: ", "))
-                                .font(.caption).foregroundColor(Color.iffSubtext).lineLimit(1)
+                                .font(.caption).foregroundColor(Color.beltSubtext).lineLimit(1)
                         }
                         Spacer()
-                        Text(trade.formattedDate).font(.caption).foregroundColor(Color.iffSubtext)
+                        Text(trade.formattedDate).font(.caption).foregroundColor(Color.beltSubtext)
                     }
                     .padding()
-                    .iffCard()
+                    .beltCard()
                 }
             }
         }
@@ -296,7 +325,7 @@ struct DashboardView: View {
                             .font(.subheadline).foregroundColor(.white)
                             .padding()
                             .frame(width: 260, alignment: .leading)
-                            .iffCard()
+                            .beltCard()
                     }
                 }
             }
@@ -311,7 +340,7 @@ struct DashboardView: View {
             Spacer()
             if let action, let actionLabel {
                 Button(action: action) {
-                    Text(actionLabel).font(.caption.bold()).foregroundColor(Color.iffAccent)
+                    Text(actionLabel).font(.caption.bold()).foregroundColor(Color.beltAccent)
                 }
             }
         }
@@ -321,7 +350,7 @@ struct DashboardView: View {
 // MARK: - Milestone Card
 
 private struct MilestoneCard: View {
-    let milestone: IFFLMilestone
+    let milestone: BeltMilestone
 
     private var daysUntil: Int {
         Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()),
@@ -396,7 +425,7 @@ private struct MilestoneCard: View {
             .padding(.vertical, 12)
         }
         .frame(width: 110)
-        .background(Color.iffSurface)
+        .background(Color.beltSurface)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(color: milestone.color.opacity(0.2), radius: 8, y: 4)
     }

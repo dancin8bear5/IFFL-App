@@ -1,0 +1,481 @@
+rules_version = '2';
+
+// Insanity League — Firestore security rules.
+// Read access: league members only (anyone in config/league.userTeamMap or
+// authorizedUIDs). Signing in with a random Google account is NOT enough —
+// the commissioner must assign the account a team first.
+// Writes: users touch only their own FMK/interest/settings docs and trade
+// flow; roster, config, messages, and history writes are commissioner-only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function leagueConfig() {
+      return get(/databases/$(database)/documents/config/league).data;
+    }
+
+    function isMember() {
+      return signedIn() && (
+        request.auth.uid in leagueConfig().userTeamMap ||
+        request.auth.uid in leagueConfig().authorizedUIDs
+      );
+    }
+
+    // The deploy agent's signed-in smoke-test account (Sep 25, 2026), listed
+    // in config/league.smokeUIDs. It READS what a member reads and WRITES
+    // nothing: every write rule checks isMember() / isCommissioner(), neither
+    // of which includes it. Its password is a GitHub secret, so it must never
+    // be able to touch league data. Rule of thumb: `allow read` uses
+    // isReader(); every write keeps isMember().
+    function isSmoke() {
+      return signedIn() && request.auth.uid in leagueConfig().get('smokeUIDs', []);
+    }
+
+    function isReader() {
+      return isMember() || isSmoke();
+    }
+
+    // The voting member's own team, or '' for an authorized account that
+    // has no team assigned. Reuses the leagueConfig() read isMember() already
+    // paid for, so this costs nothing extra.
+    function myTeam() {
+      return request.auth.uid in leagueConfig().userTeamMap
+        ? leagueConfig().userTeamMap[request.auth.uid]
+        : '';
+    }
+
+    function rookieDraftRoom() {
+      return get(/databases/$(database)/documents/config/rookieDraft).data;
+    }
+
+    function tradeTeams(tradeId) {
+      let t = get(/databases/$(database)/documents/trades/$(tradeId)).data;
+      return [t.proposingTeamName, t.receivingTeamName];
+    }
+
+    function isCommissioner() {
+      // Jared only — both of his Google accounts
+      return signedIn() && (
+        request.auth.uid in leagueConfig().authorizedUIDs ||
+        request.auth.token.email == 'jaredrogtaylor@gmail.com' ||
+        request.auth.token.email == 'jarrtayl@gmail.com'
+      );
+    }
+
+    // League config — members read; commissioner writes.
+    // (Members' clients read this at login to resolve their team.)
+    match /config/league {
+      allow read: if signedIn();          // needed to resolve membership at login
+      allow write: if isCommissioner();
+    }
+
+    // GroupMe DM mapping (team → GroupMe user id) — commissioner only
+    match /config/groupme {
+      allow read, write: if isCommissioner();
+    }
+
+    // POD content (preseason rankings/awards/bold calls + True Record
+    // weekly scores) — only the three guys who do the show. This is a
+    // real read gate, not just a hidden tab: rankings are unveiled
+    // team-by-team on the POD, so the rest of the league must not be
+    // able to pull them from the database early.
+    function isPodMember() {
+      return isCommissioner() || (
+        signedIn() &&
+        leagueConfig().userTeamMap[request.auth.uid] in ['Jared', 'M. Zurek', 'Bill']
+      );
+    }
+
+    // Power Rankings — powerRankings/{edition} + /drops/{key}
+    //
+    // ONE DOC PER DROP, and the split is the security boundary, not a
+    // convenience: the client fetches only the drops named in the meta
+    // doc's `released`, so an unreleased write-up is never transmitted.
+    // The rules cannot express "only released drops", and they don't need
+    // to — a member who fetched a locked drop by hand would get it, but
+    // the twelve people with access are the twelve people the reveal is
+    // for. The real protection is that nothing unreleased is ever sent to
+    // a browser or shipped in the bundle.
+    match /powerRankings/{edition} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+      match /drops/{drop} {
+        allow read: if isReader();
+        allow write: if isCommissioner();
+      }
+    }
+
+    match /config/pod {
+      allow read, write: if isPodMember();
+    }
+
+    // Weekly scores — one doc per season, weeks as a keyed map.
+    // Read is league-wide on purpose: raw weekly points are not a POD
+    // secret (every manager sees them in ESPN), and the in-season
+    // Dashboard charts are built from them. The POD's ANALYSIS of those
+    // scores — True Record, rankings, awards, bold calls — stays gated
+    // in config/pod above.
+    // Write stays with the three hosts, who are the ones entering
+    // scores each week; nobody loses an ability they had when this
+    // data lived inside config/pod.
+    match /weeklyScores/{season} {
+      allow read: if isReader();
+      allow write: if isPodMember();
+    }
+
+    // Playoff bracket — seeds, the opponent draft, and round winners.
+    // Read by everyone (it's the whole league's bracket); written by the
+    // commissioner, who records each seed's pick on their behalf. A
+    // member-write rule would have to resolve playoff seeding inside the
+    // rules themselves, which isn't worth the fragility.
+    match /playoffs/{season} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // Profile pictures — one doc per team, id = team name. Everyone in
+    // the league reads every avatar (they render all over the app), but a
+    // member can only write their OWN team's. Enforced server-side here,
+    // not just in the Settings UI, so nobody can repoint someone else's
+    // picture by hand.
+    match /teamAvatars/{teamName} {
+      allow read: if isReader();
+      allow write: if isCommissioner() ||
+        (signedIn() && leagueConfig().userTeamMap[request.auth.uid] == teamName);
+    }
+
+    // Big Board — RETIRED from the app on Aug 31, 2026. The view, the
+    // filter service and the Firestore helpers are gone; this collection is
+    // deliberately NOT deleted, so the board can be brought back by
+    // restoring the UI against the same documents.
+    //
+    // The rule stays for the same reason. Removing it would lock out a
+    // future re-read for no benefit, and the access it grants is unchanged:
+    // commissioner-only for READ as well as write, because these are
+    // keep/drop opinions about rivals' rosters and were never the league's
+    // to see.
+    //
+    // Offline copies: data/big-board-2026-08-31.csv, plus
+    // web/scripts/export-big-board.mjs for a fresh authoritative dump.
+    match /bigBoard/{playerId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // Rosters & league data — member reads, commissioner writes
+    match /players/{playerId} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    match /draftPicks/{pickId} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // Rookie draft room.
+    //
+    // config/rookieDraft holds the order, the published slot -> owner board
+    // and the `live` switch; it is commissioner-written. Selections are one
+    // document per slot, and the doc id IS the slot ("2027_1.01").
+    //
+    // A member may create exactly one document: the one whose id matches a
+    // slot they own on the published board, stamped with their own team,
+    // and only while the room is open. Slot ownership is checked here and
+    // not merely in the UI — it is the rule that stops someone sniping a
+    // pick that isn't theirs on draft night, and comparing against the
+    // published board is the only practical way to ask it (resolving the
+    // lottery order against the pick ledger inside a rule is not).
+    //
+    // Update and delete are commissioner-only, so a selection can't be
+    // rewritten afterwards by the person who made it. Correcting a pick is
+    // a commissioner action, on purpose.
+    match /rookieDraftPicks/{pickId} {
+      allow read: if isReader();
+      // `testers` is a dry-run list: those teams can pick while the room is
+      // still closed to the league, so the whole path — rules included —
+      // can be proven before draft night rather than discovered during it.
+      // It has to be enforced HERE and not just in the UI, or a tester
+      // would see the room and then be refused by the database, which
+      // tests nothing.
+      //
+      // Both fields are read with .get(…, default) so a config document
+      // written before they existed denies cleanly instead of erroring.
+      allow create: if isCommissioner() || (
+        isMember() &&
+        (
+          rookieDraftRoom().get('live', false) == true ||
+          myTeam() in rookieDraftRoom().get('testers', [])
+        ) &&
+        pickId == string(request.resource.data.season) + '_' + request.resource.data.slot &&
+        request.resource.data.teamName == myTeam() &&
+        rookieDraftRoom().slotOwners[request.resource.data.slot] == myTeam()
+      );
+      allow update, delete: if isCommissioner();
+    }
+
+    // The room's control doc — every member reads it (it decides whether
+    // the tab appears at all); only the commissioner sets the order or
+    // opens the room.
+    match /config/rookieDraft {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // ESPN v3 pulls, written only by Cloud Functions (admin SDK bypasses
+    // rules). Members read. espnLiveScores had no rule at all, so the live
+    // scoreboard was default-denied for every client.
+    match /espnLiveScores/{season} {
+      allow read: if isReader();
+    }
+    match /espnStandings/{season} {
+      allow read: if isReader();
+    }
+
+    // Agent #3 league notes. Drafts are written by Cloud Functions and are
+    // commissioner-only until SENT. Clients can move a note between
+    // draft / approved / rejected (and reopen a failed one) — never to
+    // sending or sent; only the sender function (admin SDK) writes those.
+    // Approving requires a real send time.
+    match /leagueNotes/{noteId} {
+      allow read: if isCommissioner() || (isReader() && resource.data.status == 'sent');
+      allow update: if isCommissioner()
+        && resource.data.status in ['draft', 'approved', 'failed']
+        && request.resource.data.status in ['draft', 'approved', 'rejected']
+        && (request.resource.data.status != 'approved' || request.resource.data.sendAt is timestamp);
+      allow create, delete: if false;
+    }
+
+    match /leagueHistory/{year} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // Full ESPN history import (2008–2025) — team seasons, weekly matchups,
+    // player season/week lines, and drafts. Seeded once by
+    // web/scripts/import-history.mjs; read-only league data thereafter.
+    match /historyTeamSeasons/{year} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+    match /historyMatchups/{year} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+    match /historyPlayerSeasons/{year} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+    match /historyPlayerWeeks/{yearWeek} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+    match /historyDrafts/{year} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+    // Precomputed chart feeds (scoring by season, draft spend + ROI). These
+    // exist so the Trophy Room doesn't have to pull every draft and player
+    // season into the browser to draw three charts.
+    match /historyAggregates/{docId} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // Trades — members propose (their own team, status 'proposed') and
+    // respond (accept/decline); executing (asset transfers + completed
+    // status) happens with commissioner privileges.
+    match /trades/{tradeId} {
+      allow read: if isReader();
+      // Members propose (status 'proposed'); the commissioner can also
+      // create a trade directly as 'completed' — recording a deal that
+      // happened outside the app (e.g. executed on ESPN).
+      allow create: if isCommissioner() ||
+        (isMember() && request.resource.data.status == 'proposed');
+      allow update: if isCommissioner() || (
+        isMember() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['response', 'status']) &&
+        request.resource.data.status in ['accepted', 'rejected', 'countered']
+      );
+      allow delete: if isCommissioner();
+    }
+
+    // Trade BOOM/DOOM votes — who won each trade, one verdict per member.
+    //
+    // Permanent by design: the doc id is "<tradeId>_<uid>", so a second vote
+    // collides with a doc that already exists and create fails; update and
+    // delete are denied to everyone, commissioner included. There is no
+    // override — a cast vote is cast.
+    //
+    // You cannot vote on a trade you were in. That's enforced here and not
+    // just in the UI, because it's the rule that makes the tally worth
+    // anything. It costs one extra document read per vote, which is a fine
+    // price for a once-per-trade write.
+    match /tradeVotes/{voteId} {
+      allow read: if isReader();
+      allow create: if isMember()
+        && voteId == request.resource.data.tradeId + '_' + request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.votedFor in tradeTeams(request.resource.data.tradeId)
+        && !(myTeam() in tradeTeams(request.resource.data.tradeId));
+      allow update, delete: if false;
+    }
+
+    // Rule proposals + voting — members propose anytime; votes only while
+    // the commissioner has the portal open; status changes commissioner-only
+    match /rules/{ruleId} {
+      allow read: if isReader();
+      // Members propose; the commissioner can also enter rules directly
+      // with any status (manual entry / seeding passed rules)
+      allow create: if isCommissioner() ||
+        (isMember() && request.resource.data.status == 'proposed');
+      allow update: if isCommissioner() || (
+        isMember() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) &&
+        leagueConfig().rulesVotingOpen == true
+      );
+      allow delete: if isCommissioner();
+    }
+
+    // FMK signals — doc id is "{uid}_{assetId}"; users manage only their own
+    // Weekly Low Points Parlay.
+    // config/parlay: {season, week, lockAt, open} — commissioner controls the week.
+    // Entries: one per team per week (doc id season_week_team); a member may
+    // write only their own team's entry and only before the lock.
+    match /config/parlay {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    match /parlayEntries/{entryId} {
+      allow read: if isReader();
+      allow create, update: if isCommissioner() || (
+        isMember() &&
+        request.resource.data.teamName == leagueConfig().userTeamMap[request.auth.uid] &&
+        get(/databases/$(database)/documents/config/parlay).data.open == true &&
+        request.time < get(/databases/$(database)/documents/config/parlay).data.lockAt
+      );
+      allow delete: if isCommissioner();
+    }
+
+    // Week results (book, bet slip link, hit/miss, payout) — commissioner only
+    match /parlayWeeks/{weekId} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // Game & player extremes (Trophy Room records) — commissioner-entered
+    match /leagueRecords/{recordId} {
+      allow read: if isReader();
+      allow write: if isCommissioner();
+    }
+
+    // ESPN trade auto-import log (functions/index.js ingestEspnTrade) —
+    // internal ops data, not league-facing. Written by the Cloud
+    // Function via the Admin SDK (bypasses rules entirely); commissioner
+    // can read the review queue and dismiss/update entries from Admin.
+    match /tradeIngests/{ingestId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // GroupMe trade-signal review inbox (functions/index.js
+    // pollGroupMeTrades) — captured chatter that looks like a trade
+    // announcement (🚨 + keywords). GroupMe is the only record of the
+    // pick legs of a deal, so these are reviewed by hand in
+    // Admin → Trade Signals and paired with the ESPN-imported player
+    // legs. Written by the Cloud Function via the Admin SDK (bypasses
+    // rules); commissioner reads the queue and marks/dismisses entries.
+    match /groupmeTradeSignals/{signalId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // Poller state (last processed GroupMe message id) — internal ops
+    // data written by the Cloud Function; commissioner may inspect it.
+    match /config/groupmePoller {
+      allow read, write: if isCommissioner();
+    }
+
+    // Ops state for the ESPN ingest paths. All written by Cloud Functions
+    // through the Admin SDK, which bypasses rules entirely — these entries
+    // exist only so the commissioner can SEE what the pollers are doing
+    // from inside the app instead of opening the Firebase console.
+    // Read-only: nothing in the app has any business editing a cursor.
+    match /config/espnIngest {
+      allow read: if isCommissioner();
+    }
+    match /config/espnGmailPoller {
+      allow read: if isCommissioner();
+    }
+    match /config/ifflFeedReport {
+      allow read: if isCommissioner();
+    }
+
+    // The league feed's control document.
+    //
+    // Read shows the last run, its summary and any apply error. Write is
+    // deliberately narrowed to the `armed` map and nothing else: the
+    // poller's own cursor (lastProcessedChangedAt) lives in this same
+    // document, and a stray write from the app must not be able to rewind
+    // it and cause the whole league to be re-imported. Arming is the only
+    // decision a human makes here, so it is the only field a human can
+    // touch — same shape as the trades and rules rules above.
+    match /config/ifflFeed {
+      allow read: if isCommissioner();
+      allow update: if isCommissioner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['armed']);
+    }
+
+    // Transaction ledger — the league's paper trail. Readable by everyone,
+    // written only by the commissioner (entries ride along with executeTrade
+    // and repair batches). Never updated or deleted — it's an audit log.
+    match /transactions/{txId} {
+      allow read: if isReader();
+      allow create: if isCommissioner();
+      allow update, delete: if false;
+    }
+
+    match /playerFMK/{fmkId} {
+      allow read: if isReader();
+      allow create, update: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isMember() && resource.data.userId == request.auth.uid;
+    }
+
+    // Legacy star-interest system — same ownership model
+    match /playerInterests/{interestId} {
+      allow read: if isReader();
+      allow create: if isMember() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isMember() && resource.data.userId == request.auth.uid;
+    }
+
+    // Per-user settings — owner only
+    match /userSettings/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Keeper plans (Team Builder prototypes) — ALWAYS private to their owner.
+    // Not even the commissioner can read another manager's draft strategy.
+    match /keeperPlans/{planId} {
+      allow read, update, delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    // FCM tokens (written by iOS AppDelegate) — owner only
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // Legacy "Users" collection — commissioner only (migration source)
+    match /Users/{docId} {
+      allow read, write: if isCommissioner();
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

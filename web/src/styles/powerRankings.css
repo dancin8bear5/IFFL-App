@@ -1,0 +1,296 @@
+/* Power Rankings page — ported from the generator's reference render.
+ *
+ * Two deliberate departures from the handoff spec, both so the page reads
+ * as part of the app rather than as a document pasted into it:
+ *
+ * 1. SYSTEM FONTS, not Barlow / Barlow Condensed / IBM Plex Mono. Every
+ *    other screen uses the system stack; three web fonts would make this
+ *    one page typographically foreign and cost a PWA three font families
+ *    on first load. The condensed/mono ROLES survive — display type is
+ *    tracked-out uppercase, and every column that lines up gets
+ *    tabular-nums, which is what the mono was actually doing.
+ * 2. DARK ONLY. The spec's dark palette IS BeltTheme renamed (--paper is
+ *    --iff-bg, --card is --iff-surface). Its light half has nowhere to go:
+ *    the app has no light mode, and a page that went light while every
+ *    other screen stayed dark would read as broken.
+ *
+ * Tokens are scoped to .pr-page so nothing leaks into the rest of the app.
+ * Where a value already exists in theme.css it is referenced rather than
+ * repeated; the ones spelled out here are genuinely new — the grade bands,
+ * the four position hues, and the lock amber.
+ */
+
+.pr-page {
+  --paper: var(--iff-bg);
+  --card: var(--iff-surface);
+  --raised: var(--iff-elevated);
+  --ink: #F2F5FB;
+  --txt: var(--iff-text);
+  --mut: var(--iff-subtext);
+  --line: #28304A;
+  --rule: #222941;
+  --red: #E0616E;
+  --amber: #D9A356;
+  --green: #49B489;
+  --blue: #7BA3DE;
+  /* Grade bands. Colour carries meaning in exactly two places on this page
+     and this is one of them: A green, B blue, C amber, D/F red, decided by
+     the letter's first character. */
+  --band-a: #49B489;
+  --band-b: #7BA3DE;
+  --band-c: #D9A356;
+  --band-d: #E0616E;
+  --chip-ink: #0A0D1A;
+  --lock: #D9A356;
+  --lockbg: #1E1B12;
+  /* One hue per POSITION, so a reader learns four colours once instead of
+     decoding seven. Deliberately clear of the band greens/ambers/reds —
+     nothing on a card should read as a grade unless it is one. */
+  --pos-qb: #7BA3DE;
+  --pos-rb: #5FB3BF;
+  --pos-wr: #C08CD0;
+  --pos-te: #9AA2B4;
+  --shadow: 0 1px 2px rgba(0,0,0,.5), 0 10px 28px rgba(0,0,0,.35);
+
+  color: var(--txt);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.pr-wrap { max-width: 760px; margin: 0 auto; padding-block: 8px 64px; padding-left: 18px; padding-right: 18px; }
+.pr-page .mono, .pr-page .score, .pr-page .num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+.pr-page .cond, .pr-page .eyebrow, .pr-page h1, .pr-page h2 { letter-spacing: .04em; }
+.pr-page .eyebrow {
+  font-size: 12px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--mut);
+}
+
+/* masthead */
+.pr-page .mast { border-bottom: 2px solid var(--ink); padding-bottom: 18px; margin-bottom: 8px; }
+.pr-page .mast h1 {
+  font-size: clamp(30px, 7.5vw, 48px); line-height: 1.02; margin: 6px 0 10px;
+  font-weight: 800; text-transform: uppercase; letter-spacing: -.01em; text-wrap: balance;
+}
+.pr-page .mast .sub { color: var(--mut); font-size: 15px; margin: 0; }
+.pr-page .meter { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; list-style: none; padding: 0; }
+.pr-page .meter button {
+  display: flex; align-items: center; gap: 7px; color: var(--txt);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px;
+  font-size: 13px; font-weight: 600; background: var(--card);
+}
+.pr-page .meter button:hover { border-color: var(--ink); }
+.pr-page .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex: none; }
+.pr-page .dot.off { background: transparent; border: 1.5px solid var(--mut); }
+
+/* generic block */
+.pr-page section { margin-top: 34px; }
+.pr-page details { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+.pr-page summary {
+  cursor: pointer; list-style: none; padding: 14px 16px; display: flex;
+  align-items: center; gap: 12px; font-weight: 600;
+}
+.pr-page summary::-webkit-details-marker { display: none; }
+.pr-page summary::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px; flex: none; order: 2;
+  border-right: 2px solid var(--mut); border-bottom: 2px solid var(--mut);
+  transform: rotate(45deg); transition: transform .18s;
+}
+.pr-page details[open] > summary::after { transform: rotate(-135deg); }
+.pr-page summary:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .pr-page summary::after { transition: none; } }
+
+/* lookback */
+.pr-page .tablewrap { overflow-x: auto; border-top: 1px solid var(--rule); }
+.pr-page table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 520px; }
+.pr-page th, .pr-page td { text-align: left; padding: 8px 16px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.pr-page th { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--mut); font-weight: 700; }
+.pr-page td.num, .pr-page th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.pr-page .miss {
+  display: inline-block; min-width: 52px; text-align: center; border-radius: 999px;
+  padding: 1px 8px; font-size: 12px; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line); color: var(--mut);
+}
+.pr-page .miss.up { color: var(--green); border-color: var(--green); }
+.pr-page .miss.dn { color: var(--red); border-color: var(--red); }
+.pr-page .badge {
+  font-size: 10px; letter-spacing: .1em; border: 1px solid currentColor;
+  border-radius: 3px; padding: 0 4px; margin-left: 6px; vertical-align: 1px;
+}
+.pr-page .badge.champ { color: var(--amber); }
+.pr-page .badge.last { color: var(--red); }
+.pr-page .foot { padding: 12px 16px; color: var(--mut); font-size: 13px; border-top: 1px solid var(--rule); }
+
+/* prose */
+.pr-page .prose { max-width: 64ch; }
+.pr-page .prose p { margin: 0 0 1.05em; }
+.pr-page .prose p:last-child { margin-bottom: 0; }
+.pr-page .machine { border-left: 3px solid var(--blue); padding: 2px 0 2px 18px; }
+.pr-page .machine .sig { letter-spacing: .14em; text-transform: uppercase; font-size: 13px; color: var(--mut); }
+
+/* drops */
+.pr-page .drop { margin-top: 16px; }
+.pr-page .drop > summary { background: var(--raised); border-bottom: 1px solid var(--line); }
+.pr-page .drop > summary .dh { font-size: 22px; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; }
+.pr-page .count { font-size: 12px; color: var(--mut); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.pr-page .drop.locked { border-style: dashed; background: transparent; }
+.pr-page .drop.locked .dh { color: var(--mut); }
+.pr-page .lockchip {
+  font-size: 12px; font-weight: 600; color: var(--lock); background: var(--lockbg);
+  border: 1px solid var(--lock); border-radius: 999px; padding: 2px 10px; margin-left: auto;
+}
+.pr-page .dropbody { display: flex; flex-direction: column; gap: 14px; padding: 14px; }
+
+/* team card */
+.pr-page .team { background: var(--card); box-shadow: var(--shadow); border-color: var(--line); }
+.pr-page .team > summary { align-items: flex-start; gap: 14px; padding: 14px; flex-wrap: wrap; }
+.pr-page .rank {
+  font-size: 38px; line-height: .86; font-weight: 800; color: var(--mut); flex: none;
+  width: 52px; font-variant-numeric: tabular-nums; order: 1; letter-spacing: -.02em;
+}
+.pr-page .who { order: 2; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.pr-page .who .tn { font-size: 17px; font-weight: 600; line-height: 1.25; }
+.pr-page .who .ow { font-size: 13px; color: var(--mut); font-weight: 400; }
+.pr-page .ovr {
+  order: 2; flex: none; margin-left: auto; align-self: center;
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding-right: 4px;
+}
+.pr-page .ovr .g { font-size: 19px; font-weight: 700; border-radius: 8px; padding: 3px 11px; color: var(--chip-ink); font-variant-numeric: tabular-nums; }
+.pr-page .ovr .lb { font-size: 9px; letter-spacing: .14em; color: var(--mut); text-transform: uppercase; }
+.pr-page .g.a { background: var(--band-a); }
+.pr-page .g.b { background: var(--band-b); }
+.pr-page .g.c { background: var(--band-c); }
+.pr-page .g.d { background: var(--band-d); }
+.pr-page .g.na { background: var(--mut); }
+.pr-page .v.a { color: var(--band-a); }
+.pr-page .v.b { color: var(--band-b); }
+.pr-page .v.c { color: var(--band-c); }
+.pr-page .v.d { color: var(--band-d); }
+.pr-page .v.na { color: var(--mut); }
+.pr-page .body { padding: 0 14px 16px; border-top: 1px solid var(--rule); }
+.pr-page .score { font-size: 12px; color: var(--mut); margin-top: 12px; }
+
+/* collapsed-card positional grade minis */
+.pr-page .minis { display: flex; flex-wrap: wrap; gap: 5px; width: 100%; order: 3; margin-top: 2px; }
+.pr-page .mini {
+  display: inline-flex; align-items: baseline; gap: 4px; border: 1px solid var(--line);
+  border-radius: 6px; padding: 2px 6px; background: var(--raised); line-height: 1.2;
+}
+.pr-page .mini .k { font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--mut); font-weight: 700; }
+.pr-page .mini .v { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* top-player reference pills — context, never competing with the grades */
+.pr-page .pills { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 2px; }
+.pr-page .pill {
+  display: inline-flex; align-items: baseline; gap: 5px; font-size: 11px; line-height: 1.5;
+  border: 1px solid var(--pc, var(--line)); color: var(--pc, var(--mut));
+  border-radius: 999px; padding: 1px 8px; background: transparent; white-space: nowrap;
+}
+.pr-page .pill .pp-pos { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.pr-page .pill .pr { font-size: 9.5px; opacity: .75; font-variant-numeric: tabular-nums; }
+.pr-page .pill.qb { --pc: var(--pos-qb); }
+.pr-page .pill.rb { --pc: var(--pos-rb); }
+.pr-page .pill.wr { --pc: var(--pos-wr); }
+.pr-page .pill.te { --pc: var(--pos-te); }
+
+/* sections */
+.pr-page .sec { padding-top: 16px; border-top: 1px dashed var(--rule); margin-top: 16px; }
+.pr-page .sec:first-of-type { border-top: 0; }
+.pr-page .sechead { display: flex; align-items: baseline; gap: 9px; margin-bottom: 5px; }
+.pr-page .sechead .lab { font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.pr-page .sechead .gg { border: 1.5px solid currentColor; border-radius: 5px; padding: 0 6px; font-size: 12px; font-weight: 700; }
+.pr-page .sec p { margin: 0 0 .8em; font-size: 15.5px; }
+.pr-page .sec p:last-child { margin-bottom: 0; }
+
+/* bench/owner two-grade chip */
+.pr-page .gg {
+  display: inline-flex; align-items: baseline; gap: 3px; border: 1.5px solid var(--line);
+  border-radius: 5px; padding: 0 6px; font-size: 12px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.pr-page .gg .sl { color: var(--mut); font-weight: 400; }
+
+/* pivot callout */
+.pr-page .pp {
+  border-left: 3px solid var(--amber); background: var(--lockbg); border-radius: 0 8px 8px 0;
+  padding: 11px 14px; margin: 16px 0 4px;
+}
+.pr-page .pp .h { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lock); font-weight: 700; }
+.pr-page .pp .n { font-size: 17px; font-weight: 600; line-height: 1.2; margin: 1px 0 5px; }
+.pr-page .pp p { margin: 0; font-size: 15px; }
+
+/* verdict band */
+.pr-page .verdict {
+  margin: 18px -14px -16px; padding: 14px; background: var(--raised);
+  border-top: 1px solid var(--line); display: flex; gap: 12px; align-items: flex-start;
+}
+.pr-page .verdict .g { flex: none; font-size: 16px; font-weight: 700; border-radius: 7px; padding: 2px 9px; color: var(--chip-ink); }
+.pr-page .verdict .t { min-width: 0; }
+.pr-page .verdict .h { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--mut); font-weight: 700; }
+.pr-page .verdict p { margin: 1px 0 0; font-size: 15px; }
+
+/* ladder */
+.pr-page .ladder {
+  list-style: none; padding: 0; margin: 0; border: 1px solid var(--line);
+  border-radius: 12px; overflow: hidden; background: var(--card);
+}
+.pr-page .ladder li { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--rule); font-size: 15px; }
+.pr-page .ladder li:last-child { border-bottom: 0; }
+.pr-page .ladder li.locked { color: var(--mut); }
+.pr-page .ladder .r { color: var(--mut); width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+.pr-page .ladder .t { font-weight: 600; }
+.pr-page .ladder .o { color: var(--mut); font-size: 13px; margin-left: auto; text-align: right; }
+.pr-page .note { color: var(--mut); font-size: 13px; margin-top: 12px; }
+
+/* Inline on the Dashboard: the column already constrains the measure, so
+   the page's own 760px wrapper and side gutter would double up. Sections
+   sit closer together than on the standalone page, because here they are
+   competing with the rest of the Dashboard for height. */
+.pr-page .pr-embed { max-width: 100%; }
+.pr-page .pr-embed .mast { padding-bottom: 12px; }
+.pr-page .pr-embed section { margin-top: 14px; }
+.pr-page .pr-embed .drop { margin-top: 10px; }
+
+/* The grade sheet — eleven columns, and the whole point is seeing all of
+   them at once, so it is tuned to FIT the Dashboard column rather than to
+   scroll inside it.
+
+   The width came from two places, neither of them the data: generous cell
+   padding across eleven columns, and the base table rule's blanket
+   `white-space: nowrap`, which forced "Horner Park Johnson-Rods" and
+   "Kenneth Walker III" onto single lines. The text columns wrap here; the
+   grade columns keep nowrap because "B+" has nowhere to wrap to and a
+   broken grade would be unreadable.
+
+   min-width stays low enough to fit a narrow desktop column but high
+   enough that a phone still scrolls rather than crushing eleven columns
+   into 360px. */
+.pr-page table.gradesheet { min-width: 520px; font-size: 12px; }
+.pr-page table.gradesheet th,
+.pr-page table.gradesheet td { padding: 5px 6px; white-space: normal; }
+.pr-page table.gradesheet td.num { white-space: nowrap; }
+/* Headers may wrap — "Bench / Owner" over two lines costs a few pixels of
+   height and saves fifty of width, which is the trade the whole table is
+   making. The CELLS still refuse to wrap: "B+" has nowhere to break. */
+.pr-page table.gradesheet th.num { white-space: normal; }
+.pr-page table.gradesheet td.v { font-weight: 700; }
+.pr-page table.gradesheet .g { border-radius: 5px; padding: 1px 6px; color: var(--chip-ink); font-weight: 700; }
+/* The team column earns a floor: below this the long names wrap to three
+   lines and the row height doubles, which costs more than the width saves. */
+.pr-page table.gradesheet td:nth-child(2) { min-width: 104px; }
+
+/* Sortable headers. The whole header is the hit target, not a tiny glyph. */
+.pr-page table.gradesheet th { padding: 0; }
+.pr-page .sortbtn {
+  display: inline-flex; align-items: baseline; gap: 4px; width: 100%;
+  padding: 6px; font: inherit; color: var(--mut); text-align: inherit;
+  letter-spacing: .12em; text-transform: uppercase; font-weight: 700; font-size: 12px;
+  border-radius: 5px; cursor: pointer;
+}
+.pr-page th.num .sortbtn { justify-content: flex-end; }
+.pr-page .sortbtn:hover { color: var(--txt); background: rgba(255,255,255,.04); }
+.pr-page .sortbtn.active { color: var(--txt); }
+.pr-page .sortbtn:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.pr-page .sortbtn .arrow { font-size: 8px; opacity: .8; }

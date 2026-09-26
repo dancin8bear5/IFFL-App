@@ -87,7 +87,7 @@ struct AdminDatabaseSection: View {
             VStack(spacing: 20) {
                 AdminCard(title: "Seed Database", icon: "server.rack") {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Imports all 2026 player and draft pick data from the hardcoded 2026 IFFL Keeper Master List into Firestore. Safe to run — aborts if data already exists.")
+                        Text("Imports all 2026 player and draft pick data from the hardcoded 2026 Keeper Master List into Firestore. Safe to run — aborts if data already exists.")
                             .font(.caption)
                             .foregroundColor(Color("SecondaryTextColor"))
 
@@ -183,7 +183,7 @@ struct AdminDatabaseSection: View {
             Button("Seed Database", role: .destructive) { runSeed() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will populate Firestore with all 2026 IFFL data. It aborts if data already exists.")
+            Text("This will populate Firestore with all 2026 league data. It aborts if data already exists.")
         }
     }
 

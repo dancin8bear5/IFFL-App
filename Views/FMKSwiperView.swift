@@ -22,7 +22,7 @@ struct FMKSwiperView: View {
 
     var body: some View {
         ZStack {
-            Color.iffBg.ignoresSafeArea()
+            Color.beltBg.ignoresSafeArea()
             VStack(spacing: 16) {
                 progressHeader
                 if let asset = current {
@@ -60,9 +60,9 @@ struct FMKSwiperView: View {
         let remaining = max(0, total - currentIndex)
         return VStack(spacing: 6) {
             Text("\(remaining) remaining")
-                .font(.caption).foregroundColor(Color.iffSubtext)
+                .font(.caption).foregroundColor(Color.beltSubtext)
             ProgressView(value: Double(currentIndex), total: Double(max(1, total)))
-                .tint(Color.iffAccent)
+                .tint(Color.beltAccent)
                 .padding(.horizontal, 40)
         }
     }
@@ -78,41 +78,41 @@ struct FMKSwiperView: View {
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text(asset.teamName)
-                        .font(.caption.bold()).foregroundColor(Color.iffSubtext)
+                        .font(.caption.bold()).foregroundColor(Color.beltSubtext)
                     if let nfl = asset.nflTeam {
                         Text(nfl)
-                            .font(.caption2).foregroundColor(Color.iffSubtext.opacity(0.7))
+                            .font(.caption2).foregroundColor(Color.beltSubtext.opacity(0.7))
                     }
                 }
                 Spacer()
                 Text(asset.isPick ? "Pick" : asset.position)
-                    .font(.caption.bold()).foregroundColor(Color.iffAccent)
+                    .font(.caption.bold()).foregroundColor(Color.beltAccent)
                     .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Color.iffAccent.opacity(0.15))
+                    .background(Color.beltAccent.opacity(0.15))
                     .clipShape(Capsule())
             }
 
             Text(asset.name)
                 .font(.system(size: 26, weight: .bold)).foregroundColor(.white)
 
-            Divider().background(Color.iffElevated)
+            Divider().background(Color.beltElevated)
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(appState.activeSeason) + " Value")
-                        .font(.caption).foregroundColor(Color.iffSubtext)
+                        .font(.caption).foregroundColor(Color.beltSubtext)
                     Text(asset.formattedCurrentPrice)
-                        .font(.title3.bold()).foregroundColor(Color.iffGold)
+                        .font(.title3.bold()).foregroundColor(Color.beltGold)
                 }
                 Spacer()
                 if let existing = appState.currentFMKSignal(for: asset) {
                     Text("\(existing.emoji) \(existing.label)")
-                        .font(.caption).foregroundColor(Color.iffSubtext)
+                        .font(.caption).foregroundColor(Color.beltSubtext)
                 }
             }
         }
         .padding(20)
-        .background(Color.iffSurface)
+        .background(Color.beltSurface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
     }
@@ -144,11 +144,11 @@ struct FMKSwiperView: View {
                     VStack(spacing: 4) {
                         Text(signal.emoji).font(.system(size: 30))
                         Text(signal.label)
-                            .font(.caption2.bold()).foregroundColor(Color.iffSubtext)
+                            .font(.caption2.bold()).foregroundColor(Color.beltSubtext)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.iffSurface)
+                    .background(Color.beltSurface)
                     .cornerRadius(14)
                 }
             }
@@ -162,11 +162,11 @@ struct FMKSwiperView: View {
         VStack(spacing: 16) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 56)).foregroundColor(Color.iffAccent)
+                .font(.system(size: 56)).foregroundColor(Color.beltAccent)
             Text("All Rated")
                 .font(.title2.bold()).foregroundColor(.white)
             Text("Tap any player to update their signal.")
-                .font(.subheadline).foregroundColor(Color.iffSubtext)
+                .font(.subheadline).foregroundColor(Color.beltSubtext)
                 .multilineTextAlignment(.center)
             Spacer()
         }
@@ -249,7 +249,7 @@ extension FMKSignal {
     var signalColor: Color {
         switch self {
         case .fuck:  return .green
-        case .marry: return Color.iffGold
+        case .marry: return Color.beltGold
         case .kill:  return .red
         }
     }

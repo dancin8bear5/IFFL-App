@@ -1,0 +1,442 @@
+// TradeDetailView — port of TradeDetailView in CodeRedApp.swift (v2: full
+// negotiate loop). Both sides, status badge, accept/decline/counter for the
+// receiving team, offer notes, counter chain history, and the ESPN execution
+// checklist (players swap in ESPN; picks move only in this app).
+import { useEffect, useMemo, useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { formatTradeDate } from '../services/models'
+import { DetailOverlay } from './shared'
+import TeamLink from './TeamLink'
+import TradeProposalView from './TradeProposalView'
+import { tradeCapImpact } from '../services/contracts'
+import { ROSTER_CAP, LUXURY_TAX_TOTAL } from '../data/staticData'
+import * as fs from '../services/firestoreService'
+import { canVote, myVote, tallyVotes } from '../services/tradeVotes'
+import { teamByName } from '../data/staticData'
+import TaxWarning from './TaxWarning'
+
+export const TRADE_STATUS_STYLE = {
+  proposed:  { label: 'Proposed',  color: 'var(--iff-gold)', bg: 'rgba(244,162,97,0.15)' },
+  accepted:  { label: 'Accepted',  color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  rejected:  { label: 'Declined',  color: '#EF4444', bg: 'rgba(239,68,68,0.15)' },
+  countered: { label: 'Countered', color: '#38BDF8', bg: 'rgba(56,189,248,0.15)' },
+  completed: { label: 'Completed', color: '#22C55E', bg: 'rgba(34,197,94,0.15)' },
+  historical:{ label: 'Historical',color: 'var(--iff-subtext)', bg: 'var(--iff-elevated)' },
+}
+
+export default function TradeDetailView({ trade, onClose }) {
+  const {
+    userTeam, respondToTrade, trades, userSettings, allDisplayAssets, activeSeason, user,
+    tradeVotes, castTradeVote, uid,
+  } = useApp()
+  const [responding, setResponding] = useState(false)
+  const [localStatus, setLocalStatus] = useState(trade.status)
+  const [showCounter, setShowCounter] = useState(false)
+
+  // Accepting now executes immediately (no commissioner approval step) —
+  // status flips 'accepted' → 'completed' within a second or two server-side.
+  // Stay in sync with the live doc so that lands on screen without a reopen.
+  useEffect(() => setLocalStatus(trade.status), [trade.status])
+
+  const style = TRADE_STATUS_STYLE[localStatus] ?? TRADE_STATUS_STYLE.proposed
+  const canRespond = localStatus === 'proposed' && trade.receivingTeamName === userTeam
+
+  const proposerAssets = trade.assetsFromProposer?.length
+    ? trade.assetsFromProposer
+    : (trade.historicalProposerAssets ?? []).map((n) => ({ displayName: n, assetType: 'player' }))
+  const receiverAssets = trade.assetsFromReceiver?.length
+    ? trade.assetsFromReceiver
+    : (trade.historicalReceiverAssets ?? []).map((n) => ({ displayName: n, assetType: 'player' }))
+
+  // Counter chain — walk parentTradeId links back through the loaded trades
+  const chain = useMemo(() => {
+    const list = []
+    let cur = trade
+    while (cur?.parentTradeId) {
+      const parent = trades.find((t) => t.id === cur.parentTradeId)
+      if (!parent) break
+      list.push(parent)
+      cur = parent
+    }
+    return list
+  }, [trade, trades])
+
+  // TAX DAT ASS — cap impact while the offer is still live
+  const capImpact = useMemo(() => {
+    if (localStatus !== 'proposed' && localStatus !== 'accepted') return null
+    const byId = new Map(allDisplayAssets.map((a) => [a.id, a]))
+    const resolve = (refs) => (refs ?? []).map((r) => byId.get(r.assetId)).filter(Boolean)
+    const fromP = resolve(trade.assetsFromProposer)
+    const fromR = resolve(trade.assetsFromReceiver)
+    if (!fromP.length && !fromR.length) return null
+    return tradeCapImpact(
+      allDisplayAssets, activeSeason,
+      trade.proposingTeamName, trade.receivingTeamName, fromP, fromR,
+    )
+  }, [localStatus, allDisplayAssets, activeSeason, trade])
+
+  // ESPN split: players must be manually swapped in ESPN; picks exist only here
+  const espnPlayers = [
+    ...proposerAssets.filter((a) => a.assetType === 'player'),
+    ...receiverAssets.filter((a) => a.assetType === 'player'),
+  ]
+  const appOnlyPicks = [
+    ...proposerAssets.filter((a) => a.assetType === 'draftPick'),
+    ...receiverAssets.filter((a) => a.assetType === 'draftPick'),
+  ]
+
+  // Cap breach on the side(s) this accept would push over $300 — computed
+  // here so respond() can gate on it without recomputing.
+  function breachingSides() {
+    if (!capImpact) return []
+    return [
+      { team: trade.proposingTeamName, ...capImpact.proposer },
+      { team: trade.receivingTeamName, ...capImpact.receiver },
+    ].filter((s) => s.after > ROSTER_CAP)
+  }
+
+  async function respond(answer) {
+    // Accepting is final and immediate — no later commissioner review to
+    // catch a cap breach, so this confirm is the one moment of truth.
+    const breaching = answer === 'yes' ? breachingSides() : []
+    if (breaching.length > 0) {
+      const lines = breaching
+        .map((s) => `${s.team} lands at $${s.after} ($${s.after - ROSTER_CAP} over the $${ROSTER_CAP} cap)`)
+        .join('\n')
+      const ok = confirm(
+        `🚨 TAX DAT ASS\n\n${lines}\n\nAccepting starts the 24-hour clock on the $${LUXURY_TAX_TOTAL} luxury tax. Unpaid, the trade voids and it's -100 pts/week.\n\nAccept anyway?`,
+      )
+      if (!ok) return
+    }
+
+    setResponding(true)
+    try {
+      await respondToTrade(trade.id, answer)
+      setLocalStatus(answer === 'yes' ? 'accepted' : 'rejected')
+      for (const s of breaching) {
+        await fs.logTransaction({
+          type: 'tax',
+          season: activeSeason,
+          teamName: s.team,
+          playerId: null,
+          playerName: null,
+          price: LUXURY_TAX_TOTAL,
+          note: `Over the $${ROSTER_CAP} cap at $${s.after} — $${LUXURY_TAX_TOTAL} due within 24h (UNPAID)`,
+          relatedTradeId: trade.id,
+          actorUid: user?.uid ?? null,
+        }).catch(() => {})
+      }
+      if (answer === 'yes' && (userSettings?.confetti ?? true)) {
+        const { fireConfetti } = await import('../services/appearance')
+        fireConfetti()
+      }
+    } finally {
+      setResponding(false)
+    }
+  }
+
+  if (showCounter) {
+    return (
+      <TradeProposalView
+        counterOf={trade}
+        onClose={() => {
+          setShowCounter(false)
+          onClose()
+        }}
+      />
+    )
+  }
+
+  return (
+    <DetailOverlay title="Trade" onBack={onClose}>
+      <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="iff-card" style={{ padding: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>
+              <TeamLink name={trade.proposingTeamName} /> ↔ <TeamLink name={trade.receivingTeamName} />
+            </div>
+            <span style={{ fontSize: 10, fontWeight: 700, color: style.color, background: style.bg, padding: '3px 9px', borderRadius: 6 }}>
+              {style.label}
+            </span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4 }}>
+            {formatTradeDate(trade.date)} · Season {trade.season}
+            {trade.parentTradeId ? ' · counter-offer' : ''}
+          </div>
+        </div>
+
+        {/* Framed as what each side GOT, not what it gave up. A trade reads
+            as "who got what" when you look it up later, and the two cards
+            cross over: what the proposer received is what the receiver sent. */}
+        <SideCard
+          title={`${trade.proposingTeamName} received from ${trade.receivingTeamName}`}
+          assets={receiverAssets.map((a) => a.displayName)}
+        />
+        <SideCard
+          title={`${trade.receivingTeamName} received from ${trade.proposingTeamName}`}
+          assets={proposerAssets.map((a) => a.displayName)}
+        />
+
+        {trade.notes && (
+          <div className="iff-card" style={{ padding: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+              Note from {trade.proposingTeamName}
+            </div>
+            <div style={{ fontSize: 13, lineHeight: 1.55 }}>“{trade.notes}”</div>
+          </div>
+        )}
+
+        {/* Counter chain history */}
+        {chain.length > 0 && (
+          <div className="iff-card" style={{ padding: 14 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+              Negotiation History
+            </div>
+            {chain.map((t, i) => (
+              <div key={t.id} style={{ display: 'flex', gap: 10, padding: '6px 0', fontSize: 12, borderTop: i > 0 ? '1px solid var(--iff-divider)' : 'none' }}>
+                <span style={{ color: 'var(--iff-subtext)', flexShrink: 0 }}>{formatTradeDate(t.date)}</span>
+                <span style={{ flex: 1, color: 'var(--iff-subtext)' }}>
+                  <strong style={{ color: 'var(--iff-text)' }}>{t.proposingTeamName}</strong> offered{' '}
+                  {(t.assetsFromProposer ?? []).map((a) => a.displayName).join(', ') || '—'}
+                  {' for '}
+                  {(t.assetsFromReceiver ?? []).map((a) => a.displayName).join(', ') || '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {capImpact && (
+          <TaxWarning
+            impact={capImpact}
+            names={{ proposer: trade.proposingTeamName, receiver: trade.receivingTeamName }}
+          />
+        )}
+
+        {canRespond && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <button
+                className="btn-outline"
+                style={{ borderColor: '#EF4444', color: '#EF4444' }}
+                disabled={responding}
+                onClick={() => respond('no')}
+              >
+                Decline
+              </button>
+              <button className="btn-primary" style={{ background: '#16A34A' }} disabled={responding} onClick={() => respond('yes')}>
+                Accept
+              </button>
+            </div>
+            <button
+              className="btn-outline"
+              style={{ borderColor: '#38BDF8', color: '#38BDF8' }}
+              disabled={responding}
+              onClick={() => setShowCounter(true)}
+            >
+              ⇄ Counter Offer
+            </button>
+          </>
+        )}
+
+        <BoomDoomCard
+          trade={trade}
+          votes={tradeVotes}
+          uid={uid}
+          userTeam={userTeam}
+          onVote={castTradeVote}
+        />
+
+        {/* ESPN execution checklist — shown once a deal is agreed. Rosters in
+            THIS app update themselves instantly on accept; ESPN doesn't, so
+            players still need a manual swap there. */}
+        {(localStatus === 'accepted' || localStatus === 'completed') && (
+          <div className="iff-card" style={{ padding: 14, border: '1px solid rgba(244,162,97,0.35)' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-gold)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+              {localStatus === 'completed' ? 'Done Here — One Step Left' : 'Finalizing…'}
+            </div>
+            {espnPlayers.length > 0 && (
+              <div style={{ marginBottom: appOnlyPicks.length ? 10 : 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
+                  🏈 Swap in ESPN (manual — this app can't do it for you)
+                </div>
+                {espnPlayers.map((a, i) => (
+                  <div key={i} style={{ fontSize: 12, color: 'var(--iff-subtext)', padding: '2px 0 2px 18px' }}>
+                    ☐ {a.displayName}
+                  </div>
+                ))}
+              </div>
+            )}
+            {appOnlyPicks.length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>📋 Picks — tracked in this app only</div>
+                {appOnlyPicks.map((a, i) => (
+                  <div key={i} style={{ fontSize: 12, color: 'var(--iff-subtext)', padding: '2px 0 2px 18px' }}>
+                    • {a.displayName} <span style={{ opacity: 0.7 }}>(ESPN can't trade picks — no action there)</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {localStatus === 'accepted' && (
+              <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 10, lineHeight: 1.5 }}>
+                Rosters here update themselves — this usually clears in a second or two.
+              </div>
+            )}
+            {localStatus === 'completed' && espnPlayers.length > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 10, lineHeight: 1.5 }}>
+                Rosters, cap totals and keeper values are already updated here — the only thing left
+                is the ESPN swap above.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </DetailOverlay>
+  )
+}
+
+function SideCard({ title, assets }) {
+  return (
+    <div className="iff-card" style={{ padding: 14 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+        {title}
+      </div>
+      {assets.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--iff-subtext)' }}>Nothing</div>
+      ) : (
+        assets.map((name, i) => (
+          <div key={i} style={{ fontSize: 14, padding: '3px 0' }}>• {name}</div>
+        ))
+      )}
+    </div>
+  )
+}
+
+/* ═══════════ BOOM / DOOM ═══════════ */
+// One permanent verdict per member: which side won this trade.
+//
+// The tally stays hidden until you've voted. Votes can never be changed, so
+// letting the crowd anchor a judgment you're stuck with would be worse than
+// the mild suspense of not seeing it. Once you've voted — or if you were in
+// the trade and never get one — the split is shown.
+//
+// The two sides take the app's validated chart pair rather than the two team
+// colors: team hues are assigned for identity across twelve franchises and
+// two of them landing side by side can be nearly indistinguishable. Position
+// and a direct label carry which team is which; color only separates the
+// segments.
+const BOOM_FILL = '#5488CE'
+const DOOM_FILL = '#C68334'
+
+function BoomDoomCard({ trade, votes, uid, userTeam, onVote }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const eligible = canVote(trade, userTeam)
+  const mine = myVote(votes, trade.id, uid)
+  const tally = tallyVotes(votes, trade)
+  const revealed = !!mine || !eligible
+
+  async function vote(team) {
+    setBusy(true)
+    setErr(null)
+    try {
+      await onVote(trade, team)
+    } catch (e) {
+      // Permanent by design — a rejection means it is already decided.
+      setErr(e?.code === 'permission-denied'
+        ? 'That verdict is already locked in.'
+        : e?.message || String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Boom or Doom
+        </div>
+        {revealed && (
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>
+            {tally.total} vote{tally.total === 1 ? '' : 's'}
+          </div>
+        )}
+      </div>
+      <div style={{ fontSize: 11.5, color: 'var(--iff-subtext)', lineHeight: 1.5, marginBottom: 10 }}>
+        {!userTeam
+          ? 'Only league members with a team can vote.'
+          : !eligible
+            ? 'You were in this one — the league decides this verdict, not you.'
+            : mine
+              ? 'Your verdict is locked in.'
+              : 'Who won it? One vote, and it can’t be changed.'}
+      </div>
+
+      {!revealed ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {tally.rows.map((r) => (
+            <button
+              key={r.team}
+              className="btn-outline"
+              disabled={busy}
+              onClick={() => vote(r.team)}
+              style={{ borderColor: teamByName[r.team]?.color ?? 'var(--iff-divider)', padding: '10px 8px' }}
+            >
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 800 }}>{r.team}</span>
+              <span style={{ display: 'block', fontSize: 9.5, fontWeight: 700, color: 'var(--iff-subtext)', letterSpacing: 0.5 }}>
+                BOOMED
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : tally.total === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>No verdicts yet.</div>
+      ) : (
+        <>
+          {/* 100% split. Direct-labeled at both ends, so the bar never has to
+              be decoded from color alone. */}
+          <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', gap: 2 }}>
+            {tally.rows.map((r, i) => (
+              <span
+                key={r.team}
+                style={{
+                  width: `${Math.max(r.share * 100, r.count > 0 ? 4 : 0)}%`,
+                  background: i === 0 ? BOOM_FILL : DOOM_FILL,
+                  borderRadius: i === 0 ? '4px 0 0 4px' : '0 4px 4px 0',
+                }}
+              />
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginTop: 7 }}>
+            {tally.rows.map((r, i) => (
+              <span key={r.team} style={{ textAlign: i === 0 ? 'left' : 'right', minWidth: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexDirection: i === 0 ? 'row' : 'row-reverse' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: i === 0 ? BOOM_FILL : DOOM_FILL, flexShrink: 0 }} />
+                  <span className="tnum" style={{ fontSize: 13, fontWeight: 900 }}>
+                    {Math.round(r.share * 100)}%
+                  </span>
+                </span>
+                <span style={{ display: 'block', fontSize: 11, fontWeight: 700, marginTop: 1 }}>{r.team}</span>
+                <span style={{ display: 'block', fontSize: 9.5, color: 'var(--iff-subtext)' }}>
+                  {r.count} vote{r.count === 1 ? '' : 's'}
+                  {mine?.votedFor === r.team ? ' · yours' : ''}
+                </span>
+              </span>
+            ))}
+          </div>
+          {tally.leader === null && (
+            <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginTop: 8, textAlign: 'center' }}>
+              Dead split — the league can’t agree.
+            </div>
+          )}
+        </>
+      )}
+
+      {err && (
+        <div style={{ fontSize: 11, color: '#EF4444', marginTop: 8 }}>{err}</div>
+      )}
+    </div>
+  )
+}

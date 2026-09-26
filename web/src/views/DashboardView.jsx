@@ -1,0 +1,1165 @@
+// DashboardView — port of Views/DashboardView.swift.
+// Mobile: single-column stack under the hero (unchanged from v1).
+// Desktop: page heading + two-column grid — main (team card, calendar,
+// teams, trades) and rail (trophy room, matches, messages).
+import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { useApp } from '../context/AppContext'
+import { useIsDesktop } from '../hooks/useBreakpoint'
+import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
+import { formatTradeDate } from '../services/models'
+import { teamCapTotal } from '../services/contracts'
+import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
+import { PHASE_META } from '../services/seasonPhase'
+import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
+import { editionId as RANKINGS_EDITION_ID } from '../data/powerRankingsMeta'
+import { ARTICLES } from '../data/articles'
+import { hasArchive } from '../services/archive'
+import { releaseSummary } from '../services/rankingsRelease'
+import { DASHBOARD_SECTIONS } from '../services/dashboardSections'
+import { resolveLayout } from '../services/dashboardLayout'
+import * as fs from '../services/firestoreService'
+import TeamLink from '../components/TeamLink'
+import AssetDetailView from '../components/AssetDetailView'
+import TradeDetailView from '../components/TradeDetailView'
+import TrophyRoomView from '../components/TrophyRoomView'
+import PowerRankingsView from '../components/PowerRankingsView'
+import PowerRankingsChart from '../components/PowerRankingsChart'
+import LegacyPowerRankings from '../components/LegacyPowerRankings'
+import LiveScoreboard from '../components/LiveScoreboard'
+import OddsBoard from '../components/OddsBoard'
+// Lazy: the rankings view carries its own stylesheet and is only needed
+// once a section is released, so it loads after the Dashboard has painted.
+const PowerRankings = lazy(() => import('./PowerRankingsView'))
+import SeasonScoringChart from '../components/SeasonScoringChart'
+import PlayoffBracket from '../components/PlayoffBracket'
+import RulesOverlay, { categoryMeta } from '../components/RulesView'
+import TransactionLedger from '../components/TransactionLedger'
+import ParlayView from '../components/ParlayView'
+import SettingsView from './SettingsView'
+
+const KEEPER_POS = ['QB', 'RB', 'WR', 'TE']
+
+// Named here rather than in the rankings view so the tile and the overlay
+// that opens it always carry the same label without the Dashboard having
+// to pull in the view to read it.
+const RANKINGS_TITLE = 'Taylor Made Power Rankings'
+
+// ── League Calendar tile palette ──────────────────────────────
+// The calendar tiles wear their milestone's own color at full strength
+// rather than as an accent on a dark card. It's the one strip on the
+// Dashboard that has to be findable at a glance, and a saturated block
+// does that where a tinted card doesn't — it also breaks the page's long
+// run of identical dark cards into visible sections.
+//
+// The ink is near-black on every hue, and that is measured, not taste:
+// white fails WCAG AA on four of the six milestone colors (2.06:1 on the
+// auction gold, 2.28:1 on the kickoff green), while #0A0D1A clears AA on
+// all six — 4.64:1 on the tightest, the Rosters Frozen red, up to 9.39:1.
+//
+// For the same reason the secondary date line is NOT dimmed. Near-black at
+// any alpha at all drops that red tile under 4.5:1 (0.88 alpha still only
+// reaches 4.25:1), so the hierarchy is carried by size and weight instead
+// of opacity. Re-check these if a milestone color ever changes.
+const CAL_INK = '#0A0D1A'
+const CAL_VEIL = 'rgba(255,255,255,0.34)' // icon disc + day pill; ink on it holds ≥6.4:1
+const CAL_RING = 'rgba(10,13,26,0.55)' // "happening this week" ring; reads on all six hues
+
+const ordinal = (n) =>
+  `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+
+/** League-rank coloring: top third green, middle gold, bottom red. */
+const rankColor = (rank) =>
+  !rank ? 'var(--iff-subtext)' : rank <= 4 ? 'var(--iff-green)' : rank <= 8 ? 'var(--iff-gold)' : '#F87171'
+
+export default function DashboardView({ setTab }) {
+  const {
+    userTeam, allDisplayAssets, activeSeason, myMatchCount, trades, messages,
+    isInitialLoadComplete, userSettings, setSelectedTeam, proposeTradeFor,
+    incomingOffers, leagueHistory, loadLeagueHistory,
+    rules, rulesVotingOpen, transactions,
+    parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
+    weeklyRecords, seasonPhase, isPhase, phaseWindow, dashboardLayout, isPreview,
+  } = useApp()
+  const isDesktop = useIsDesktop()
+  const [showSettings, setShowSettings] = useState(false)
+  const [detailAsset, setDetailAsset] = useState(null)
+  const [detailTrade, setDetailTrade] = useState(null)
+  const [historyView, setHistoryView] = useState(null) // 'trophy' | 'power' | 'odds' | 'rankings'
+  // What the Power Rankings banner is allowed to claim. A listener on a
+  // tiny doc that carries no content, so opening a section lights the
+  // banner up for everyone without a reload.
+  const [rankingsReleased, setRankingsReleased] = useState(null)
+  useEffect(
+    () => fs.listenToPowerRankingsMeta(RANKINGS_EDITION_ID, (m) => setRankingsReleased(m?.released)),
+    [],
+  )
+  const rankingsSummary = releaseSummary(rankingsReleased)
+  const [showRules, setShowRules] = useState(false)
+  const [showLedger, setShowLedger] = useState(false)
+  const [showParlay, setShowParlay] = useState(false)
+  const [teamView, setTeamView] = useState(null) // null = season-appropriate default
+
+  useEffect(() => {
+    loadLeagueHistory()
+  }, [loadLeagueHistory])
+
+  // Live current-season standings from ESPN (pollEspnStandings). Only
+  // listened to in-season — the section doesn't exist in any other phase.
+  const standingsLive = isPhase(['regular', 'playoffs'])
+  const [espnStandings, setEspnStandings] = useState(null)
+  useEffect(() => {
+    if (!standingsLive || isPreview) return
+    return fs.listenToEspnStandings(activeSeason, setEspnStandings, () => setEspnStandings(null))
+  }, [standingsLive, isPreview, activeSeason])
+
+  const myAssets = useMemo(
+    () => allDisplayAssets.filter((a) => a.teamName === userTeam),
+    [allDisplayAssets, userTeam],
+  )
+  const myTopAssets = useMemo(
+    () => myAssets.filter((a) => !a.isPick).sort((a, b) => b.currentPrice - a.currentPrice).slice(0, 3),
+    [myAssets],
+  )
+  // The tile says "Cap", so it has to be the cap the league actually uses:
+  // teamCapTotal excludes picks and in-season waiver pickups. Summing every
+  // asset instead made this tile disagree with the trade-impact figures and
+  // with the rulebook, and a future draft pick inflated it by its own face
+  // value for a season it had nothing to do with.
+  const myCapTotal = useMemo(
+    () => teamCapTotal(allDisplayAssets, userTeam, activeSeason),
+    [allDisplayAssets, userTeam, activeSeason],
+  )
+  const belts = teamByName[userTeam]?.beltWins ?? 0
+
+  // ── Keeper Outlook math — only players at or under the keeper price
+  // line count; anyone pricier won't be kept, so they're ignored. ──
+  const keeperStats = useMemo(() => {
+    const teams = {}
+    for (const t of fantasyTeams) {
+      teams[t.name] = { total: 0, pos: Object.fromEntries(KEEPER_POS.map((p) => [p, { value: 0, count: 0 }])) }
+    }
+    for (const a of allDisplayAssets) {
+      if (a.isPick || !KEEPER_POS.includes(a.position) || a.currentPrice > KEEPER_PRICE_MAX) continue
+      const t = teams[a.teamName]
+      if (!t) continue
+      t.pos[a.position].value += a.currentPrice
+      t.pos[a.position].count += 1
+      t.total += a.currentPrice
+    }
+    const byPos = {}
+    for (const p of KEEPER_POS) {
+      const order = [...fantasyTeams.map((t) => t.name)].sort((x, y) => teams[y].pos[p].value - teams[x].pos[p].value)
+      const values = order.map((n) => teams[n].pos[p].value)
+      byPos[p] = {
+        order,
+        max: values[0] ?? 0,
+        avg: values.reduce((s, v) => s + v, 0) / (values.length || 1),
+      }
+    }
+    const totalOrder = [...fantasyTeams.map((t) => t.name)].sort((x, y) => teams[y].total - teams[x].total)
+    return { teams, byPos, totalOrder }
+  }, [allDisplayAssets])
+
+  const myKeeperCore = useMemo(
+    () =>
+      myAssets
+        .filter((a) => !a.isPick && a.currentPrice <= KEEPER_PRICE_MAX)
+        .sort((a, b) => b.currentPrice - a.currentPrice)
+        .slice(0, 6),
+    [myAssets],
+  )
+
+  const recentTrades = useMemo(
+    () =>
+      trades
+        .filter((t) => t.status === 'completed' || t.status === 'historical')
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5),
+    [trades],
+  )
+
+  // Next 3 milestones only — keeps the calendar strip tight
+  const upcoming = useMemo(() => {
+    const now = new Date()
+    return milestones.filter((m) => m.date > now).slice(0, 3)
+  }, [])
+
+  function openTeam(name) {
+    setSelectedTeam(name)
+    setTab(1)
+  }
+
+  function handleProposeTrade(asset) {
+    setDetailAsset(null)
+    proposeTradeFor(asset)
+    setTab(3)
+  }
+
+  // ── Sections (identical building blocks on both layouts) ──────
+
+  // Navigate by URL rather than by tab index: TabLayout already listens
+  // for hash changes, so the Dashboard never has to know which number the
+  // History tab is, and the link survives the tab list being reordered.
+  const openHistory = () => { window.location.hash = 'history' }
+
+
+  // My Team — two views. Keeper Outlook (default in the off-season) answers
+  // "who do I keep, who do I chase" — cap totals are a season problem.
+  const outlookDefault = isOffSeason ? 'outlook' : 'classic'
+  const view = teamView ?? outlookDefault
+
+  const myOverallRank = keeperStats.totalOrder.indexOf(userTeam) + 1
+  const myKeeperTotal = keeperStats.teams[userTeam]?.total ?? 0
+
+  const viewToggle = (
+    <div style={{ display: 'flex', gap: 4, background: 'var(--iff-elevated)', borderRadius: 9, padding: 3 }}>
+      {[['outlook', 'Keeper Outlook'], ['classic', 'Classic']].map(([key, label]) => (
+        <button
+          key={key}
+          onClick={() => setTeamView(key)}
+          style={{
+            padding: '4px 10px', borderRadius: 7, fontSize: 10.5, fontWeight: 700,
+            background: view === key ? 'var(--iff-accent)' : 'transparent',
+            color: view === key ? '#fff' : 'var(--iff-subtext)',
+          }}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  const teamCardHeader = (
+    <div style={{ padding: '14px 16px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+      <div>
+        <div style={{ fontSize: 11, color: 'var(--iff-subtext)', marginBottom: 3 }}>My Team</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 24, fontWeight: 900, letterSpacing: -0.8 }}>{userTeam || '—'}</span>
+          <BeltRow count={belts} size={11} />
+        </div>
+        {belts > 0 && (
+          <div style={{ fontSize: 10, color: 'var(--iff-gold)', opacity: 0.85, marginTop: 2 }}>
+            {belts}× League Champion
+          </div>
+        )}
+      </div>
+      {viewToggle}
+    </div>
+  )
+
+  const teamCard = view === 'outlook' ? (
+    <div className="iff-card">
+      {teamCardHeader}
+
+      {/* Headline: where the keeper war chest ranks league-wide */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>
+        <span className="tnum" style={{ fontSize: 26, fontWeight: 900, color: rankColor(myOverallRank) }}>
+          #{myOverallRank || '—'}
+        </span>
+        <span style={{ flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 12.5, fontWeight: 700 }}>Keeper strength — league rank</span>
+          <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 1 }}>
+            ${myKeeperTotal} of keepable talent (players ${KEEPER_PRICE_MAX} &amp; under)
+          </span>
+        </span>
+      </div>
+
+      {/* Position strength vs the league — keeper-eligible value only */}
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--iff-divider)' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+          Position strength vs league
+        </div>
+        {KEEPER_POS.map((p) => {
+          const mine = keeperStats.teams[userTeam]?.pos[p] ?? { value: 0, count: 0 }
+          const { max, avg, order } = keeperStats.byPos[p]
+          const rank = order.indexOf(userTeam) + 1
+          return (
+            <div key={p} style={{ display: 'grid', gridTemplateColumns: '34px 1fr 84px', gap: 10, alignItems: 'center', marginBottom: 9 }}>
+              <PosBadge position={p} />
+              <div style={{ position: 'relative', height: 10, background: 'var(--iff-elevated)', borderRadius: 5 }}>
+                <div
+                  style={{
+                    position: 'absolute', inset: '0 auto 0 0', width: `${max ? Math.max((mine.value / max) * 100, 2) : 2}%`,
+                    background: 'var(--iff-gold)', borderRadius: 5, transition: 'width 0.3s',
+                  }}
+                />
+                {/* league-average tick */}
+                {max > 0 && (
+                  <div style={{ position: 'absolute', top: -2, bottom: -2, left: `${(avg / max) * 100}%`, width: 2, background: 'var(--iff-subtext)', opacity: 0.7, borderRadius: 1 }} />
+                )}
+              </div>
+              <span style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                <span className="tnum" style={{ fontSize: 12, fontWeight: 700 }}>${mine.value}</span>
+                <span className="tnum" style={{ fontSize: 10, fontWeight: 800, color: rankColor(rank), marginLeft: 6 }}>
+                  {rank ? ordinal(rank) : '—'}
+                </span>
+              </span>
+            </div>
+          )
+        })}
+        <div style={{ fontSize: 9, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          bar = your keepable $ at the position · tick = league average
+        </div>
+      </div>
+
+      {/* Keeper core — the players actually worth keeping, with next-year cost */}
+      {myKeeperCore.length > 0 && (
+        <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--iff-divider)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 7 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Keeper core
+            </span>
+            <span className="tnum" style={{ fontSize: 9.5, color: 'var(--iff-subtext)' }}>now → next yr</span>
+          </div>
+          {myKeeperCore.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => setDetailAsset(a)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', width: '100%', textAlign: 'left' }}
+            >
+              <PosBadge position={a.position} />
+              <span style={{ fontSize: 13.5, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
+              <span className="tnum" style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--iff-green)' }}>${a.currentPrice}</span>
+              <span className="tnum" style={{ fontSize: 11, color: 'var(--iff-gold)' }}>
+                → ${a.prices?.[String(activeSeason + 1)] ?? '—'}
+              </span>
+            </button>
+          ))}
+          <div style={{ fontSize: 9, color: 'var(--iff-subtext)', marginTop: 5 }}>
+            Ignores anyone over ${KEEPER_PRICE_MAX} — they won't be kept. Use the worksheet to plan combos.
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
+        <button className="btn-outline" onClick={() => setTab(4)}>🧪 Worksheet</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ {FMK_ENABLED ? 'F.M.K. Market' : 'Trades'}</button>
+      </div>
+    </div>
+  ) : (
+    <div className="iff-card">
+      {teamCardHeader}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderTop: '1px solid var(--iff-divider)', borderBottom: '1px solid var(--iff-divider)' }}>
+        <div style={{ textAlign: 'center', padding: '10px 8px' }}>
+          <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>${myCapTotal}</div>
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>{activeSeason} Cap</div>
+        </div>
+        {/* Matches are computed from F.M.K. signals, so with F.M.K. hidden
+            this tile would always read 0 — show open offers instead, which
+            is the number that still means something. */}
+        <div style={{ textAlign: 'center', padding: '10px 8px', borderLeft: '1px solid var(--iff-divider)' }}>
+          <div className="tnum" style={{ fontSize: 17, fontWeight: 700, color: 'var(--iff-gold)' }}>
+            {FMK_ENABLED ? myMatchCount : incomingOffers.length}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--iff-subtext)' }}>
+            {FMK_ENABLED ? 'Trade Matches' : 'Open Offers'}
+          </div>
+        </div>
+      </div>
+
+      {myTopAssets.length > 0 && (
+        <div style={{ padding: '10px 16px 12px', borderBottom: '1px solid var(--iff-divider)' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 7 }}>
+            Top Players
+          </div>
+          {myTopAssets.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => setDetailAsset(a)}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', width: '100%', textAlign: 'left' }}
+            >
+              <PosBadge position={a.position} />
+              <span style={{ fontSize: 14, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</span>
+              <span className="tnum green" style={{ fontSize: 14, fontWeight: 700 }}>${a.currentPrice}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '12px 16px' }}>
+        <button className="btn-outline" onClick={() => setTab(1)}>👥 Roster</button>
+        <button className="btn-outline" onClick={() => setTab(3)}>⇄ {FMK_ENABLED ? 'F.M.K. Market' : 'Trades'}</button>
+      </div>
+    </div>
+  )
+
+  // Incoming trade offers — the ESPN-style "you've got an offer" alert
+  const offerBanners = incomingOffers.length > 0 && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {incomingOffers.map((t) => (
+        <button
+          key={t.id}
+          className="iff-card offer-banner"
+          onClick={() => setDetailTrade(t)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px',
+            textAlign: 'left', width: '100%',
+            border: '1.5px solid rgba(230,57,70,0.45)',
+            background: 'linear-gradient(135deg, rgba(230,57,70,0.14), var(--iff-surface) 55%)',
+          }}
+        >
+          <span style={{ width: 42, height: 42, background: 'rgba(230,57,70,0.2)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>📨</span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 14, fontWeight: 800 }}>
+              {t.proposingTeamName} sent you a trade offer
+            </span>
+            <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              You get: {(t.assetsFromProposer ?? []).map((a) => a.displayName).join(', ') || '—'}
+            </span>
+          </span>
+          <span className="btn-outline" style={{ fontSize: 11, padding: '5px 12px', pointerEvents: 'none' }}>
+            Respond
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+
+  // Leads the Dashboard on both layouts — the one view that answers
+  // "where does everyone stand" without a tap. Tapping opens the full
+  // ranked list + cap tracker.
+  //
+  // Which ranking that is depends on the calendar. In-season it's roster
+  // salary, and tapping opens the ranked list + cap tracker. Between
+  // seasons salary ranks nothing anyone is playing for yet, so the board
+  // switches to the all-time ranking — career wins + championships — and
+  // taps through to the full history table instead. It flips back on its
+  // own the moment the commissioner clears the off-season flag.
+  const powerChart = isOffSeason
+    ? <LegacyPowerRankings onOpenFull={openHistory} />
+    : <PowerRankingsChart onOpenFull={() => setHistoryView('power')} />
+
+  // In-season only. Off-season this is a chart of nothing — the last
+  // completed season already has its own home in Last Season / League
+  // History, so showing stale weekly scores here would just compete
+  // with them.
+  const scoringSection = areaEnabled('scoring') && (
+    <div>
+      <SectionHeader title="In-Season Scoring" />
+      <div style={{ marginTop: 10 }}>
+        <SeasonScoringChart />
+      </div>
+    </div>
+  )
+
+  // Appears once the commissioner has entered records — which in practice
+  // means late in the regular season, exactly when people start caring
+  // about seeding. Before that it would be an empty frame all year.
+  const playoffSection = areaEnabled('playoffs')
+    && Object.keys(weeklyRecords ?? {}).length > 0 && (
+    <div>
+      <SectionHeader title="Playoffs" />
+      <div style={{ marginTop: 10 }}>
+        <PlayoffBracket />
+      </div>
+    </div>
+  )
+
+  const latestSeasonYear = leagueHistory[0]?.season
+  const historyTiles = areaEnabled('history') && (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* One tile, not two. "Last Season" and "League History" were the
+          same question asked at two zoom levels, and both opened a pop-up
+          table you couldn't link to or export. They're now one page with a
+          tab per category — the most recent season is just the top of the
+          Standings tab. */}
+      <HistoryTile
+        glyph="📜"
+        title="League History"
+        sub={latestSeasonYear
+          ? `Standings, drafts, trades and scores — through ${latestSeasonYear}`
+          : 'Standings, drafts, trades and scores'}
+        onClick={openHistory}
+      />
+      {/* No Power Rankings tile here — the chart at the top of the page is
+          the entry point now, and a tile duplicating it would be dead weight.
+          The cap tracker still lives one tap in, behind the chart. */}
+      <HistoryTile
+        glyph="🏆"
+        title="Trophy Room"
+        sub="Banners, belts & the hall of franchises"
+        onClick={() => setHistoryView('trophy')}
+        gold
+      />
+    </div>
+  )
+
+  const matchBanner = FMK_ENABLED && myMatchCount > 0 && (
+    <button className="iff-card" onClick={() => setTab(3)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', textAlign: 'left', width: '100%' }}>
+      <span style={{ width: 40, height: 40, background: 'rgba(230,57,70,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>⇄</span>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 14, fontWeight: 700 }}>
+          {myMatchCount} Trade Match{myMatchCount === 1 ? '' : 'es'}
+        </span>
+        <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+          Mutual trade interest detected
+        </span>
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+    </button>
+  )
+
+  // Off-season: a 5-week look-ahead (this week + next 4) with every league
+  // activity in the window. In-season: the old next-milestones strip.
+  // Renders itself only when the mode allows it — see LiveScoreboard.
+  const liveScores = <LiveScoreboard />
+
+  const calendar = isOffSeason ? (
+    <div>
+      <SectionHeader title="League Calendar" />
+      <WeeklyCalendar isDesktop={isDesktop} />
+    </div>
+  ) : (
+    upcoming.length > 0 && (
+      <div>
+        <SectionHeader title="League Calendar" />
+        {isDesktop ? (
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
+            {upcoming.map((m) => (
+              <MilestoneCard key={m.name} milestone={m} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
+            <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
+              {upcoming.map((m) => (
+                <MilestoneCard key={m.name} milestone={m} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  )
+
+  const teamsGrid = (
+    <div>
+      <SectionHeader title="All Teams" />
+      <div className="team-grid-cards">
+        {fantasyTeams.map((team) => (
+          <button
+            key={team.name}
+            className="iff-card"
+            onClick={() => openTeam(team.name)}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+              padding: '10px 4px', borderRadius: 12,
+              outline: team.name === userTeam ? '2px solid var(--iff-accent)' : 'none',
+              outlineOffset: -2,
+            }}
+          >
+            <TeamAvatar name={team.name} />
+            <span style={{ fontSize: 9.5, fontWeight: 600, lineHeight: 1.2 }}>{team.name}</span>
+            <BeltRow count={team.beltWins} size={8} />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  // Low Points Parlay — loud while a week is open, showing whether you're in
+  const myParlayEntry = parlayEntries.find((e) => e.teamName === userTeam)
+  // The commissioner still sees the card when the week is closed — it's his
+  // way back into Admin → Parlay to reopen one. Previously a closed week
+  // hid the entry point from everybody, himself included, leaving no route
+  // back short of editing Firestore by hand.
+  const parlayOpen = Boolean(parlayConfig?.open)
+  const parlayCard = areaEnabled('parlay') && (parlayOpen || isAdmin) && (
+    <button
+      className="iff-card"
+      onClick={() => setShowParlay(true)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', textAlign: 'left',
+        border: !parlayOpen || myParlayEntry ? '1px solid transparent' : '1.5px solid rgba(244,162,97,0.55)',
+      }}
+    >
+      <span style={{ fontSize: 16 }}>🎯</span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
+          Low Points Parlay{parlayOpen ? ` — Week ${parlayConfig.week}` : ''}
+        </span>
+        <span style={{ display: 'block', fontSize: 10.5, color: myParlayEntry ? 'var(--iff-green)' : 'var(--iff-gold)', marginTop: 1 }}>
+          {!parlayOpen
+            ? 'No week open — commissioner only. Open one in Admin → Parlay.'
+            : myParlayEntry ? `✓ In with ${myParlayEntry.playerName}` : 'Pick your TD scorer before lock'}
+        </span>
+      </span>
+      <span className="tnum" style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+        {parlayOpen ? `${parlayEntries.length}/12 ›` : '›'}
+      </span>
+    </button>
+  )
+
+  // Slim link into the full transaction ledger — trades, drops, claims,
+  // clears — the league's paper trail once the season starts.
+  const ledgerLink = areaEnabled('ledger') && (
+    <button
+      className="iff-card"
+      onClick={() => setShowLedger(true)}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', width: '100%', textAlign: 'left' }}
+    >
+      <span style={{ fontSize: 16 }}>🧾</span>
+      <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>Transaction Log</span>
+      <span style={{ fontSize: 11, color: 'var(--iff-subtext)' }}>
+        {transactions.length > 0 ? `${transactions.length} events ›` : '›'}
+      </span>
+    </button>
+  )
+
+  const tradesSection = recentTrades.length > 0 && (
+    <div>
+      <SectionHeader title="Recent Trades" actionLabel="See All" onAction={() => setTab(3)} />
+      <div className="iff-card" style={{ marginTop: 10 }}>
+        {recentTrades.map((t, i) => (
+          <div
+            key={t.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px',
+              borderBottom: i < recentTrades.length - 1 ? '1px solid var(--iff-divider)' : 'none',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>
+                {t.proposingTeamName} ↔ {t.receivingTeamName}
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--iff-subtext)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {(t.assetsFromProposer ?? []).slice(0, 2).map((a) => a.displayName).join(', ') ||
+                  (t.historicalProposerAssets ?? []).slice(0, 2).join(', ')}
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--iff-subtext)', whiteSpace: 'nowrap' }}>
+              {formatTradeDate(t.date)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // League standings — absorbed from the retired League tab.
+  // CURRENT SEASON ONLY (Sep 23, 2026). A past season's final table is
+  // history, and it lives in League History — not on the Dashboard. So this
+  // matches `activeSeason` exactly and never falls back to leagueHistory[0];
+  // until the current season has standings, the section renders nothing.
+  // Phase gating (regular + playoffs) is in dashboardSections.js.
+  // Source order: live ESPN pull for this season, then a leagueHistory doc
+  // for this season (e.g. the final table once it's imported). Never an
+  // older season.
+  const currentStandings =
+    (espnStandings?.season === activeSeason && espnStandings.standings?.length > 0 && espnStandings.gamesPlayed > 0)
+      ? espnStandings
+      : leagueHistory.find((h) => h.season === activeSeason)
+  const standingsSection = currentStandings?.standings?.length > 0 && (
+    <div>
+      <SectionHeader title={`${currentStandings.season} Standings`} actionLabel="Full history" onAction={openHistory} />
+      <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '9px 14px', fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--iff-divider)' }}>
+          <span /><span>Team</span><span style={{ textAlign: 'center' }}>W-L</span><span style={{ textAlign: 'right' }}>PF</span>
+        </div>
+        {[...currentStandings.standings].sort((a, b) => a.place - b.place).map((s) => (
+          <div
+            key={s.teamName}
+            style={{
+              display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '7px 14px',
+              fontSize: 13, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)',
+              background: s.teamName === userTeam ? 'rgba(230,57,70,0.08)' : 'transparent',
+            }}
+          >
+            <span className="tnum" style={{ fontWeight: 700, color: s.place === 1 ? 'var(--iff-gold)' : s.place === 2 ? '#B8B8C8' : s.place === 3 ? '#CD7F32' : 'var(--iff-subtext)' }}>
+              {s.place}
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+              <TeamAvatar name={s.teamName} size={20} />
+              <span style={{ fontWeight: s.teamName === userTeam ? 700 : 400 }}><TeamLink name={s.teamName} /></span>
+              <BeltRow count={teamByName[s.teamName]?.beltWins ?? 0} size={8} />
+            </span>
+            <span className="tnum" style={{ textAlign: 'center', color: 'var(--iff-subtext)', fontSize: 12 }}>{s.record ?? '—'}</span>
+            <span className="tnum" style={{ textAlign: 'right', fontSize: 12, color: s.place <= 6 ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
+              {s.pointsFor != null ? s.pointsFor.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // Rules & Reminders — new rules read like league announcements
+  const seasonRules = rules.filter((r) => r.status === 'passed' && r.decidedSeason === activeSeason)
+  const openProposals = rules.filter((r) => r.status === 'proposed')
+  const rulesSection = areaEnabled('rules') && (
+    <div>
+      <SectionHeader title="Rules & Reminders" actionLabel="All rules ›" onAction={() => setShowRules(true)} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+
+        {rulesVotingOpen && (
+          <button
+            className="iff-card"
+            onClick={() => setShowRules(true)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', textAlign: 'left', width: '100%',
+              border: '1.5px solid rgba(74,222,128,0.5)',
+              background: 'linear-gradient(135deg, rgba(74,222,128,0.14), var(--iff-surface) 60%)',
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🗳️</span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 13.5, fontWeight: 800 }}>Voting is open</span>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+                {openProposals.length} proposal{openProposals.length === 1 ? '' : 's'} need your vote
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+          </button>
+        )}
+
+        {seasonRules.map((r) => {
+          const meta = categoryMeta(r.category)
+          return (
+            <button
+              key={r.id}
+              className="iff-card"
+              onClick={() => setShowRules(true)}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '13px 16px', textAlign: 'left', width: '100%', borderLeft: '3px solid var(--iff-green)' }}
+            >
+              <span style={{ fontSize: 17, lineHeight: 1.2 }}>📌</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: meta.color, background: `${meta.color}22`, padding: '2px 6px', borderRadius: 5 }}>
+                    {meta.glyph} {r.category ?? 'Misc'}
+                  </span>
+                  <span style={{ fontSize: 13.5, fontWeight: 700 }}>{r.title}</span>
+                </span>
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 4, lineHeight: 1.45 }}>
+                  {r.summary ?? r.details ?? ''}
+                </span>
+                {(r.changes ?? []).length > 0 && (
+                  <span style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    {r.changes.map((c, i) => (
+                      <span key={i} className="tnum" style={{ fontSize: 10, background: 'var(--iff-elevated)', padding: '2px 7px', borderRadius: 5, color: 'var(--iff-subtext)' }}>
+                        {c.rule}: <span style={{ textDecoration: 'line-through' }}>{c.currentValue || '—'}</span>{' → '}
+                        <strong style={{ color: 'var(--iff-green)' }}>{c.newValue}</strong>
+                      </span>
+                    ))}
+                  </span>
+                )}
+                <span style={{ display: 'block', fontSize: 9.5, color: 'var(--iff-subtext)', marginTop: 5 }}>
+                  NEW FOR {activeSeason} · passed {activeSeason}
+                </span>
+              </span>
+            </button>
+          )
+        })}
+
+        {!rulesVotingOpen && openProposals.length > 0 && (
+          <button
+            className="iff-card"
+            onClick={() => setShowRules(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', textAlign: 'left', width: '100%' }}
+          >
+            <span style={{ fontSize: 18 }}>📜</span>
+            <span style={{ flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 13, fontWeight: 700 }}>
+                {openProposals.length} rule proposal{openProposals.length === 1 ? '' : 's'} on the table
+              </span>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--iff-subtext)', marginTop: 2 }}>
+                Voting opens on voting day — read them now
+              </span>
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+          </button>
+        )}
+
+        <button
+          className="btn-outline"
+          onClick={() => setShowRules(true)}
+          style={{ alignSelf: 'flex-start', fontSize: 12, padding: '7px 16px' }}
+        >
+          ＋ Propose a rule
+        </button>
+      </div>
+    </div>
+  )
+
+  const messagesSection = areaEnabled('messages') && messages.length > 0 && (
+    <div>
+      <SectionHeader title="League Messages" />
+      {isDesktop ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+          {messages.map((m) => (
+            <div key={m.id} className="iff-card" style={{ padding: 14, fontSize: 13, lineHeight: 1.5 }}>
+              {m.content}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
+          <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
+            {messages.map((m) => (
+              <div key={m.id} className="iff-card" style={{ padding: 14, width: 260, fontSize: 13, lineHeight: 1.5 }}>
+                {m.content}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  // The league is shut between the last fantasy game and the Super Bowl.
+  // Saying so beats an unexplained page with the scoreboard and the
+  // worksheet missing and no reason given.
+  const closedNotice = (
+    <div className="iff-card" style={{ padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+      <span style={{ fontSize: 30, lineHeight: 1 }}>{PHASE_META.dead.glyph}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 15, fontWeight: 800 }}>Rosters are frozen</div>
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 4, lineHeight: 1.5 }}>
+          The season is over and the league year hasn't started. No trades, no drops, no keeper
+          decisions{phaseWindow ? ` — the league reopens in ${phaseWindow.daysLeft} day${phaseWindow.daysLeft === 1 ? '' : 's'}, the day after the Super Bowl` : ''}.
+          Standings, the Trophy Room and League History are all still here.
+        </div>
+      </div>
+    </div>
+  )
+
+  // The Power Rankings are eight thousand words, so — like the odds — they
+  // sit in the rail as a tile and open in the standard overlay rather than
+  // leading the main column. Renders only when something is actually
+  // released; an empty masthead over four locked bars helps nobody, and the
+  // sub-line says exactly how much is out.
+  const rankingsTile = areaEnabled('rankings') && rankingsSummary && (
+    <HistoryTile
+      glyph="📊"
+      title={RANKINGS_TITLE}
+      sub={rankingsSummary}
+      onClick={() => setHistoryView('rankings')}
+    />
+  )
+
+  // The championship odds, written for the league and published here
+  // instead of the group chat. Also a long read, so also a rail tile that
+  // opens in the standard overlay. Retires itself once the season rolls
+  // past the one it was written for, rather than showing 2026's odds in 2027.
+  const oddsLive = areaEnabled('odds') && activeSeason === ODDS_SEASON
+  const oddsTile = oddsLive && (
+    <HistoryTile
+      glyph="🎰"
+      title={ODDS_TITLE}
+      sub="Twelve teams, priced"
+      onClick={() => setHistoryView('odds')}
+    />
+  )
+
+  // The archive, which holds itself back until there is something in it:
+  // one edition of each kind means both are current, both are on this page,
+  // and a tile leading to an empty list would be a worse answer than no
+  // tile. Tab index 10 — see TABS in TabLayout.
+  const archiveTile = hasArchive(ARTICLES) && (
+    <HistoryTile
+      glyph="🗄️"
+      title="The Archive"
+      sub="Past rankings and odds"
+      onClick={() => setTab(10)}
+    />
+  )
+
+  // ── Section registry ─────────────────────────────────────────
+  //
+  // WHAT each section is, where it sits by default and when it applies is
+  // declared in services/dashboardSections.js; this map supplies only the
+  // rendered node for each key. The blocks are assembled TWICE — once for
+  // desktop, once for mobile — so a condition written into a block would
+  // have to be right in two places forever.
+  //
+  // `resolveLayout` folds the commissioner's stored arrangement
+  // (config/league.dashboardLayout, edited in Admin → Layout) over that
+  // registry. With nothing stored it returns the registry unchanged, which
+  // is the case every browser is in until somebody rearranges something.
+  const NODES = {
+    closed: closedNotice,
+    live: liveScores,
+    // HIDDEN, NOT REMOVED (Sep 10, 2026) — the components and their Admin →
+    // Areas kill switches are all still wired; restoring either means
+    // re-adding its line here AND its entry in dashboardSections.js:
+    //   power: powerChart,
+    //   scoring: scoringSection,
+    playoffs: playoffSection,
+    calendar,
+    messages: messagesSection,
+    rankings: rankingsTile,
+    odds: oddsTile,
+    archive: archiveTile,
+    rules: rulesSection,
+    offers: offerBanners,
+    parlay: parlayCard,
+    team: teamCard,
+    history: historyTiles,
+    match: matchBanner,
+    teams: teamsGrid,
+    standings: standingsSection,
+    trades: tradesSection,
+    ledger: ledgerLink,
+  }
+
+  const SECTIONS = resolveLayout(DASHBOARD_SECTIONS, dashboardLayout)
+    .map((sec) => ({ ...sec, node: NODES[sec.key] }))
+
+  // Stable sort: `lead` sections float up, everything else holds the
+  // resolved order.
+  //
+  // `lead` beats the stored layout on purpose — it is a schedule, like
+  // `phases`, not an arrangement. During the playoffs the bracket is the
+  // reason people opened the app, wherever the layout put it.
+  //
+  // Falsy nodes are dropped rather than rendered — several blocks evaluate
+  // to `false` (no scoring data, no matches), and both layouts space their
+  // children with a flex `gap`, so wrapping an absent section in an element
+  // would leave a visible hole where nothing is.
+  const pick = (want) =>
+    SECTIONS
+      .map((sec, i) => ({ ...sec, i }))
+      .filter((sec) => sec.node && want(sec) && isPhase(sec.phases))
+      .sort((a, b) => {
+        const lead = (x) => (x.lead?.includes(seasonPhase) ? 0 : 1)
+        return lead(a) - lead(b) || a.i - b.i
+      })
+      .map((sec) => <Fragment key={sec.key}>{sec.node}</Fragment>)
+
+  const mainSections = pick((sec) => !sec.rail)
+  const railSections = pick((sec) => sec.rail)
+  // Mobile is one column, so it takes everything — in the same written
+  // order, which is the order it has always had.
+  const mobileSections = pick(() => true)
+
+  const overlays = (
+    <>
+      {showSettings && <SettingsView onClose={() => setShowSettings(false)} />}
+      {detailAsset && (
+        <AssetDetailView
+          asset={detailAsset}
+          onBack={() => setDetailAsset(null)}
+          onProposeTrade={handleProposeTrade}
+          desktop="panel"
+        />
+      )}
+      {detailTrade && <TradeDetailView trade={detailTrade} onClose={() => setDetailTrade(null)} />}
+      {historyView === 'trophy' && <TrophyRoomView onClose={() => setHistoryView(null)} />}
+      {historyView === 'power' && <PowerRankingsView onClose={() => setHistoryView(null)} />}
+      {historyView === 'rankings' && (
+        <DetailOverlay title={RANKINGS_TITLE} onBack={() => setHistoryView(null)} desktop="modal">
+          <Suspense fallback={<LoadingList count={2} />}>
+            {/* `embedded` stays on in here: it keeps every section
+                collapsed, which is what makes eight thousand words
+                navigable in a modal. The standalone #power-rankings route
+                still opens its sections, since there the piece is the only
+                thing on screen. */}
+            <PowerRankings embedded />
+          </Suspense>
+        </DetailOverlay>
+      )}
+      {historyView === 'odds' && (
+        <DetailOverlay title={ODDS_TITLE} onBack={() => setHistoryView(null)} desktop="modal">
+          <div style={{ padding: '14px 16px 24px' }}>
+            {/* `embedded` drops the board's own collapse control — in here
+                the overlay is the reveal, and a Collapse button that hides
+                the only thing on screen would be nonsense. */}
+            <OddsBoard embedded />
+          </div>
+        </DetailOverlay>
+      )}
+      {showRules && <RulesOverlay onClose={() => setShowRules(false)} />}
+      {showLedger && <TransactionLedger onClose={() => setShowLedger(false)} />}
+      {showParlay && <ParlayView onClose={() => setShowParlay(false)} />}
+    </>
+  )
+
+  // ── Desktop layout ─────────────────────────────────────────
+
+  if (isDesktop) {
+    return (
+      <div>
+        <div className="dash-hero-desktop">
+          <h1>Dashboard</h1>
+          <span className="season-chip">Season {activeSeason} · EST. 2008</span>
+        </div>
+        {!isInitialLoadComplete ? (
+          <LoadingList count={4} />
+        ) : (
+          <div className="dash-grid">
+            <div className="dash-main">{mainSections}</div>
+            <div className="dash-rail">{railSections}</div>
+          </div>
+        )}
+        {overlays}
+      </div>
+    )
+  }
+
+  // ── Mobile layout (unchanged) ──────────────────────────────
+
+  return (
+    <div>
+      <header className="dash-hero-mobile" style={{ textAlign: 'center', padding: '24px 16px 4px', position: 'relative' }}>
+        <button
+          className="icon-btn"
+          style={{ position: 'absolute', top: 8, right: 10 }}
+          onClick={() => setShowSettings(true)}
+          aria-label="Settings"
+        >
+          ⚙
+        </button>
+        <div style={{ fontSize: 46, fontWeight: 900, fontStyle: 'italic', letterSpacing: '-2px', color: 'var(--iff-accent)', lineHeight: 1.05 }}>
+          Insanity League
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 6 }}>Fantasy Football League</div>
+        <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(158,168,184,0.5)', letterSpacing: 4, marginTop: 3 }}>
+          EST. 2008
+        </div>
+      </header>
+
+      {!isInitialLoadComplete ? (
+        <LoadingList count={4} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '12px 14px 0' }}>
+          {mobileSections}
+        </div>
+      )}
+      {overlays}
+    </div>
+  )
+}
+
+/**
+ * Off-season calendar: every league activity inside the current week +
+ * next four, one tile per activity — just the title and its exact date.
+ */
+function WeeklyCalendar({ isDesktop }) {
+  const today = new Date()
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const windowStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() - dayStart.getDay()) // Sunday
+  const windowEnd = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate() + 35)
+  const events = milestones.filter((m) => m.date >= windowStart && m.date < windowEnd)
+
+  const eventCard = (m) => {
+    const days = Math.round((m.date - dayStart) / 86400000)
+    const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : days < 0 ? 'Done' : `in ${days} days`
+    // Colour means "still ahead of you". A date that has passed drains back
+    // to the ordinary dark card — which also sidesteps the contrast trap in
+    // the old `opacity: 0.6`: fading a colored tile toward the near-black
+    // page takes its near-black ink with it (2.30:1 on the red at 0.6).
+    const past = days < 0
+    const thisWeek = days >= 0 && days <= 7
+    return (
+      <div
+        key={m.name}
+        className="iff-card"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', minWidth: 0,
+          background: past ? undefined : m.color,
+          border: thisWeek ? `1.5px solid ${CAL_RING}` : '1px solid transparent',
+          opacity: past ? 0.75 : 1,
+        }}
+      >
+        <span style={{ width: 32, height: 32, borderRadius: '50%', background: past ? `${m.color}26` : CAL_VEIL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
+          {m.icon}
+        </span>
+        <span style={{ minWidth: 0, flex: 1 }}>
+          <span style={{ display: 'block', fontSize: 13, fontWeight: 800, lineHeight: 1.2, color: past ? undefined : CAL_INK }}>
+            {m.name}
+          </span>
+          <span style={{ display: 'block', fontSize: 11, fontWeight: past ? 700 : 600, color: past ? m.color : CAL_INK, marginTop: 2 }}>
+            {m.date.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            {m.time && <span style={{ fontWeight: 800 }}> &middot; {m.time}</span>}
+          </span>
+        </span>
+        <span
+          style={{
+            fontSize: 9.5, fontWeight: past ? 700 : 800,
+            color: past ? m.color : CAL_INK,
+            background: past ? `${m.color}1F` : CAL_VEIL,
+            padding: '3px 9px', borderRadius: 20, whiteSpace: 'nowrap',
+          }}
+        >
+          {daysLabel}
+        </span>
+      </div>
+    )
+  }
+
+  if (events.length === 0) {
+    return (
+      <div className="iff-card" style={{ marginTop: 10, padding: '12px 14px', fontSize: 12, color: 'var(--iff-subtext)' }}>
+        Quiet stretch — no league events in the next 5 weeks.
+      </div>
+    )
+  }
+
+  return isDesktop ? (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(events.length, 3)}, minmax(0, 1fr))`, gap: 10, marginTop: 10 }}>
+      {events.map(eventCard)}
+    </div>
+  ) : (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+      {events.map(eventCard)}
+    </div>
+  )
+}
+
+function MilestoneCard({ milestone }) {
+  const now = new Date()
+  const days = Math.round((milestone.date - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000)
+  const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`
+  const month = milestone.date.toLocaleString('en-US', { month: 'short' }).toUpperCase()
+
+  return (
+    // Same treatment as the off-season WeeklyCalendar tiles — see the
+    // CAL_INK palette note. The old 4px color cap is gone: it was there to
+    // identify the milestone by hue, and the whole tile now does that.
+    <div className="iff-card" style={{ width: 110, overflow: 'hidden', flexShrink: 0, background: milestone.color }}>
+      <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 38, height: 38, borderRadius: '50%', background: CAL_VEIL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+          {milestone.icon}
+        </span>
+        <div style={{ textAlign: 'center', color: CAL_INK }}>
+          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>{month}</div>
+          <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1 }}>{milestone.date.getDate()}</div>
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'center', lineHeight: 1.3, color: CAL_INK }}>
+          {milestone.name}
+        </div>
+        {milestone.time && (
+          <div style={{ fontSize: 9.5, fontWeight: 800, textAlign: 'center', color: CAL_INK, opacity: 0.85, marginTop: -2 }}>
+            {milestone.time}
+          </div>
+        )}
+        <span style={{ fontSize: 9, fontWeight: 800, color: CAL_INK, background: CAL_VEIL, padding: '2px 8px', borderRadius: 20 }}>
+          {daysLabel}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function HistoryTile({ glyph, title, sub, onClick, gold }) {
+  return (
+    <button
+      className="iff-card"
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 11, padding: '11px 13px',
+        textAlign: 'left', width: '100%',
+        ...(gold ? { background: 'linear-gradient(135deg, rgba(244,162,97,0.14), var(--iff-surface) 60%)' } : {}),
+      }}
+    >
+      <span style={{ width: 36, height: 36, background: gold ? 'rgba(244,162,97,0.2)' : 'var(--iff-elevated)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+        {glyph}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600 }}>{title}</span>
+        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 2 }}>{sub}</span>
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--iff-subtext)' }}>›</span>
+    </button>
+  )
+}

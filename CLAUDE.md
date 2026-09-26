@@ -277,6 +277,33 @@ No drag-and-drop: the app has none anywhere and needs no dependency for
 this. Arrows move a section within its own column; changing column puts it
 at the end of the new one, which is the only position that means anything.
 
+### Team TDA strip, shorter calendar, parlay pulled (Sep 26, 2026)
+**TDA = `contracts.teamCapTotal`**, not a second definition of the league's
+money. A strip of twelve tiles under the calendar shows what every roster
+has committed: auction buys, rookie picks and kept players, and NOT
+in-season waiver pickups, which are cap-exempt until they're kept the
+following year at $2 and escalate like everyone else. That is exactly what
+`countsTowardCap` already encodes, so the tile for your own team always
+matches the My Team card's cap figure — if those two ever disagree,
+something has grown its own copy of the rule.
+
+Sorted highest first (a strip of twelve totals is a comparison), your team
+outlined, over $300 shown in the accent colour. Desktop uses a **grid**, not
+a wrapping flex row: twelve tiles never divide evenly into the width, and
+flex stretches the last row's few tiles so the same number reads as a bigger
+tile purely because of where it landed. Hidden until rosters load — twelve
+$0 tiles read as a league that sold everybody, not as a page still loading.
+
+**Calendar tiles are a strip now**, not portrait cards: `MilestoneCard` takes
+`fill`, laying out left-to-right and sharing the row (`flex: 1 1 0`,
+minWidth 168 so four-plus dates wrap rather than shrink to slivers). The
+phone's scroller has no row to fill, so there it keeps a fixed 208px.
+
+**Low Points Parlay is off the Dashboard** pending a rework — one entry out
+of `dashboardSections.js` and one out of the `NODES` map, both left as
+comments. `parlayCard`, `ParlayView`, Admin → Parlay and the `parlay` kill
+switch are all still wired; restoring it is re-adding those two lines.
+
 ### The archive — `#archive` (Sep 18, 2026)
 **The Dashboard shows the NEWEST edition of each kind; everything older is
 archive.** No date to set, no switch to forget. `web/src/data/articles.js`

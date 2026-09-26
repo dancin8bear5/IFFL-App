@@ -47,6 +47,7 @@ export const DASHBOARD_SECTIONS = [
   //   { key: 'scoring', label: 'In-season scoring',    glyph: '📈', phases: ['regular', 'playoffs'] },
   { key: 'playoffs',  label: 'Playoff bracket',        glyph: '🏆', phases: ['regular', 'playoffs'], lead: ['playoffs'] },
   { key: 'calendar',  label: 'League calendar',        glyph: '🗓️' },
+  { key: 'tda',       label: 'Team TDA',               glyph: '💰' },
   { key: 'messages',  label: 'League messages',        glyph: '💬' },
   // The two long reads of the preseason, side by side at the top of the rail.
   { key: 'rankings',  label: 'Power Rankings',         glyph: '📊', rail: true, railSafe: true },
@@ -57,7 +58,11 @@ export const DASHBOARD_SECTIONS = [
   { key: 'archive',   label: 'Article archive',        glyph: '🗄️', rail: true, railSafe: true },
   { key: 'rules',     label: 'Rules & reminders',      glyph: '📜', rail: true, railSafe: true },
   { key: 'offers',    label: 'Incoming trade offers',  glyph: '✉️' },
-  { key: 'parlay',    label: 'Low Points Parlay',      glyph: '🎯', phases: ['regular'] },
+  // HIDDEN, NOT REMOVED (Sep 26, 2026) — off the Dashboard pending a rework.
+  // The card, the overlay, Admin → Parlay and its Areas kill switch are all
+  // still wired; restoring it is re-adding this line and its node in
+  // DashboardView:
+  //   { key: 'parlay',  label: 'Low Points Parlay',    glyph: '🎯', phases: ['regular'] },
   { key: 'team',      label: 'My Team card',           glyph: '🏈' },
   { key: 'history',   label: 'History & Trophy tiles', glyph: '📚', rail: true, railSafe: true },
   { key: 'match',     label: 'Trade match banner',     glyph: '⇄',  rail: true, railSafe: true },

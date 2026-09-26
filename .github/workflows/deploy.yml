@@ -30,8 +30,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: '${{ env.NODE_VERSION }}' }
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '21' }
@@ -54,7 +54,7 @@ jobs:
           cd web
           npx playwright install --with-deps chromium
           PW_PROJECT=preview npx playwright test --project=preview
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with: { name: playwright-preview, path: web/test-results, retention-days: 7 }
 
@@ -69,12 +69,12 @@ jobs:
       rolled_back: ${{ steps.rollback.outcome == 'success' }}
       health: ${{ steps.health.outcome }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with: { node-version: '${{ env.NODE_VERSION }}' }
       - run: npm i -g firebase-tools@13
       - id: auth
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.FIREBASE_SA }}
           token_format: access_token
@@ -93,6 +93,9 @@ jobs:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
         run: |
+          # A config that cannot work must never reach a build. Sep 26, 2026: a
+          # bad API key deployed green because nothing in the pipeline signed in.
+          node .github/scripts/check-firebase-env.mjs
           cd web && npm ci
           {
             echo "VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY"
@@ -134,7 +137,7 @@ jobs:
           HEALTH_OUT: ${{ runner.temp }}/health.md
         run: node functions/scripts/check-health.js
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deploy-report
@@ -153,7 +156,7 @@ jobs:
     if: always() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

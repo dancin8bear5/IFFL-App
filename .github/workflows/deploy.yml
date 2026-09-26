@@ -124,7 +124,7 @@ jobs:
         id: rollback
         if: steps.smoke.outcome == 'failure' && steps.prev.outputs.version != ''
         run: |
-          firebase hosting:clone "iffl-auth:@${{ steps.prev.outputs.version }}" iffl-auth:live --project iffl-auth
+          firebase hosting:clone "iffl-auth@${{ steps.prev.outputs.version }}" iffl-auth:live --project iffl-auth   # site@VERSION, not site:@VERSION (that parses as a channel)
           echo "Rolled hosting back to ${{ steps.prev.outputs.version }}. Rules and functions were NOT rolled back."
 
       - name: Critical-process health

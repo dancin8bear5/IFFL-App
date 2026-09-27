@@ -117,7 +117,9 @@ export default function LoginView() {
       )}
 
       {error && (
-        <div style={{ color: 'var(--iff-accent)', fontSize: 13, maxWidth: 320, textAlign: 'center' }}>
+        // Named for the post-deploy smoke: it signs in with junk credentials
+        // and reads this message to prove the deployed API key is real.
+        <div data-testid="auth-error" style={{ color: 'var(--iff-accent)', fontSize: 13, maxWidth: 320, textAlign: 'center' }}>
           {error}
         </div>
       )}

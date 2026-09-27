@@ -5,7 +5,7 @@
 import { Fragment, Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useIsDesktop } from '../hooks/useBreakpoint'
-import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED } from '../data/staticData'
+import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED, ROSTER_CAP } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { teamCapTotal } from '../services/contracts'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
@@ -517,7 +517,7 @@ export default function DashboardView({ setTab }) {
         {isDesktop ? (
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
             {upcoming.map((m) => (
-              <MilestoneCard key={m.name} milestone={m} />
+              <MilestoneCard key={m.name} milestone={m} fill />
             ))}
           </div>
         ) : (
@@ -531,6 +531,59 @@ export default function DashboardView({ setTab }) {
         )}
       </div>
     )
+  )
+
+  // ── Team TDA ─────────────────────────────────────────────────
+  //
+  // What every roster has committed, side by side. TDA counts auction buys,
+  // rookie picks and kept players — every contract on the books — and NOT
+  // in-season waiver pickups, which are exempt until they're kept the
+  // following year (at $2) and start escalating like everyone else.
+  //
+  // That is exactly `contracts.teamCapTotal`, the same sum the My Team card
+  // and the cap tracker already show, so this is one more reader of a tested
+  // rule rather than a second definition of the league's money that could
+  // drift away from the first.
+  //
+  // Sorted by the number, highest first: a strip of twelve totals is a
+  // comparison, and league order would make you hunt for the top of it.
+  const tdaRows = useMemo(
+    () =>
+      fantasyTeams
+        .map((team) => ({ team, total: teamCapTotal(allDisplayAssets, team.name, activeSeason) }))
+        .sort((a, b) => b.total - a.total),
+    [allDisplayAssets, activeSeason],
+  )
+
+  // Nothing to say before the rosters load — twelve $0 tiles would read as a
+  // league that had sold everybody rather than as a page still loading.
+  const tdaStrip = tdaRows.some((r) => r.total > 0) && (
+    <div>
+      <SectionHeader title={`Team TDA · ${activeSeason}`} />
+      <div style={{ fontSize: 11, color: 'var(--iff-subtext)', margin: '2px 0 10px', lineHeight: 1.5 }}>
+        Total dollars allocated — auction, rookie and kept salary. In-season waiver pickups are
+        exempt, so they aren&apos;t counted. Cap is ${ROSTER_CAP}.
+      </div>
+      {isDesktop ? (
+        // A grid, not a wrapping flex row: twelve tiles never divide evenly
+        // into the width, and with flex the last row stretches its few tiles
+        // to fill the gap — so the same number reads as a bigger tile purely
+        // because of where it landed. Equal columns keep the comparison fair.
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
+          {tdaRows.map((r) => (
+            <TdaTile key={r.team.name} row={r} mine={r.team.name === userTeam} onClick={openTeam} fill />
+          ))}
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', margin: '0 -14px', padding: '0 14px' }}>
+          <div style={{ display: 'flex', gap: 8, width: 'max-content', padding: '2px 2px 6px' }}>
+            {tdaRows.map((r) => (
+              <TdaTile key={r.team.name} row={r} mine={r.team.name === userTeam} onClick={openTeam} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   )
 
   const teamsGrid = (
@@ -886,13 +939,18 @@ export default function DashboardView({ setTab }) {
     //   scoring: scoringSection,
     playoffs: playoffSection,
     calendar,
+    tda: tdaStrip,
     messages: messagesSection,
     rankings: rankingsTile,
     odds: oddsTile,
     archive: archiveTile,
     rules: rulesSection,
     offers: offerBanners,
-    parlay: parlayCard,
+    // HIDDEN, NOT REMOVED (Sep 26, 2026). The Low Points Parlay is off the
+    // Dashboard pending a rework. `parlayCard`, `ParlayView`, Admin → Parlay
+    // and the `parlay` kill switch are all still wired — putting it back is
+    // re-adding this line and its entry in dashboardSections.js:
+    //   parlay: parlayCard,
     team: teamCard,
     history: historyTiles,
     match: matchBanner,
@@ -1106,7 +1164,17 @@ function WeeklyCalendar({ isDesktop }) {
   )
 }
 
-function MilestoneCard({ milestone }) {
+/**
+ * One upcoming date.
+ *
+ * `fill` = share the row. The tile used to be a 110px portrait card that
+ * stacked icon over date over name, which left three dates occupying a
+ * fraction of the width and a lot of height. It reads left to right now and
+ * grows to fill the row instead, so the calendar costs a strip rather than a
+ * block. In the phone's horizontal scroller there is no row to fill, so
+ * there it keeps a fixed width.
+ */
+function MilestoneCard({ milestone, fill = false }) {
   const now = new Date()
   const days = Math.round((milestone.date - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000)
   const daysLabel = days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `${days} days`
@@ -1116,28 +1184,74 @@ function MilestoneCard({ milestone }) {
     // Same treatment as the off-season WeeklyCalendar tiles — see the
     // CAL_INK palette note. The old 4px color cap is gone: it was there to
     // identify the milestone by hue, and the whole tile now does that.
-    <div className="iff-card" style={{ width: 110, overflow: 'hidden', flexShrink: 0, background: milestone.color }}>
-      <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <span style={{ width: 38, height: 38, borderRadius: '50%', background: CAL_VEIL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15 }}>
+    <div
+      className="iff-card"
+      style={{
+        overflow: 'hidden',
+        background: milestone.color,
+        // minWidth stops four-plus dates squeezing to unreadable slivers —
+        // past that they wrap to a second row, which is why the container
+        // still says flexWrap.
+        ...(fill ? { flex: '1 1 0', minWidth: 168 } : { width: 208, flexShrink: 0 }),
+      }}
+    >
+      <div style={{ padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 34, height: 34, borderRadius: '50%', background: CAL_VEIL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0 }}>
           {milestone.icon}
         </span>
-        <div style={{ textAlign: 'center', color: CAL_INK }}>
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>{month}</div>
-          <div style={{ fontSize: 26, fontWeight: 900, lineHeight: 1 }}>{milestone.date.getDate()}</div>
-        </div>
-        <div style={{ fontSize: 10, fontWeight: 700, textAlign: 'center', lineHeight: 1.3, color: CAL_INK }}>
-          {milestone.name}
-        </div>
-        {milestone.time && (
-          <div style={{ fontSize: 9.5, fontWeight: 800, textAlign: 'center', color: CAL_INK, opacity: 0.85, marginTop: -2 }}>
-            {milestone.time}
-          </div>
-        )}
-        <span style={{ fontSize: 9, fontWeight: 800, color: CAL_INK, background: CAL_VEIL, padding: '2px 8px', borderRadius: 20 }}>
+        <span style={{ flex: 1, minWidth: 0, color: CAL_INK }}>
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5 }}>{month}</span>
+            <span style={{ fontSize: 21, fontWeight: 900, lineHeight: 1 }}>{milestone.date.getDate()}</span>
+            {milestone.time && (
+              <span style={{ fontSize: 9, fontWeight: 800, opacity: 0.85 }}>{milestone.time}</span>
+            )}
+          </span>
+          <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, lineHeight: 1.3, marginTop: 2 }}>
+            {milestone.name}
+          </span>
+        </span>
+        <span style={{ fontSize: 9, fontWeight: 800, color: CAL_INK, background: CAL_VEIL, padding: '2px 7px', borderRadius: 20, flexShrink: 0, whiteSpace: 'nowrap' }}>
           {daysLabel}
         </span>
       </div>
     </div>
+  )
+}
+
+/**
+ * One team's committed salary. `fill` shares the row on a desktop; the
+ * phone's scroller keeps a fixed width, same arrangement as the calendar.
+ *
+ * Over the cap is stated in the accent colour rather than with a word: the
+ * league knows what $300 means, and twelve tiles have no room for a caption
+ * that only applies to some of them.
+ */
+function TdaTile({ row, mine, onClick, fill = false }) {
+  const over = row.total > ROSTER_CAP
+  return (
+    <button
+      className="iff-card"
+      onClick={() => onClick(row.team.name)}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+        padding: '9px 6px', borderRadius: 12, textAlign: 'center',
+        outline: mine ? '2px solid var(--iff-accent)' : 'none',
+        outlineOffset: -2,
+        // In the grid the column sets the width; in the phone's scroller
+        // there are no columns, so the tile sets its own.
+        ...(fill ? { minWidth: 0 } : { width: 104, flexShrink: 0 }),
+      }}
+    >
+      <TeamAvatar name={row.team.name} size={22} />
+      <span style={{ fontSize: 9.5, fontWeight: 600, lineHeight: 1.2 }}>{row.team.name}</span>
+      <span
+        className="tnum"
+        style={{ fontSize: 15, fontWeight: 900, lineHeight: 1, color: over ? 'var(--iff-accent)' : 'var(--iff-gold)' }}
+      >
+        ${row.total}
+      </span>
+    </button>
   )
 }
 

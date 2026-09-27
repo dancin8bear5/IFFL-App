@@ -82,13 +82,16 @@ test.describe('signed in', () => {
     await page.getByPlaceholder('Password').fill(SMOKE_PASSWORD)
     await page.getByRole('button', { name: 'Sign in with Email' }).click()
     await expect(page.getByText(/EST\. 2008/).first()).toBeVisible({ timeout: 30_000 })
-    await page.waitForLoadState('networkidle')
+    // Not networkidle: once signed in, the app's onSnapshot listeners
+    // (config/league and friends) hold a long-lived streaming connection
+    // open, so the network never goes idle and this timed out on every run.
+    await page.waitForTimeout(2_000)
     // Visit History for its Firestore reads, but don't require the tab: an
     // Admin → Areas switch can hide it from non-admins (the smoke account is
     // one), and a hidden tab is correct behaviour, not a failure. What must
     // hold everywhere is "no permission errors".
     await page.goto('/#history')
-    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(2_000)
     expect(errors, errors.join('\n')).toEqual([])
   })
 })

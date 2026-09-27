@@ -220,48 +220,18 @@ jobs:
           bash $r run "$status" "[$GITHUB_EVENT_NAME $GITHUB_REF_NAME] $summary" "$detail"
 
   claude-fix:
-    # Main-branch failures only. Opens a fix PR; never pushes to main, never merges.
+    # Main-branch failures only. claude-code-action can't run on a `push` event, so this hands
+    # off to claude-fix.yml (rendered by brain/deploy) via workflow_dispatch, which it supports.
     if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [estate]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      actions: read
-      id-token: write
-    env:
-      HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+      actions: write
     steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 20
-      - name: Claude — diagnose and open fix PR
-        if: env.HAS_CLAUDE == 'true'
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: |
-            You are the Deploy Captain fixer for ${{ github.repository }} — the IFFL web app on
-            Firebase project iffl-auth. Read CLAUDE.md and docs/agents/01-deploy-agent.md first.
-            The "Deploy + verify" workflow failed on `main` at ${{ github.sha }}.
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-            1. Read the failed logs: `gh run view ${{ github.run_id }} --log-failed`.
-            2. If an open PR from a `claude/fix-*` branch already targets this failure,
-               comment on it with the new evidence and stop.
-            3. Root-cause it. "Flaky" is not a root cause.
-               - Code/config cause → minimal fix on branch `claude/fix-${{ github.run_id }}`,
-                 run the web / functions tests locally, commit, push, and
-                 `gh pr create --base main` with cause, fix, and how you verified it.
-               - Infra cause (missing/expired secret, Firebase quota, smoke account) → no code
-                 change; open one issue titled "Deploy Captain: <cause>" with the exact fix,
-                 unless an open issue with that title exists.
-            Hosting was already auto-rolled back if the live smoke failed — rules and functions
-            were not. Say so in the PR if relevant.
-            Never push to `main`. Never merge. Never skip, disable, or delete a test.
-            Never change the rollback or smoke logic to make a run pass. Never commit secrets.
-          claude_args: >-
-            --max-turns 60
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*)"
+      - name: Hand off to Claude (claude-fix.yml)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run claude-fix.yml -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
+            -f run_id="$GITHUB_RUN_ID" -f sha="$GITHUB_SHA" -f workflow="$GITHUB_WORKFLOW"
+          echo "::notice::Claude fix dispatched for run $GITHUB_RUN_ID"

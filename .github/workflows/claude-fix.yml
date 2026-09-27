@@ -47,6 +47,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The deploy workflow dispatches this run with GITHUB_TOKEN, so the actor is the
+          # github-actions bot; the action refuses bot actors unless listed. Only repo writers
+          # can dispatch workflow_dispatch at all, so this widens nothing.
+          allowed_bots: "github-actions,github-actions[bot]"
           prompt: |
             You are the Deploy Captain fixer for ${{ github.repository }}.
             This is the IFFL web app on Firebase project iffl-auth. Read CLAUDE.md and

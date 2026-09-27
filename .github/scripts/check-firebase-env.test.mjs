@@ -19,6 +19,28 @@ test('a missing secret is named, not guessed at', () => {
   assert.equal(validateFirebaseEnv({}).length, 2)
 })
 
+test('a two-line paste names itself, because that one works by accident', () => {
+  // The real Sep 27 failure: the key secret carried the APP_ID line too. The
+  // build succeeded — the newline ended the key and the second line became
+  // its own .env entry — so nothing noticed until the guard looked.
+  const twoLine = `${KEY}\nVITE_FIREBASE_APP_ID=${APP}`
+  const [problem] = validateFirebaseEnv({ ...ok, VITE_FIREBASE_API_KEY: twoLine })
+  assert.match(problem, /contains 2 lines/)
+  assert.match(problem, /just the key itself/)
+  // and it must not print the secret back into a public log
+  assert.ok(!problem.includes(KEY), 'the value leaked into the error message')
+})
+
+test('a NAME=value paste is named as such, not reported as a length', () => {
+  const withName = `VITE_FIREBASE_API_KEY=${KEY}`
+  assert.match(validateFirebaseEnv({ ...ok, VITE_FIREBASE_API_KEY: withName })[0], /contains "="/)
+})
+
+test('the same diagnosis applies to the app id', () => {
+  assert.match(validateFirebaseEnv({ ...ok, VITE_FIREBASE_APP_ID: `${APP}\nx` })[0], /contains 2 lines/)
+  assert.match(validateFirebaseEnv({ ...ok, VITE_FIREBASE_APP_ID: `VITE_FIREBASE_APP_ID=${APP}` })[0], /contains "="/)
+})
+
 test('whitespace and quotes around a pasted value are caught', () => {
   assert.match(validateFirebaseEnv({ ...ok, VITE_FIREBASE_API_KEY: `${KEY}\n` })[0], /whitespace/)
   assert.match(validateFirebaseEnv({ ...ok, VITE_FIREBASE_API_KEY: ` ${KEY}` })[0], /whitespace/)

@@ -1,0 +1,73 @@
+# RENDERED by brain/deploy/render.py (template: claude-fix.yml) — edit there, then re-render.
+# Dispatched by the deploy workflow's claude-fix job when a run on main fails.
+# Opens a fix PR (or an infra issue). Never pushes to main, never merges.
+name: Claude fix
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Failed workflow run id
+        required: true
+      sha:
+        description: Commit that failed
+        required: true
+      workflow:
+        description: Name of the failed workflow
+        required: false
+        default: Deploy Captain
+
+concurrency:
+  group: claude-fix-${{ inputs.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+  id-token: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 20
+      - name: No Claude token — nothing to do
+        if: env.HAS_CLAUDE != 'true'
+        run: echo "::warning::CLAUDE_CODE_OAUTH_TOKEN not set — run brain/deploy/bootstrap.sh --only token"
+      - name: Claude — diagnose and open fix PR
+        if: env.HAS_CLAUDE == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Deploy Captain fixer for ${{ github.repository }}.
+            This is the IFFL web app on Firebase project iffl-auth. Read CLAUDE.md and
+            docs/agents/01-deploy-agent.md first. If the live smoke failed, hosting was already
+            auto-rolled back; rules and functions were not. Never change the rollback or smoke
+            logic to make a run pass.
+            The "${{ inputs.workflow }}" workflow failed on `main` at ${{ inputs.sha }}.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.run_id }}
+
+            1. Read the failed logs: `gh run view ${{ inputs.run_id }} --log-failed`.
+            2. If an open PR from a `claude/fix-*` branch or an open "Deploy Captain:" issue
+               already covers this failure, comment on it with the new evidence and stop.
+            3. Root-cause it. "Flaky" is not a root cause.
+               - Code/config cause → minimal fix on branch `claude/fix-${{ inputs.run_id }}`,
+                 run the repo's build/tests locally, commit, push, and
+                 `gh pr create --base main` with cause, fix, and how you verified it.
+               - Infra cause (missing/malformed/expired secret, quota, host unreachable) → no
+                 code change; open one issue titled "Deploy Captain: <cause>" with the exact
+                 fix the owner must do, unless an open issue with that title exists.
+            Never push to `main`. Never merge. Never skip, disable, or delete a test.
+            Never commit secrets. Keep the diff minimal.
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(python3:*),Bash(pip:*),Bash(bash:*),Bash(ls:*),Bash(cat:*)"

@@ -172,3 +172,96 @@ jobs:
           REPORT_ALWAYS: ${{ vars.REPORT_ALWAYS }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node .github/scripts/report.mjs
+
+  # ── Deploy Captain (brain/deploy) — additive; the jobs above are Agent #1's and unchanged ──
+  estate:
+    # Same outcome as the Telegram report, into Supabase estate_events (urn est:deploy:iffl-app),
+    # so the estate status views and the Deploy Captain digest see the web app.
+    needs: [test, deploy]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      ESTATE_SUPABASE_URL: ${{ secrets.ESTATE_SUPABASE_URL }}
+      ESTATE_SUPABASE_ANON_KEY: ${{ secrets.ESTATE_SUPABASE_ANON_KEY }}
+      ESTATE_INGEST_TOKEN: ${{ secrets.ESTATE_INGEST_TOKEN }}
+      TEST: ${{ needs.test.result }}
+      DEPLOY: ${{ needs.deploy.result }}
+      SMOKE: ${{ needs.deploy.outputs.smoke }}
+      ROLLED_BACK: ${{ needs.deploy.outputs.rolled_back }}
+      PREV: ${{ needs.deploy.outputs.prev_version }}
+      HEALTH: ${{ needs.deploy.outputs.health }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+      - name: Report to estate
+        run: |
+          r=.github/estate-report.sh
+          detail="{\"test\":\"$TEST\",\"deploy\":\"$DEPLOY\",\"smoke\":\"$SMOKE\",\"health\":\"$HEALTH\",\"rolled_back\":\"$ROLLED_BACK\",\"prev_version\":\"$PREV\"}"
+          if [ "$SMOKE" = success ]; then
+            bash $r probe ok "live smoke passed on iffl-auth.web.app" "$detail"
+          elif [ "$SMOKE" = failure ]; then
+            bash $r probe error "live smoke FAILED on iffl-auth.web.app" "$detail"
+          fi
+          if [ "$ROLLED_BACK" = true ]; then
+            bash $r action warn "hosting rolled back to $PREV (rules + functions NOT rolled back)" "$detail"
+          fi
+          if [ "$TEST" != success ]; then
+            status=error; summary="tests failed — nothing deployed"
+          elif [ "$DEPLOY" = success ]; then
+            status=ok; summary="green: test, deploy, live smoke, health"
+          elif [ "$ROLLED_BACK" = true ]; then
+            status=error; summary="live smoke failed — hosting rolled back to $PREV"
+          elif [ "$HEALTH" = failure ]; then
+            status=error; summary="deployed, but critical-process health check failed"
+          else
+            status=error; summary="deploy failed (deploy=$DEPLOY)"
+          fi
+          bash $r run "$status" "[$GITHUB_EVENT_NAME $GITHUB_REF_NAME] $summary" "$detail"
+
+  claude-fix:
+    # Main-branch failures only. Opens a fix PR; never pushes to main, never merges.
+    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [estate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+      id-token: write
+    env:
+      HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 20
+      - name: Claude — diagnose and open fix PR
+        if: env.HAS_CLAUDE == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the Deploy Captain fixer for ${{ github.repository }} — the IFFL web app on
+            Firebase project iffl-auth. Read CLAUDE.md and docs/agents/01-deploy-agent.md first.
+            The "Deploy + verify" workflow failed on `main` at ${{ github.sha }}.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            1. Read the failed logs: `gh run view ${{ github.run_id }} --log-failed`.
+            2. If an open PR from a `claude/fix-*` branch already targets this failure,
+               comment on it with the new evidence and stop.
+            3. Root-cause it. "Flaky" is not a root cause.
+               - Code/config cause → minimal fix on branch `claude/fix-${{ github.run_id }}`,
+                 run the web / functions tests locally, commit, push, and
+                 `gh pr create --base main` with cause, fix, and how you verified it.
+               - Infra cause (missing/expired secret, Firebase quota, smoke account) → no code
+                 change; open one issue titled "Deploy Captain: <cause>" with the exact fix,
+                 unless an open issue with that title exists.
+            Hosting was already auto-rolled back if the live smoke failed — rules and functions
+            were not. Say so in the PR if relevant.
+            Never push to `main`. Never merge. Never skip, disable, or delete a test.
+            Never change the rollback or smoke logic to make a run pass. Never commit secrets.
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(ls:*),Bash(cat:*)"

@@ -565,11 +565,13 @@ export default function DashboardView({ setTab }) {
         exempt, so they aren&apos;t counted. Cap is ${ROSTER_CAP}.
       </div>
       {isDesktop ? (
-        // A grid, not a wrapping flex row: twelve tiles never divide evenly
-        // into the width, and with flex the last row stretches its few tiles
-        // to fill the gap — so the same number reads as a bigger tile purely
-        // because of where it landed. Equal columns keep the comparison fair.
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))', gap: 8 }}>
+        // Six columns, so twelve teams are two even rows of six. Fixed rather
+        // than auto-fit: auto-fit packs as many as the width allows, which
+        // gives 8 + 4 on a wide screen and a ragged last row. Equal columns
+        // also keep the comparison fair — with a wrapping flex row the last
+        // row's few tiles stretch, and the same number reads as a bigger tile
+        // purely because of where it landed.
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
           {tdaRows.map((r) => (
             <TdaTile key={r.team.name} row={r} mine={r.team.name === userTeam} onClick={openTeam} fill />
           ))}
@@ -954,7 +956,12 @@ export default function DashboardView({ setTab }) {
     team: teamCard,
     history: historyTiles,
     match: matchBanner,
-    teams: teamsGrid,
+    // REMOVED (Sep 28, 2026) — the All Teams grid was the Team TDA strip
+    // without the money: same twelve teams, same avatars, same link to the
+    // roster. The belts it carried moved onto the TDA tiles. `teamsGrid` is
+    // still defined; restoring it is re-adding this line and its entry in
+    // dashboardSections.js:
+    //   teams: teamsGrid,
     standings: standingsSection,
     trades: tradesSection,
     ledger: ledgerLink,
@@ -1251,6 +1258,10 @@ function TdaTile({ row, mine, onClick, fill = false }) {
       >
         ${row.total}
       </span>
+      {/* Carried over from the All Teams grid this strip replaced — it was
+          the only place the belts showed, and dropping the section would
+          have quietly taken them off the Dashboard too. */}
+      <BeltRow count={row.team.beltWins} size={8} />
     </button>
   )
 }

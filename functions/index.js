@@ -904,9 +904,16 @@ exports.pollEspnScores = onSchedule(
 
     // `force` lets the commissioner pull a scoreboard out of window while
     // evaluating this — otherwise there would be nothing to look at until
-    // kickoff.
-    const force = (await stateRef.get()).data()?.forcePoll === true;
-    if (!force && !inGameWindow(new Date(), 1)) return;
+    // kickoff. Set it by hand on espnLiveScores/{season}; no screen writes it.
+    const state = (await stateRef.get()).data() ?? {};
+    const force = state.forcePoll === true;
+    // The week comes from the last poll, because inGameWindow needs it to
+    // know whether a Saturday counts (games move to Saturdays from week 16).
+    // This passed a hardcoded 1, which made `week >= 16` false forever — so
+    // every late-season Saturday was treated as a day with no football and
+    // the scoreboard sat still through it.
+    const lastWeek = Number(state.week) || 1;
+    if (!force && !inGameWindow(new Date(), lastWeek)) return;
 
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
       `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mMatchupScore`;

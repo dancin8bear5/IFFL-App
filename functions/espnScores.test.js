@@ -51,17 +51,23 @@ test("an explicit week overrides the response's own", () => {
   assert.equal(r.games.length, 1);
 });
 
-test("game windows cover TNF, Sunday and MNF — and nothing else", () => {
+test("the window is all of Sunday and Monday 7pm–midnight, and nothing else", () => {
   // Absolute instants in US Central (Sep 2026 = CDT, UTC-5), so this passes
   // in any process timezone — CI and Cloud Functions both run in UTC.
   const at = (day, hour) => new Date(Date.UTC(2026, 8, 6 + day, hour + 5));
   assert.equal(inGameWindow(at(0, 13)), true, "Sunday afternoon");
-  assert.equal(inGameWindow(at(0, 9)), false, "Sunday pre-dawn is not football");
-  assert.equal(inGameWindow(at(4, 20)), true, "Thursday night");
-  assert.equal(inGameWindow(at(1, 21)), true, "Monday night");
+  assert.equal(inGameWindow(at(0, 4)), true, "Sunday is unbounded, by request");
+  assert.equal(inGameWindow(at(0, 23)), true, "Sunday night");
+  assert.equal(inGameWindow(at(1, 19)), true, "Monday 7pm, kickoff");
+  assert.equal(inGameWindow(at(1, 23)), true, "Monday 11pm, still in");
+  assert.equal(inGameWindow(at(1, 18)), false, "Monday 6pm is before the window");
+  // The three the schedule gives up, asserted so nobody reads their absence
+  // as an oversight: games do happen at all of these.
+  assert.equal(inGameWindow(at(2, 0)), false, "Monday game past midnight is Tuesday, and frozen");
+  assert.equal(inGameWindow(at(4, 20)), false, "Thursday night football no longer polls");
+  assert.equal(inGameWindow(at(6, 13)), false, "late-season Saturday no longer polls");
   assert.equal(inGameWindow(at(2, 14)), false, "Tuesday is never a game day");
-  assert.equal(inGameWindow(at(6, 13), 3), false, "early-season Saturday: no games");
-  assert.equal(inGameWindow(at(6, 13), 17), true, "late-season Saturday: games");
+  assert.equal(inGameWindow(at(5, 20)), false, "Friday is never a game day");
 });
 
 test("the real 2026 preseason response yields a full week-1 slate at 0-0", () => {
@@ -125,11 +131,15 @@ test("empty response → empty standings, no throw", () => {
   assert.deepEqual(parseStandings(null).standings, []);
 });
 
-test("TNF at 7:15 PM CT counts even though it is already Friday in UTC", () => {
-  const tnf = new Date("2026-09-11T00:15:00Z"); // Thu Sep 10, 7:15 PM CDT
-  assert.equal(inGameWindow(tnf), true);
+test("a night game counts by its CENTRAL day, not the UTC one it falls into", () => {
+  // The bug this guards: Cloud Functions run in UTC, and date.getDay() there
+  // reads a 9:30 PM Central Sunday as Monday — which is how night games fell
+  // outside every window until Sep 25. Both instants below are "tomorrow" in
+  // UTC and must still be judged as Sunday and Monday.
   const snf = new Date("2026-09-14T02:30:00Z"); // Sun Sep 13, 9:30 PM CDT
-  assert.equal(inGameWindow(snf), true);
+  assert.equal(inGameWindow(snf), true, "Sunday night, already Monday in UTC");
+  const mnf = new Date("2026-09-15T03:00:00Z"); // Mon Sep 14, 10:00 PM CDT
+  assert.equal(inGameWindow(mnf), true, "Monday night, already Tuesday in UTC");
   const tueMorning = new Date("2026-09-15T14:00:00Z"); // Tue 9 AM CDT
   assert.equal(inGameWindow(tueMorning), false);
 });

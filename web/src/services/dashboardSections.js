@@ -66,7 +66,10 @@ export const DASHBOARD_SECTIONS = [
   { key: 'team',      label: 'My Team card',           glyph: '🏈' },
   { key: 'history',   label: 'History & Trophy tiles', glyph: '📚', rail: true, railSafe: true },
   { key: 'match',     label: 'Trade match banner',     glyph: '⇄',  rail: true, railSafe: true },
-  { key: 'teams',     label: 'All teams grid',         glyph: '👥' },
+  // REMOVED (Sep 28, 2026) — duplicated the Team TDA strip, which shows the
+  // same twelve teams and links to the same rosters. Its belts moved onto
+  // the TDA tiles. Restoring it is re-adding this line and its node:
+  //   { key: 'teams',   label: 'All teams grid',       glyph: '👥' },
   // In-season only, current season only — past seasons live in History.
   { key: 'standings', label: 'Standings',              glyph: '📋', phases: ['regular', 'playoffs'] },
   { key: 'trades',    label: 'Recent trades',          glyph: '🤝' },

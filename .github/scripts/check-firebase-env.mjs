@@ -21,6 +21,36 @@ export const PROJECT_SENDER_ID = '876749980452'
 /**
  * @returns array of human-readable problems; empty means the config can work.
  */
+/**
+ * Why a value can't be what it claims to be — the shape of the MISTAKE, not
+ * of the value. Never echo the value itself: these run in a public log, and
+ * a secret GitHub masks is only masked when it matches the stored string
+ * exactly, which a substring of it does not.
+ *
+ * Multi-line comes first because it is the one that works by accident. Paste
+ * the key and the APP_ID line together and the build still succeeds — the
+ * newline ends the key, and the second line lands in .env as its own valid
+ * entry. That is how a malformed secret survives unnoticed until something
+ * finally looks at it (Sep 27, 2026: the key secret carried the APP_ID line
+ * too, 103 characters where 39 belong).
+ */
+function malformed(name, value) {
+  // Count the lines that carry something: a value with a trailing newline is
+  // one value with stray whitespace, not two lines, and saying "1 lines" to
+  // someone trying to fix a deploy at midnight helps nobody.
+  const lines = value.split(/\r?\n/).filter((l) => l.trim()).length
+  if (lines > 1) {
+    return `${name} contains ${lines} lines — it looks like more than one .env line was pasted in. The secret holds ONE value: just the key itself, no name, no "=", nothing after it.`
+  }
+  if (value.includes('=')) {
+    return `${name} contains "=" — it looks like a whole NAME=value line was pasted. Store only the part after the "=".`
+  }
+  if (value !== value.trim()) return `${name} has leading or trailing whitespace.`
+  if (/^["']|["']$/.test(value)) return `${name} is wrapped in quotes — store the bare value.`
+  if (/\s/.test(value)) return `${name} contains a space, so it is not a single value.`
+  return null
+}
+
 export function validateFirebaseEnv(env = {}) {
   const problems = []
   const key = env.VITE_FIREBASE_API_KEY
@@ -28,10 +58,8 @@ export function validateFirebaseEnv(env = {}) {
 
   if (!key) {
     problems.push('VITE_FIREBASE_API_KEY is empty — the GitHub secret is missing or unset.')
-  } else if (key !== key.trim()) {
-    problems.push('VITE_FIREBASE_API_KEY has leading or trailing whitespace.')
-  } else if (/^["']|["']$/.test(key)) {
-    problems.push('VITE_FIREBASE_API_KEY is wrapped in quotes — store the bare value.')
+  } else if (malformed('VITE_FIREBASE_API_KEY', key)) {
+    problems.push(malformed('VITE_FIREBASE_API_KEY', key))
   } else if (!/^AIza[0-9A-Za-z_-]{35}$/.test(key)) {
     problems.push(
       `VITE_FIREBASE_API_KEY is not shaped like a Google API key (expected AIza… and 39 characters, got ${key.length}).`,
@@ -40,8 +68,8 @@ export function validateFirebaseEnv(env = {}) {
 
   if (!appId) {
     problems.push('VITE_FIREBASE_APP_ID is empty — the GitHub secret is missing or unset.')
-  } else if (appId !== appId.trim()) {
-    problems.push('VITE_FIREBASE_APP_ID has leading or trailing whitespace.')
+  } else if (malformed('VITE_FIREBASE_APP_ID', appId)) {
+    problems.push(malformed('VITE_FIREBASE_APP_ID', appId))
   } else if (!/^1:\d+:web:[0-9a-zA-Z]+$/.test(appId)) {
     problems.push(`VITE_FIREBASE_APP_ID is not shaped like a web app id (expected 1:<sender>:web:…, got "${appId}").`)
   } else if (appId.split(':')[1] !== PROJECT_SENDER_ID) {

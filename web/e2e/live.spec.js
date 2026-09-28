@@ -71,6 +71,9 @@ test.describe('signed in', () => {
   test.skip(!SMOKE_EMAIL || !SMOKE_PASSWORD, 'SMOKE_EMAIL / SMOKE_PASSWORD not set')
 
   test('dashboard loads with no permission errors', async ({ page }) => {
+    // The default 30s budget is exactly what the sign-in wait below may spend
+    // on its own, leaving nothing for the two settles and the History visit.
+    test.setTimeout(90_000)
     const errors = []
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
     page.on('console', (m) => {
@@ -82,13 +85,18 @@ test.describe('signed in', () => {
     await page.getByPlaceholder('Password').fill(SMOKE_PASSWORD)
     await page.getByRole('button', { name: 'Sign in with Email' }).click()
     await expect(page.getByText(/EST\. 2008/).first()).toBeVisible({ timeout: 30_000 })
-    await page.waitForLoadState('networkidle')
+    // Not networkidle: once signed in, the app's onSnapshot listeners
+    // (config/league and friends) hold a long-lived streaming connection
+    // open, so the network never goes idle and this timed out on every run
+    // (Sep 27, 2026 — the dashboard was already on screen). A denied read
+    // logs its permission error well inside this window.
+    await page.waitForTimeout(4_000)
     // Visit History for its Firestore reads, but don't require the tab: an
     // Admin → Areas switch can hide it from non-admins (the smoke account is
     // one), and a hidden tab is correct behaviour, not a failure. What must
     // hold everywhere is "no permission errors".
     await page.goto('/#history')
-    await page.waitForLoadState('networkidle')
+    await page.waitForTimeout(4_000)
     expect(errors, errors.join('\n')).toEqual([])
   })
 })

@@ -1,6 +1,6 @@
 # IFFL App
 
-Native iOS app (SwiftUI) for the **Insanity Fantasy Football League** — a 12-team dynasty/keeper league.
+Web app (Vite + React + Firebase, `web/`) for the **Insanity Fantasy Football League** — a 12-team dynasty/keeper league.
 
 ## What this is
 
@@ -11,7 +11,8 @@ The full implementation plan lives at `~/.claude/plans/i-need-help-planning-robu
 ## Project layout
 
 ```
-ios/                            SwiftUI Xcode project (iOS 17+)
+web/                            the app — Vite + React, deployed to Firebase Hosting (iffl-auth)
+functions/                      Firebase Cloud Functions
 backend/supabase/               Postgres migrations, RLS, Edge Functions, seed
 backend/iffl-python-service/    Fly.io service: ESPN sync + Commish Agent HTTP wrapper
 docs/                           Architecture, schema, deploy, runbook

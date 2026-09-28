@@ -79,3 +79,6 @@ web/test-results/
 web/playwright-report/
 web/e2e-results.json
 tests/rules/node_modules/
+
+# Firebase emulator logs
+*-debug.log

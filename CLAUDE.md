@@ -1,21 +1,18 @@
 # The Belt App — Working Notes
 
-> **App name is "The Belt"** (Fantasy Football League). The old "IFFL" / "CodeRed" branding has been scrubbed from user-facing surfaces and code symbols. The internal Xcode target/workspace is still named `CodeRed` (invisible to users — deliberately not renamed to avoid breaking CocoaPods). The Firebase project id is still `iffl-auth` (project ids can't be renamed; backend migration deferred).
+> **App name is "The Belt"** (Fantasy Football League). The Firebase project id is still `iffl-auth` (project ids can't be renamed; backend migration deferred).
 
-> **Always open `CodeRed.xcworkspace`** — not `CodeRed.xcodeproj`, not any other workspace file. The workspace is what links CocoaPods (Firebase, Google Sign-In). Opening the bare project gives "Firebase module not found".
-
-> **WEB APP IS THE PRIMARY DISTRIBUTION PATH** (Aug 2026): repeated App Store
-> rejections led to a full web port in `web/` (Vite + React + Firebase JS SDK,
-> same `iffl-auth` backend). Deploys to Firebase Hosting → league members open
-> one URL, Add to Home Screen. See `web/DEPLOY.md`. The iOS app still builds
-> but is no longer the distribution plan.
+> **WEB-ONLY since Sep 28, 2026.** Repeated App Store rejections (Aug 2026) led to a
+> full web port in `web/` (Vite + React + Firebase JS SDK, same `iffl-auth` backend),
+> served from Firebase Hosting — league members open one URL, Add to Home Screen.
+> The native SwiftUI app (Xcode target `CodeRed`, bundle `com.thebelt.app`) was
+> deleted from this repo; it lives on in git history before that date. Xcode Cloud's
+> workflow for it must stay OFF in App Store Connect, or every push to `main` emails
+> a failed "CodeRed" build. See `web/DEPLOY.md`.
 
 ## Pinned Commands
 
 ```bash
-# Pull latest + pod install + open Xcode (run this before every archive)
-cd ~/claude-agents/apps/iffl-web-app && pod install && open CodeRed.xcworkspace
-
 # Deploys are CI now (Sep 25, 2026): merge a PR into main → .github/workflows/deploy.yml
 # tests, deploys, smokes the live site, auto-rolls hosting back on failure, reports to Telegram.
 # The manual commands below still work as a fallback.
@@ -683,9 +680,7 @@ owners were borrowed from each slot's 2009 owner (validated: slot 5 =
 M. Zurek = known 2008 champion). The full mapping prints when the script runs.
 
 ## Project at a glance
-- SwiftUI iOS app (iOS 17.0+), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.
-- Xcode project: `CodeRed.xcodeproj` — but **always open `CodeRed.xcworkspace`**.
-- Bundle ID: `com.thebelt.app` (was `com.IFFLtest.CodeRed`; changed in The Belt rebrand → a NEW App Store Connect record). Dev team: `LNHDZQ76WT`.
+- Web app (`web/`, Vite + React) + Cloud Functions (`functions/`), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.
 - Firebase project: **IFFL Auth** (id `iffl-auth`, sender `876749980452`). The archived `codered-2b3b4` project is dead — never reference it.
 - **Deploy box — one clone, verified Aug 26, 2026:** `~/claude-agents/apps/iffl-web-app`.
   Two earlier paths in these notes were wrong and each cost a session:
@@ -715,55 +710,13 @@ M. Zurek = known 2008 champion). The full mapping prints when the script runs.
 - Branch protection on `main` — pushes are rejected, PRs required.
 - Active development branch: `claude/insanity-league-ios-app-g73Jo`.
 
-## Architecture
-- Environment-driven SwiftUI: single `AppState: ObservableObject` injected via `.environmentObject`. No full MVVM.
-- `AuthenticationService` separate `ObservableObject` for auth only.
-- `MarketEngine` pure struct with static methods (zero Firebase deps, used for mutual-interest matching).
-- One `NavigationStack` per tab — never nest NavigationStacks inside sheets.
-- `@main` lives in `App/BeltApp.swift`. `App/CodeRedApp.swift` holds AppState, AuthenticationService, AppDelegate, LoginView, and shared subviews — no `@main`.
-
-## Folder structure (current — Views/ is still flat)
-```
-App/             BeltApp.swift, BeltTheme.swift, CodeRedApp.swift
-Models/          DataModels.swift
-Services/        FirestoreDataService.swift, DataSeeder.swift, MarketEngine.swift
-Views/           AdminView.swift, DashboardView.swift, RostersView.swift, MarketView.swift,
-                 LeagueView.swift, WebViewContainer.swift,
-                 FMKSwiperView.swift, LeagueHistoryView.swift, SettingsView.swift  ← added V2
-Info.plist       CFBundleURLTypes (Google Sign-In) + FirebaseAppDelegateProxyEnabled=false
-GoogleService-Info.plist   NOT in git — local only on Mac
-serviceAccountKey.json     NOT in git — server credentials, must never ship in iOS bundle
-```
-
-## Design system (`BeltTheme.swift`)
-Color tokens (hex → use): `beltBg #0A0D1A` (screens), `beltSurface #141827` (cards), `beltElevated #1E2235` (modals), `beltAccent #E63946` (CTAs/active), `beltGold #F4A261` (prices), `beltText #FFFFFF`, `beltSubtext #9EA8B8`. xcassets colorsets are aligned to the same hex values so AdminView's `Color("BackgroundColor")` calls produce identical output to `Color.beltBg`.
+## Design system (`web/src/styles/theme.css`)
+Color tokens (hex → use): `beltBg #0A0D1A` (screens), `beltSurface #141827` (cards), `beltElevated #1E2235` (modals), `beltAccent #E63946` (CTAs/active), `beltGold #F4A261` (prices), `beltText #FFFFFF`, `beltSubtext #9EA8B8`.
 
 ## Hard-won lessons (read before touching these areas)
 
-### Xcode `INFOPLIST_KEY_*` is scalar-only
-Do **not** embed XML as a string in `INFOPLIST_KEY_CFBundleURLTypes` (or any nested-structure key). Xcode serializes it as a plain string, not a real array — Google Sign-In's runtime check finds no schemes and throws `NSInvalidArgumentException`.
-**Fix pattern:** real `Info.plist` at repo root with the nested key, plus `INFOPLIST_FILE = Info.plist` in both Debug and Release. Keep `GENERATE_INFOPLIST_FILE = YES` so Xcode still merges in the scalar `INFOPLIST_KEY_*` values (orientations, scene manifest, etc.).
-
-### `REVERSED_CLIENT_ID` is a build variable
-`Info.plist` references `$(REVERSED_CLIENT_ID)`. The actual value lives as a user-defined build setting in `project.pbxproj` for both Debug and Release: `com.googleusercontent.apps.876749980452-l07n7gh17nq6apnf8u7uc6ceia8dlg3r` (updated for the `com.thebelt.app` iOS app added to `iffl-auth`). If this drifts from `GoogleService-Info.plist`'s `REVERSED_CLIENT_ID`, Firebase Auth returns `CONFIGURATION_NOT_FOUND` (code 17999).
-
-### CocoaPods workflow on Mac
-- After cloning or pulling: run `pod install`, then open `CodeRed.xcworkspace`.
-- gRPC-Core fails simulator builds with `Command CodeSign failed`. Fix in `Podfile` post_install: `config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'`.
-- `pod install` needs significant disk space (Firebase headers). If `Errno::ENOSPC`, clear `~/Library/Developer/Xcode/DerivedData/*` and `xcrun simctl delete unavailable` before retry.
-- User's Mac has local Podfile customizations — `git pull` often conflicts. Standard recovery: `git stash && git pull origin <branch> --no-rebase && git stash pop` (or `git stash drop` if remote already has the fixes).
-
 ### Secrets must stay out of git
-`.gitignore` covers `GoogleService-Info.plist`, `serviceAccountKey.json`, `*.pem`, `*.p8`, `*.p12`, `Pods/`, `build/`, `DerivedData/`. If either credential file was previously committed, rotate the keys in Firebase / Google Cloud Console — git history still has them.
-
-### `project.pbxproj` discipline
-Every Swift file added needs entries in all 4 sections: `PBXBuildFile`, `PBXFileReference`, the parent `PBXGroup` children list, and `PBXSourcesBuildPhase`. Missing any of them means silent build skip. For resources, swap `PBXSourcesBuildPhase` for `PBXResourcesBuildPhase`.
-
-### Build verification protocol (no Xcode in this env)
-Each phase runs two parallel sub-agent audits:
-- **CHECK A** — static analysis: undefined types, missing imports, duplicate `@main`, duplicate symbols, asset name references, NavigationStack nesting.
-- **CHECK B** — flow audit: NavigationLink destination types, EnvironmentObject providers, every symbol traced to a file registered in `PBXSourcesBuildPhase`.
-Resolution rule: fix root cause, re-run both checks, only advance when both clean.
+`.gitignore` covers `GoogleService-Info.plist`, `serviceAccountKey.json`, `*.pem`, `*.p8`, `*.p12`; `web/.gitignore` covers `web/.env`. If either credential file was previously committed, rotate the keys in Firebase / Google Cloud Console — git history still has them.
 
 ## V2 feature status (branch: `claude/insanity-league-ios-app-g73Jo`)
 
@@ -778,9 +731,6 @@ Resolution rule: fix root cause, re-run both checks, only advance when both clea
 - **Privacy & legal** — `IFFLLegal.privacyPolicyURL` constant, consent notice on login screen, Privacy Policy link in Settings → About, policy hosted at `iffl-auth.web.app/privacy.html`
 - **League history data** — ALL 17 seasons (2009–2025) seeded in `DataSeeder.historySeeds` including standings, records, notable trades. Run "Seed League History" from Admin > Database to push to Firestore.
 - **Belt wins** — hardcoded in `DataModels.swift`: Jared 3, Bill 2, Ryan 2, Abad/Cantone/Faybik/M.Zurek/Wayne 1 each, others 0
-
-### Current build
-- **MARKETING_VERSION = 3.0, CURRENT_PROJECT_VERSION = 12** (build 12 submitted to App Store review June 2026)
 
 ### Pending / next session
 - [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/claude-agents/apps/iffl-web-app` (verified Aug 26 — earlier notes had two wrong paths). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
@@ -919,21 +869,6 @@ Assessment and open decisions: the "Jason's Feed, Assessed" artifact. The
 unresolved blocker is whose contract math is the league's — ours (+$5 ×
 years kept, waiver $2) vs his ($0-escalation, +$2 surcharge, daily FA
 auctions). Every cap figure depends on it.
-
-## TestFlight — manual steps (until Fastlane is set up)
-
-1. Xcode toolbar → change destination to **"Any iOS Device (arm64)"**
-2. `Product → Archive` (2-3 min)
-3. Organizer opens → **Distribute App → App Store Connect → Upload** → keep all defaults → Upload
-4. Wait 5–15 min for Apple to finish processing the build
-5. [appstoreconnect.apple.com](https://appstoreconnect.apple.com) → select **The Belt** app (bundle ID `com.thebelt.app`). NOTE: the rebrand changed the bundle ID, so this is a **new** app record — create it (name "The Belt", subtitle "Fantasy Football League") if it doesn't exist yet. The old IFFL record (`com.IFFLtest.CodeRed`) is abandoned.
-6. **TestFlight** tab → **Internal Testing** → add yourself as tester → Save
-7. Check email for TestFlight invite, or open the TestFlight app on iPhone directly
-
-**Lessons learned (first TestFlight upload — under the old IFFL bundle id):**
-- Register `com.thebelt.app` in developer.apple.com Identifiers (with Sign in with Apple capability) before it appears in App Store Connect's dropdown.
-- "You need an invite from a developer" in TestFlight = you haven't added yourself as a tester yet in App Store Connect.
-- Bundle ID must be registered in developer.apple.com Identifiers before it appears in App Store Connect's dropdown.
 
 ## V2 Scratchpad — Features Under Design
 

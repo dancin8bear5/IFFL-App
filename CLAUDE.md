@@ -285,11 +285,18 @@ matches the My Team card's cap figure — if those two ever disagree,
 something has grown its own copy of the rule.
 
 Sorted highest first (a strip of twelve totals is a comparison), your team
-outlined, over $300 shown in the accent colour. Desktop uses a **grid**, not
-a wrapping flex row: twelve tiles never divide evenly into the width, and
-flex stretches the last row's few tiles so the same number reads as a bigger
-tile purely because of where it landed. Hidden until rosters load — twelve
-$0 tiles read as a league that sold everybody, not as a page still loading.
+outlined, over $300 shown in the accent colour. Desktop is a **grid of six
+fixed columns** (Sep 28), so twelve teams are two even rows: a wrapping flex
+row stretches the last row's few tiles, and `auto-fit` packs 8 + 4 on a wide
+screen — either way the same number reads as a bigger tile purely because of
+where it landed. Hidden until rosters load — twelve $0 tiles read as a
+league that sold everybody, not as a page still loading.
+
+**The All Teams grid is gone** (Sep 28) — same twelve teams, same avatars,
+same link to the same rosters, one section below a strip that also carries
+the money. Its **belts moved onto the TDA tiles**: that grid was the only
+place they showed, so removing it would have taken them off the Dashboard
+too. Both its registry entry and its node are left as comments.
 
 **Calendar tiles are a strip now**, not portrait cards: `MilestoneCard` takes
 `fill`, laying out left-to-right and sharing the row (`flex: 1 1 0`,
@@ -300,6 +307,29 @@ phone's scroller has no row to fill, so there it keeps a fixed 208px.
 of `dashboardSections.js` and one out of the `NODES` map, both left as
 comments. `parlayCard`, `ParlayView`, Admin → Parlay and the `parlay` kill
 switch are all still wired; restoring it is re-adding those two lines.
+
+### Live scoreboard polling — the commissioner's window (Sep 28, 2026)
+`pollEspnScores` runs **every 5 minutes**, and `inGameWindow` in
+`espnScores.js` allows **all day Sunday and Monday 7pm–midnight Central**.
+29 hours a week, 348 runs. Nothing was broken when this was raised: health
+said "outside its window", which was correct — the old window had no Monday
+daytime in it, so a Monday-morning look showed Sunday's last poll and read
+as frozen.
+
+**It deliberately gives up three times games are really played**, and the
+tests assert each one so the absence reads as a decision: Thursday Night
+Football, late-season Saturdays (week 16+), and a Monday game still running
+after midnight. The cost is that the board holds the previous poll until the
+next window opens — a TNF result now waits until Sunday. Each is one line.
+
+The `week` argument went with them. It had been passed as a hardcoded `1`
+from index.js, which made the old `week >= 16` Saturday rule false forever —
+the rule was right and unit-tested, and only the call site was wrong. An
+unused parameter that looks like it gates something is how that happened.
+
+`forcePoll` on `espnLiveScores/{season}` still forces a poll out of window,
+and **nothing in the app or Admin writes it** — it means editing the
+document by hand in the console.
 
 ### The archive — `#archive` (Sep 18, 2026)
 **The Dashboard shows the NEWEST edition of each kind; everything older is

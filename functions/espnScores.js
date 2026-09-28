@@ -93,10 +93,19 @@ function parseScoreboard(data, week) {
 /**
  * Is it worth polling right now?
  *
- * NFL games run Thursday night, Sunday, and Monday night (plus Saturdays
- * from Week 16). Outside those windows the scoreboard cannot change, so the
- * poller returns early instead of burning a run every three minutes for
- * five months. Hours are US Central, matching every other schedule here.
+ * The commissioner's schedule (Sep 28, 2026): all day Sunday, and Monday
+ * 7pm–midnight. Everything else sits frozen. Hours are US Central, matching
+ * every other schedule here.
+ *
+ * Sunday is unbounded on purpose — it is asked for that way, and the hours
+ * either side of the games cost a handful of runs while removing the "did I
+ * get the boundary right" question entirely.
+ *
+ * WHAT THIS DELIBERATELY DROPS, all of them times games really are played:
+ * Thursday Night Football, late-season Saturdays (week 16+), and a Monday
+ * game still running after midnight. Each is one line to restore. The cost
+ * of dropping them is that the board holds the previous poll's numbers
+ * until the next window opens — a TNF result now waits until Sunday.
  */
 /**
  * Day-of-week and hour in US Central for an absolute instant.
@@ -116,12 +125,10 @@ function centralDayHour(date) {
   return { day: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd), hour };
 }
 
-function inGameWindow(date, week = 1) {
+function inGameWindow(date) {
   const { day, hour } = centralDayHour(date); // 0 Sun … 6 Sat, US Central
-  if (day === 0) return hour >= 11 && hour <= 23; // Sunday: early games → SNF
-  if (day === 1) return hour >= 18 || hour <= 1; // MNF, into the small hours
-  if (day === 4) return hour >= 18 || hour <= 1; // TNF
-  if (day === 6) return week >= 16 && hour >= 11 && hour <= 23; // late-season Saturdays
+  if (day === 0) return true; // Sunday, all day
+  if (day === 1) return hour >= 19 && hour <= 23; // Monday night, 7pm–midnight
   return false;
 }
 

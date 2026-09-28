@@ -891,12 +891,12 @@ async function fetchGroupMeMessagesSince(token, afterId) {
  * Visibility is a separate decision (config/league.liveScores), and the
  * write happens either way so there is real data to look at before it ships.
  *
- * Polls every 3 minutes but returns immediately outside NFL game windows —
- * the scoreboard cannot move on a Tuesday, and this would otherwise burn a
- * run every three minutes for five months.
+ * Polls every 5 minutes but returns immediately outside the window the
+ * commissioner set — all day Sunday and Monday 7pm–midnight Central. See
+ * inGameWindow in espnScores.js, which also records what that gives up.
  */
 exports.pollEspnScores = onSchedule(
-  {schedule: "every 3 minutes", timeZone: "America/Chicago", retryCount: 0},
+  {schedule: "every 5 minutes", timeZone: "America/Chicago", retryCount: 0},
   async () => {
     const cfgSnap = await db.doc("config/league").get();
     const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
@@ -905,15 +905,8 @@ exports.pollEspnScores = onSchedule(
     // `force` lets the commissioner pull a scoreboard out of window while
     // evaluating this — otherwise there would be nothing to look at until
     // kickoff. Set it by hand on espnLiveScores/{season}; no screen writes it.
-    const state = (await stateRef.get()).data() ?? {};
-    const force = state.forcePoll === true;
-    // The week comes from the last poll, because inGameWindow needs it to
-    // know whether a Saturday counts (games move to Saturdays from week 16).
-    // This passed a hardcoded 1, which made `week >= 16` false forever — so
-    // every late-season Saturday was treated as a day with no football and
-    // the scoreboard sat still through it.
-    const lastWeek = Number(state.week) || 1;
-    if (!force && !inGameWindow(new Date(), lastWeek)) return;
+    const force = (await stateRef.get()).data()?.forcePoll === true;
+    if (!force && !inGameWindow(new Date())) return;
 
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
       `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mMatchupScore`;

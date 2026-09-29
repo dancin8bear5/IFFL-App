@@ -103,6 +103,18 @@ export const REGULAR_SEASON_WEEKS = 14
 export const PLAYOFF_TEAMS = 8       // top 8 make the playoffs
 export const PLAYOFF_ROUNDS = 3      // weeks 15–17
 export const SEEDING_BONUS_PER_WIN = 5 // pts per extra regular-season win
+/**
+ * The earliest week the Dashboard will say anything about the playoffs.
+ *
+ * Seeds computed in week 3 are noise dressed as information — in a 14-week
+ * season a quarter of the games decide almost nothing, and a bracket that
+ * reshuffles every Sunday teaches the league to ignore it. Commissioner's
+ * call (Sep 29, 2026): week 10 at the earliest.
+ *
+ * Admin is deliberately NOT gated by this — the commissioner sets seeds and
+ * runs the opponent draft from there, and needs to see the math whenever.
+ */
+export const PLAYOFF_PREVIEW_WEEK = 10
 
 // ── Keeper economics (§League Keepers) ────────────────────────
 // Escalation verified 231/231 against 2025 Keeper Master.csv:

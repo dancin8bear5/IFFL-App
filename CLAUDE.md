@@ -308,6 +308,41 @@ of `dashboardSections.js` and one out of the `NODES` map, both left as
 comments. `parlayCard`, `ParlayView`, Admin → Parlay and the `parlay` kill
 switch are all still wired; restoring it is re-adding those two lines.
 
+### Dashboard cleanup + the playoff gate (Sep 29, 2026)
+**The League Calendar leads the Dashboard.** It is the one block useful in
+every phase to every member, and it is three short tiles.
+
+**The live scoreboard is off the Dashboard**, at the commissioner's request
+— one line out of `dashboardSections.js` and one out of the `NODES` map,
+both left as comments. `LiveScoreboard`, `pollEspnScores` and the
+`config/league.liveScores` visibility mode are ALL still wired, so the
+poller keeps writing `espnLiveScores/{season}` that nothing currently
+renders. Pause the function if that bothers you; restoring the section is
+re-adding the two lines.
+
+**NOTHING PLAYOFF-SHAPED BEFORE WEEK 10.** `PLAYOFF_PREVIEW_WEEK = 10` in
+`staticData.js`, enforced by `playoffPreviewOpen(weeklyScores)` in
+`services/playoffs.js` (tested), which gates the whole Playoffs section —
+seeds, the opponent draft, the on-the-clock banner and the quarterfinals
+together, since the bracket renders all of them.
+
+**How the league got a quarterfinal bracket in week 3:** the old gate was
+"any weeklyRecords exist", which was a fair proxy while the commissioner
+typed records in by hand late in the season. Agent #2 started writing them
+from week 1 (Sep 25), so the condition went true immediately. A data source
+changing under a UI condition is the shape of this bug — the condition was
+never wrong, its assumption was.
+
+The gate counts **weeks PLAYED, not the calendar date**: a postponed week or
+a late import should hold the bracket back with it. A week written empty
+doesn't count, and an unreadable season fails CLOSED (no preview), which is
+the same instinct as the season calendar degrading to `dead`.
+
+**Admin is deliberately exempt** — the commissioner sets seeds and runs the
+opponent draft from Admin → League → Standings, and needs the math whenever.
+No agent publishes playoff seeds: `parseStandings` reads ESPN's
+`playoffSeed` only to order a standings table and drops the field.
+
 ### Live scoreboard polling — the commissioner's window (Sep 28, 2026)
 `pollEspnScores` runs **every 5 minutes**, and `inGameWindow` in
 `espnScores.js` allows **all day Sunday and Monday 7pm–midnight Central**.

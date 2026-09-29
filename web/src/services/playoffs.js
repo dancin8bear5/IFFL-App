@@ -15,7 +15,36 @@
 //      rulebook since S0, but nothing has ever applied it.
 //
 // Pure functions only — no Firebase. Everything here is unit-tested.
-import { PLAYOFF_TEAMS, SEEDING_BONUS_PER_WIN } from '../data/staticData.js'
+import { PLAYOFF_TEAMS, SEEDING_BONUS_PER_WIN, PLAYOFF_PREVIEW_WEEK } from '../data/staticData.js'
+
+/**
+ * How many weeks have actually been scored.
+ *
+ * Counts weeks that carry at least one score, so a week created empty by a
+ * half-finished write doesn't inflate the count. The keys are week numbers;
+ * their VALUE is what says a week happened.
+ */
+export function weeksPlayed(weeklyScores) {
+  if (!weeklyScores || typeof weeklyScores !== 'object') return 0
+  return Object.values(weeklyScores).filter((w) => Array.isArray(w) && w.length > 0).length
+}
+
+/**
+ * May the Dashboard show seeds, the bracket, or anything else that reads as
+ * a playoff prediction?
+ *
+ * Gated on weeks PLAYED rather than the calendar date, because the number
+ * that matters is how much football has decided the standings — a postponed
+ * week or a late import should hold the bracket back with it.
+ *
+ * The old gate was "any records exist at all", which was fine while nothing
+ * wrote records until late in the season. Once the weekly-scores agent
+ * started writing them from week 1 (Sep 25, 2026) that condition was true
+ * immediately, and the league got a quarterfinal bracket in week 3.
+ */
+export function playoffPreviewOpen(weeklyScores, minWeek = PLAYOFF_PREVIEW_WEEK) {
+  return weeksPlayed(weeklyScores) >= minWeek
+}
 
 /** Wins from a record object, tolerant of missing/partial data. */
 const winsOf = (r) => (Number.isFinite(r?.wins) ? r.wins : 0)

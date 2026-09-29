@@ -8,6 +8,7 @@ import { useIsDesktop } from '../hooks/useBreakpoint'
 import { fantasyTeams, teamByName, milestones, KEEPER_PRICE_MAX, FMK_ENABLED, ROSTER_CAP } from '../data/staticData'
 import { formatTradeDate } from '../services/models'
 import { teamCapTotal } from '../services/contracts'
+import { playoffPreviewOpen } from '../services/playoffs'
 import { SectionHeader, TeamAvatar, BeltRow, LoadingList, PosBadge, DetailOverlay } from '../components/shared'
 import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
@@ -78,7 +79,7 @@ export default function DashboardView({ setTab }) {
     incomingOffers, leagueHistory, loadLeagueHistory,
     rules, rulesVotingOpen, transactions,
     parlayConfig, parlayEntries, areaEnabled, isOffSeason, isAdmin,
-    weeklyRecords, seasonPhase, isPhase, phaseWindow, dashboardLayout, isPreview,
+    weeklyRecords, weeklyScores, seasonPhase, isPhase, phaseWindow, dashboardLayout, isPreview,
   } = useApp()
   const isDesktop = useIsDesktop()
   const [showSettings, setShowSettings] = useState(false)
@@ -443,11 +444,16 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
-  // Appears once the commissioner has entered records — which in practice
-  // means late in the regular season, exactly when people start caring
-  // about seeding. Before that it would be an empty frame all year.
+  // Nothing about the playoffs — seeds, the opponent draft, the bracket —
+  // until PLAYOFF_PREVIEW_WEEK weeks have actually been played.
+  //
+  // The gate used to be "records exist", which was a fair proxy while the
+  // commissioner entered records by hand late in the season. The weekly
+  // scores agent now writes them from week 1, so that condition went true
+  // immediately and the league was shown a quarterfinal bracket in week 3.
+  // The rule lives in services/playoffs.js and is tested there.
   const playoffSection = areaEnabled('playoffs')
-    && Object.keys(weeklyRecords ?? {}).length > 0 && (
+    && playoffPreviewOpen(weeklyScores) && (
     <div>
       <SectionHeader title="Playoffs" />
       <div style={{ marginTop: 10 }}>
@@ -933,7 +939,11 @@ export default function DashboardView({ setTab }) {
   // is the case every browser is in until somebody rearranges something.
   const NODES = {
     closed: closedNotice,
-    live: liveScores,
+    // REMOVED from the Dashboard (Sep 29, 2026) at the commissioner's
+    // request. `LiveScoreboard`, `pollEspnScores` and the `liveScores`
+    // visibility mode are all still wired — putting it back is re-adding
+    // this line and its entry in dashboardSections.js.
+    //   live: liveScores,
     // HIDDEN, NOT REMOVED (Sep 10, 2026) — the components and their Admin →
     // Areas kill switches are all still wired; restoring either means
     // re-adding its line here AND its entry in dashboardSections.js:

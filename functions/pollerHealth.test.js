@@ -43,7 +43,7 @@ test("live scores are checked during a game window", () => {
   const sunday = new Date("2026-09-13T20:00:00Z"); // Sun 3 PM CT
   const docs = {...healthy(), [`espnLiveScores/${S}`]: {lastRunAt: new Date(+sunday - 60 * 60000)}};
   for (const p of Object.keys(docs)) if (!p.startsWith("espnLive")) docs[p] = {lastRunAt: sunday};
-  const live = evaluate(docs, sunday, S).find((x) => x.name === "ESPN live scores");
+  const live = evaluate(docs, sunday, S, false).find((x) => x.name === "ESPN live scores");
   assert.equal(live.ok, false);
   assert.equal(live.skipped, undefined);
 });
@@ -57,3 +57,20 @@ test("Firestore Timestamps are understood", () => {
 test("paths are season-keyed", () => {
   assert.ok(checks(2027).some((c) => c.path === "espnStandings/2027"));
 });
+
+test("a paused live-scores poller is never expected to write, even mid-game", () => {
+  // The trap this guards: pausing pollEspnScores without telling the health
+  // check would report a stale espnLiveScores document every Sunday, fail
+  // the health step, and fail the deploy with it.
+  const sunday = new Date("2026-09-13T18:00:00Z"); // Sun 1 PM CDT, mid-window
+  const live = evaluate({}, sunday, S, true).find((x) => x.name === "ESPN live scores");
+  assert.equal(live.skipped, true, "paused: no write expected");
+  assert.equal(live.ok, true, "paused: must never fail the deploy");
+  assert.equal(live.reason, "paused", "and the health output says so, not \"outside its window\"");
+})
+
+test("the shipped flag says whether the poller is paused right now", () => {
+  // Documents the live setting, so flipping it is a deliberate edit here too.
+  const {LIVE_SCORES_PAUSED} = require("./espnScores");
+  assert.equal(LIVE_SCORES_PAUSED, true, "paused Sep 29, 2026 at the commissioner's request");
+})

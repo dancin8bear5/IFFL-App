@@ -344,6 +344,21 @@ No agent publishes playoff seeds: `parseStandings` reads ESPN's
 `playoffSeed` only to order a standings table and drops the field.
 
 ### Live scoreboard polling — the commissioner's window (Sep 28, 2026)
+> **PAUSED since Sep 29, 2026** at the commissioner's request, until he says
+> otherwise. `LIVE_SCORES_PAUSED = true` in `functions/espnScores.js`:
+> `pollEspnScores` returns before its config read, so a paused poller costs
+> nothing. Everything below still stands and resuming is that one flag plus a
+> deploy.
+>
+> **`pollerHealth` reads the same flag, and that is load-bearing.** Its
+> live-scores check only expects a write DURING a game window, so pausing the
+> poller without it would report a stale document every Sunday, fail the
+> health step, and fail the deploy with it. `checks()`/`evaluate()` take
+> `paused` as an argument so BOTH halves stay provable — paused never expects
+> a write, running expects one in the window — rather than the flag silently
+> retiring one of those tests. A paused skip reports `paused`, not "outside
+> its window", which would read as "no games on".
+
 `pollEspnScores` runs **every 5 minutes**, and `inGameWindow` in
 `espnScores.js` allows **all day Sunday and Monday 7pm–midnight Central**.
 29 hours a week, 348 runs. Nothing was broken when this was raised: health

@@ -125,6 +125,22 @@ function centralDayHour(date) {
   return { day: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(wd), hour };
 }
 
+/**
+ * PAUSED (Sep 29, 2026) at the commissioner's request, until he says
+ * otherwise.
+ *
+ * The Dashboard no longer renders the live scoreboard, so the poller was
+ * writing espnLiveScores/{season} that nothing reads. Everything about it
+ * stays in place — the window below, the cadence, the parser, the health
+ * check — so resuming is this one flag and a deploy.
+ *
+ * pollerHealth reads this too, and that is not incidental: the live-scores
+ * check only expects a write DURING a game window, so a pause without it
+ * would report a stale document every Sunday, fail the health step, and
+ * fail the deploy with it.
+ */
+const LIVE_SCORES_PAUSED = true;
+
 function inGameWindow(date) {
   const { day, hour } = centralDayHour(date); // 0 Sun … 6 Sat, US Central
   if (day === 0) return true; // Sunday, all day
@@ -237,4 +253,4 @@ function recordsFromStandings(standings) {
   return out;
 }
 
-module.exports = { ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, inGameWindow, centralDayHour };
+module.exports = { LIVE_SCORES_PAUSED, ESPN_TEAM_ID_TO_NAME, currentWeek, parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, inGameWindow, centralDayHour };

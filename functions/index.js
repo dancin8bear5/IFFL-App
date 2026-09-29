@@ -10,7 +10,7 @@ const {reconcile} = require("./tradeReconcile");
 const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
 const {runFeedSync} = require("./ifflFeedSync");
-const {parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, currentWeek, inGameWindow} = require("./espnScores");
+const {parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, currentWeek, inGameWindow, LIVE_SCORES_PAUSED} = require("./espnScores");
 const notes = require("./leagueNotes");
 
 admin.initializeApp();
@@ -898,6 +898,10 @@ async function fetchGroupMeMessagesSince(token, afterId) {
 exports.pollEspnScores = onSchedule(
   {schedule: "every 5 minutes", timeZone: "America/Chicago", retryCount: 0},
   async () => {
+    // Paused by the commissioner — see LIVE_SCORES_PAUSED in espnScores.js.
+    // Before the config read, so a paused poller costs nothing at all.
+    if (LIVE_SCORES_PAUSED) return;
+
     const cfgSnap = await db.doc("config/league").get();
     const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
     const stateRef = db.doc(`espnLiveScores/${season}`);

@@ -1,6 +1,9 @@
 # RENDERED by brain/deploy/render.py (template: claude-fix.yml) — edit there, then re-render.
-# Dispatched by the deploy workflow's claude-fix job when a run on main fails.
-# Opens a fix PR (or an infra issue). Never pushes to main, never merges — automerge.yml
+# Dispatched two ways:
+#  - by the deploy workflow's claude-fix job when a run on main fails → opens a fix PR;
+#  - by automerge.yml when CI goes red on an open claude/* PR (inputs.pr set) → pushes the fix
+#    onto that PR's own branch, so the PR re-runs CI and auto-merges once green.
+# Either way it may open an infra issue instead. Never pushes to main, never merges — automerge.yml
 # merges the PR once its own CI run is green, so a fix is always tested before it ships.
 name: Claude fix
 
@@ -17,9 +20,18 @@ on:
         description: Name of the failed workflow
         required: false
         default: Deploy Captain
+      pr:
+        description: Open claude/* PR whose CI failed (empty = failure on main)
+        required: false
+        default: ""
+      branch:
+        description: That PR's head branch
+        required: false
+        default: ""
 
 concurrency:
-  group: claude-fix-${{ inputs.run_id }}
+  # One fixer per PR at a time; failures on main key on the run.
+  group: claude-fix-${{ inputs.pr != '' && format('pr-{0}', inputs.pr) || inputs.run_id }}
   cancel-in-progress: false
 
 permissions:
@@ -38,13 +50,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.sha }}
+          # PR mode checks out the branch itself so the fix can be pushed back onto it.
+          ref: ${{ inputs.pr != '' && inputs.branch || inputs.sha }}
           fetch-depth: 20
       - name: No Claude token — nothing to do
         if: env.HAS_CLAUDE != 'true'
         run: echo "::warning::CLAUDE_CODE_OAUTH_TOKEN not set — run brain/deploy/bootstrap.sh --only token"
       - name: Claude — diagnose and open fix PR
-        if: env.HAS_CLAUDE == 'true'
+        if: env.HAS_CLAUDE == 'true' && inputs.pr == ''
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -71,6 +84,40 @@ jobs:
                - Infra cause (missing/malformed/expired secret, quota, host unreachable) → no
                  code change; open one issue titled "Deploy Captain: <cause>" with the exact
                  fix the owner must do, unless an open issue with that title exists.
+            Never push to `main`. Never merge. Never skip, disable, or delete a test.
+            Never commit secrets. Keep the diff minimal.
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(gh:*),Bash(git:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(python3:*),Bash(pip:*),Bash(bash:*),Bash(ls:*),Bash(cat:*)"
+
+      - name: Claude — fix the red PR on its own branch
+        if: env.HAS_CLAUDE == 'true' && inputs.pr != ''
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: "github-actions,github-actions[bot]"
+          prompt: |
+            You are the Deploy Captain fixer for ${{ github.repository }}.
+            This is the IFFL web app on Firebase project iffl-auth. Read CLAUDE.md and
+            docs/agents/01-deploy-agent.md first. If the live smoke failed, hosting was already
+            auto-rolled back; rules and functions were not. Never change the rollback or smoke
+            logic to make a run pass.
+            CI ("${{ inputs.workflow }}") failed on PR #${{ inputs.pr }}, branch
+            `${{ inputs.branch }}`, at ${{ inputs.sha }}. When it goes green it auto-merges and deploys.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ inputs.run_id }}
+
+            0. `git rev-parse HEAD` must equal ${{ inputs.sha }}. If it doesn't, someone pushed
+               after this failure and is already on it — comment that on PR #${{ inputs.pr }} and stop.
+            1. Read the failed logs: `gh run view ${{ inputs.run_id }} --log-failed`, and the PR:
+               `gh pr view ${{ inputs.pr }}` (its description says what the change is for).
+            2. Root-cause it. "Flaky" is not a root cause.
+               - Code/config cause → minimal fix that keeps the PR's intent, run the repo's
+                 build/tests locally, commit, and `git push origin HEAD:${{ inputs.branch }}`
+                 (a plain push — never force). Then comment on PR #${{ inputs.pr }}: cause, fix,
+                 how you verified it. Do not open a new PR.
+               - Infra cause (missing/malformed/expired secret, quota, host unreachable) → no code
+                 change; comment on PR #${{ inputs.pr }} and open one issue titled
+                 "Deploy Captain: <cause>" with the exact fix the owner must do, unless one exists.
             Never push to `main`. Never merge. Never skip, disable, or delete a test.
             Never commit secrets. Keep the diff minimal.
           claude_args: >-

@@ -1,6 +1,7 @@
 # RENDERED by brain/deploy/render.py (template: claude-fix.yml) — edit there, then re-render.
 # Dispatched by the deploy workflow's claude-fix job when a run on main fails.
-# Opens a fix PR (or an infra issue). Never pushes to main, never merges.
+# Opens a fix PR (or an infra issue). Never pushes to main, never merges — automerge.yml
+# merges the PR once its own CI run is green, so a fix is always tested before it ships.
 name: Claude fix
 
 on:

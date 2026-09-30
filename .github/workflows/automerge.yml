@@ -1,0 +1,52 @@
+# RENDERED by brain/deploy/render.py (template: automerge.yml) — edit there, then re-render.
+# Deploy Captain auto-merge: a Claude PR (head branch claude/*) whose CI finished green is
+# squash-merged, then shipped. Human-branch PRs are never touched.
+#
+# A merge made with GITHUB_TOKEN does not fire `push` (GitHub blocks that to prevent loops),
+# so this dispatches the deploy workflow on main itself — workflow_dispatch is allowed.
+# Safety is unchanged: CI gates the merge; the live probe/smoke gates the deploy and rolls back.
+name: Auto-merge
+
+on:
+  workflow_run:
+    workflows: ["Deploy + verify"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: auto-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'claude/') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the PR this green run tested, then deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Only an open, non-draft PR whose head is still the commit this run tested:
+          # a push after the green run means the new head hasn't been tested yet.
+          pr=$(gh pr list -R "$REPO" --head "$HEAD_BRANCH" --base main --state open \
+                 --json number,isDraft,headRefOid \
+                 -q '.[] | select(.isDraft | not) | select(.headRefOid == $ENV.SHA) | .number' | head -n1)
+          if [ -z "$pr" ]; then
+            echo "No open, ready PR from $HEAD_BRANCH at ${SHA:0:7} — nothing to merge."
+            exit 0
+          fi
+          gh pr merge "$pr" -R "$REPO" --squash --match-head-commit "$SHA"
+          echo "::notice::Merged #$pr (${SHA:0:7})"
+          gh workflow run deploy.yml -R "$REPO" --ref main
+          echo "::notice::Deploy dispatched on main"

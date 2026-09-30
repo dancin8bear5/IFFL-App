@@ -11,7 +11,7 @@ name: Auto-merge
 
 on:
   workflow_run:
-    workflows: ["Deploy + verify"]
+    workflows: ["Deploy \\+ verify"]
     types: [completed]
 
 permissions:

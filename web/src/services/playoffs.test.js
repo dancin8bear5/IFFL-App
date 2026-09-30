@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   winValue, computeSeeds, seedingBonus, choosingSeeds, selectableOpponents,
-  availableOpponents, nextChooser, buildRoundOne, buildNextRound, roundLabel,
+  availableOpponents, nextChooser, buildRoundOne, buildNextRound, roundLabel, weeksPlayed, playoffPreviewOpen,
 } from './playoffs.js'
 
 // A plausible 12-team finish: eight make it, four miss.
@@ -191,4 +191,37 @@ test('round labels read as the league says them', () => {
   assert.equal(roundLabel(8), 'Quarterfinals')
   assert.equal(roundLabel(4), 'Semifinals')
   assert.equal(roundLabel(2), 'Championship')
+})
+
+// ── When the Dashboard may talk about the playoffs ───────────
+//
+// The league got a quarterfinal bracket in week 3 because the old gate was
+// "records exist", and the weekly-scores agent started writing records from
+// week 1. The gate is weeks PLAYED now, and these say what that means.
+
+test('weeksPlayed counts only weeks that carry scores', () => {
+  const wk = (n) => Array.from({ length: n }, (_, i) => ({ teamName: `T${i}`, points: 100 }))
+  assert.equal(weeksPlayed({ 1: wk(12), 2: wk(12), 3: wk(12) }), 3)
+  // A week written empty — a half-finished import — is not a week played.
+  assert.equal(weeksPlayed({ 1: wk(12), 2: [] }), 1)
+  assert.equal(weeksPlayed({}), 0)
+  assert.equal(weeksPlayed(null), 0)
+  assert.equal(weeksPlayed('nope'), 0)
+})
+
+test('the playoff preview stays shut until week 10', () => {
+  const played = (n) => Object.fromEntries(
+    Array.from({ length: n }, (_, i) => [i + 1, [{ teamName: 'A', points: 100 }]]),
+  )
+  assert.equal(playoffPreviewOpen(played(3)), false, 'week 3 — the bug this fixes')
+  assert.equal(playoffPreviewOpen(played(9)), false, 'week 9 is still too early')
+  assert.equal(playoffPreviewOpen(played(10)), true, 'week 10 opens it')
+  assert.equal(playoffPreviewOpen(played(14)), true, 'end of the regular season')
+})
+
+test('an empty or malformed season never opens the preview', () => {
+  // Fail CLOSED: an unreadable season must not be read as "late enough".
+  assert.equal(playoffPreviewOpen({}), false)
+  assert.equal(playoffPreviewOpen(undefined), false)
+  assert.equal(playoffPreviewOpen({ 1: 'not a list' }), false)
 })

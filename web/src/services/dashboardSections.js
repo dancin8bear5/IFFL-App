@@ -35,8 +35,10 @@
 // reorder and re-column it; see services/dashboardLayout.js.
 
 export const DASHBOARD_SECTIONS = [
+  // The calendar leads (Sep 29, 2026): it is the one block that is useful
+  // in every phase and to every member, and it is three short tiles.
+  { key: 'calendar',  label: 'League calendar',        glyph: '🗓️' },
   { key: 'closed',    label: 'Rosters-frozen notice',  glyph: '🔒', phases: ['dead'] },
-  { key: 'live',      label: 'Live scoreboard',        glyph: '📡', phases: ['regular', 'playoffs'] },
   // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the
   // In-Season Scoring block are off the Dashboard while the Taylor Made
   // rankings take that slot. `powerChart`, `scoringSection` and the
@@ -45,8 +47,14 @@ export const DASHBOARD_SECTIONS = [
   // line to this list:
   //   { key: 'power',   label: 'Power rankings chart', glyph: '📉' },
   //   { key: 'scoring', label: 'In-season scoring',    glyph: '📈', phases: ['regular', 'playoffs'] },
+  // REMOVED (Sep 29, 2026) — the live scoreboard is off the Dashboard.
+  // `LiveScoreboard`, the `pollEspnScores` function and the `liveScores`
+  // visibility mode are all still wired; restoring it is re-adding this
+  // line and its node in DashboardView:
+  //   { key: 'live',    label: 'Live scoreboard',      glyph: '📡', phases: ['regular', 'playoffs'] },
+  // Gated on weeks PLAYED as well as phase — nothing playoff-shaped shows
+  // before PLAYOFF_PREVIEW_WEEK. See services/playoffs.js.
   { key: 'playoffs',  label: 'Playoff bracket',        glyph: '🏆', phases: ['regular', 'playoffs'], lead: ['playoffs'] },
-  { key: 'calendar',  label: 'League calendar',        glyph: '🗓️' },
   { key: 'tda',       label: 'Team TDA',               glyph: '💰' },
   { key: 'messages',  label: 'League messages',        glyph: '💬' },
   // The two long reads of the preseason, side by side at the top of the rail.

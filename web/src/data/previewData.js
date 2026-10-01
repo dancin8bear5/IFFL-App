@@ -528,3 +528,34 @@ export const previewNotes = [
     destination: 'app', flags: ['188'], createdAt: new Date(Date.now() - 7 * 864e5),
   },
 ]
+
+// 2026 standings for the Dashboard's StandingsReel in preview — the shape
+// pollEspnStandings writes to espnStandings/{season}. Built from the seven
+// preview weeks above with a round-robin schedule (circle method), so the
+// records, points-for and weekly scores all agree with each other. Ties on
+// record break on points-for, the league rule.
+export const previewEspnStandings = (() => {
+  const weeks = Object.keys(previewWeeklyScores).map(Number).sort((a, b) => a - b)
+  const teams = previewWeeklyScores[weeks[0]].map((r) => r.teamName).sort()
+  const rec = Object.fromEntries(teams.map((t) => [t, { wins: 0, losses: 0, ties: 0, pf: 0 }]))
+  const ring = teams.slice(1)
+  weeks.forEach((w, i) => {
+    const pts = Object.fromEntries(previewWeeklyScores[w].map((r) => [r.teamName, r.points]))
+    const order = [teams[0], ...ring.slice(i % ring.length), ...ring.slice(0, i % ring.length)]
+    for (let k = 0; k < order.length / 2; k++) {
+      const a = order[k], b = order[order.length - 1 - k]
+      rec[a].pf += pts[a]; rec[b].pf += pts[b]
+      if (pts[a] > pts[b]) { rec[a].wins++; rec[b].losses++ } else if (pts[a] < pts[b]) { rec[b].wins++; rec[a].losses++ } else { rec[a].ties++; rec[b].ties++ }
+    }
+  })
+  const standings = teams
+    .sort((a, b) => rec[b].wins - rec[a].wins || rec[b].pf - rec[a].pf)
+    .map((t, i) => ({
+      teamName: t, place: i + 1, pointsFor: Math.round(rec[t].pf * 100) / 100,
+      record: rec[t].ties ? `${rec[t].wins}-${rec[t].losses}-${rec[t].ties}` : `${rec[t].wins}-${rec[t].losses}`,
+    }))
+  return { season: 2026, gamesPlayed: weeks.length, standings }
+})()
+
+/** The next week's games, mid-Sunday, for the StandingsReel "this week" column. */
+export const previewStandingsBoard = { ...previewLiveScores, week: Object.keys(previewWeeklyScores).length + 1 }

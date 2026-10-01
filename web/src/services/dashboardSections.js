@@ -39,6 +39,12 @@ export const DASHBOARD_SECTIONS = [
   // in every phase and to every member, and it is three short tiles.
   { key: 'calendar',  label: 'League calendar',        glyph: '🗓️' },
   { key: 'closed',    label: 'Rosters-frozen notice',  glyph: '🔒', phases: ['dead'] },
+  // In-season only, current season only — past seasons live in History.
+  // First on the page since Oct 1, 2026 (the animated StandingsReel). It
+  // LEADS in the regular season, so it stays on top whatever Admin → Layout
+  // stored; in the playoffs it gives the top back to the bracket, which
+  // leads then.
+  { key: 'standings', label: 'Standings',              glyph: '📋', phases: ['regular', 'playoffs'], lead: ['regular'] },
   // HIDDEN, NOT REMOVED (Sep 10, 2026). The Power Rankings chart and the
   // In-Season Scoring block are off the Dashboard while the Taylor Made
   // rankings take that slot. `powerChart`, `scoringSection` and the
@@ -78,8 +84,6 @@ export const DASHBOARD_SECTIONS = [
   // same twelve teams and links to the same rosters. Its belts moved onto
   // the TDA tiles. Restoring it is re-adding this line and its node:
   //   { key: 'teams',   label: 'All teams grid',       glyph: '👥' },
-  // In-season only, current season only — past seasons live in History.
-  { key: 'standings', label: 'Standings',              glyph: '📋', phases: ['regular', 'playoffs'] },
   { key: 'trades',    label: 'Recent trades',          glyph: '🤝' },
   { key: 'ledger',    label: 'Transaction log',        glyph: '🧾' },
 ]

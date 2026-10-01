@@ -1,0 +1,76 @@
+/* StandingsReel — the Dashboard's animated Standings card.
+   Theme-token only (--iff-*), so it follows every app theme. */
+.sr-card { position: relative; overflow: hidden; }
+
+.sr-hud {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center;
+  padding: 0 14px; border-bottom: 1px solid var(--iff-divider); overflow: hidden;
+}
+.sr-hud-l { font-size: 10.5px; font-weight: 700; color: var(--iff-subtext); letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.sr-hud-m { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sr-hud-m em { font-style: normal; color: var(--iff-gold); font-weight: 600; }
+.sr-dots { display: flex; gap: 4px; }
+.sr-dots button { all: unset; cursor: pointer; width: 14px; height: 4px; border-radius: 2px; background: var(--iff-elevated); transition: background .2s; }
+.sr-dots button.on { background: var(--iff-accent); }
+.sr-dots button:focus-visible { outline: 2px solid var(--iff-accent); outline-offset: 2px; }
+
+/* columns: place · team · W-L · PF · sparkline · luck · this week */
+.sr-cols { display: grid; grid-template-columns: 26px minmax(0, 1fr) 52px 62px 78px 54px 118px; align-items: center; padding: 0 14px; column-gap: 4px; }
+.sr-cols.sr-noluck { grid-template-columns: 26px minmax(0, 1fr) 52px 62px 78px 118px; }
+.sr-card { --sr-bar-reserve: 440px; }
+.sr-head { padding-top: 9px; padding-bottom: 9px; font-size: 10px; font-weight: 700; color: var(--iff-subtext); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--iff-divider); }
+.c-wl { text-align: center; color: var(--iff-subtext); font-size: 12px; }
+.c-pf { text-align: right; font-size: 12px; }
+.c-lk { text-align: right; font-size: 12px; }
+.c-lv { text-align: right; font-size: 11px; color: var(--iff-subtext); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-lv b { color: var(--iff-text); font-weight: 600; }
+.sr-head .c-sp { text-align: center; }
+.sr-row .c-sp { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 20px; }
+.sr-row .c-sp i { width: 8px; border-radius: 2px 2px 0 0; opacity: .85; }
+
+.sr-rows { position: relative; transition: height .25s ease; }
+.sr-row {
+  position: absolute; left: 0; right: 0; top: 0; height: 34px; font-size: 13px;
+  border-bottom: 1px solid color-mix(in srgb, var(--iff-subtext) 6%, transparent);
+  will-change: transform; transition: background .15s;
+}
+.sr-row.me { background: color-mix(in srgb, var(--iff-accent) 8%, transparent); }
+.sr-row.tappable { cursor: pointer; }
+.sr-row.tappable:hover, .sr-row.open { background: color-mix(in srgb, var(--iff-subtext) 7%, transparent); }
+.sr-row.me.open { background: color-mix(in srgb, var(--iff-accent) 12%, transparent); }
+.sr-row:focus-visible { outline: 2px solid var(--iff-accent); outline-offset: -2px; }
+.sr-place { font-weight: 700; position: relative; z-index: 1; }
+.sr-team { display: flex; align-items: center; gap: 7px; min-width: 0; position: relative; z-index: 1; }
+.sr-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sr-tag { flex-shrink: 0; font-size: 9px; font-weight: 700; letter-spacing: .06em; padding: 1px 5px; border-radius: 4px; }
+.sr-tag.hi { background: color-mix(in srgb, var(--iff-gold) 18%, transparent); color: var(--iff-gold); }
+.sr-tag.lo { background: color-mix(in srgb, var(--iff-accent) 16%, transparent); color: var(--iff-accent); }
+.sr-tag.bub { background: color-mix(in srgb, var(--iff-subtext) 16%, transparent); color: var(--iff-subtext); }
+.sr-bar { position: absolute; left: 40px; top: 7px; height: 20px; border-radius: 5px; z-index: 0; pointer-events: none; }
+.sr-bar b { position: absolute; right: 6px; top: 3px; font-size: 10.5px; font-weight: 600; color: var(--iff-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.sr-cut { position: absolute; left: 14px; right: 14px; height: 0; border-top: 1.5px dashed var(--iff-green); z-index: 2; transform-origin: left; pointer-events: none; }
+.sr-cut span { position: absolute; right: 0; top: -15px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--iff-green); }
+.sr-cut span.b { top: 3px; color: var(--iff-subtext); }
+
+.sr-xp { position: absolute; left: 0; right: 0; z-index: 3; padding: 10px 14px 12px; font-size: 12px; color: var(--iff-subtext);
+  background: var(--iff-elevated); border-top: 1px solid var(--iff-divider); border-bottom: 1px solid var(--iff-divider); }
+.sr-xp b { color: var(--iff-text); font-weight: 600; }
+.sr-xp-g { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; margin-top: 8px; }
+.sr-xp-g div { background: var(--iff-surface); border-radius: 8px; padding: 6px 9px; }
+.sr-xp-g small { display: block; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.sr-xp-live { margin-top: 8px; }
+
+.sr-foot { display: flex; justify-content: space-between; align-items: center; min-height: 34px; padding: 0 14px; font-size: 11px; color: var(--iff-subtext); }
+.sr-foot button { all: unset; cursor: pointer; margin-left: auto; font-size: 12px; font-weight: 600; color: var(--iff-accent); padding: 6px 0; }
+.sr-foot button:focus-visible { outline: 2px solid var(--iff-accent); outline-offset: 2px; }
+
+/* Phone and the narrow main column: today's four columns; the extras live in the tap-to-expand row. */
+@media (max-width: 760px) {
+  .sr-cols, .sr-cols.sr-noluck { grid-template-columns: 26px minmax(0, 1fr) 52px 62px; }
+  .sr-wide { display: none !important; }
+  .sr-card { --sr-bar-reserve: 170px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sr-rows, .sr-row { transition: none; }
+}

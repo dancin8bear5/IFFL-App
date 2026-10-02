@@ -1,18 +1,21 @@
 // StandingsReel — the Dashboard's Standings card, animated (Oct 1, 2026).
 //
-// Replays the season when it first comes into view: kickoff → one beat per
-// completed week (bars = running points-for, weekly high/low tagged) → the
-// real ESPN table with the playoff cut → luck (all-play) → settles into the
-// same table the Dashboard always had: place (medal colours), avatar, team
-// link, belts, W-L, PF (green inside the cut), your row tinted, "Full
-// history" link. Settled, it adds a weekly sparkline, luck and this week's
-// game; tap a row (not the name — that's still the roster link) for detail.
+// Scroll-driven: as you scroll down the Dashboard the card holds at the top
+// of the screen and plays the season — kickoff → one beat per completed week
+// (bars = running points-for totals, weekly high/low tagged) → the real ESPN
+// table with the playoff cut → luck (all-play) — then lets go and the page
+// carries on. Scrolling back up rewinds it. It settles into the same table
+// the Dashboard always had: place (medal colours), avatar, team link, belts,
+// W-L, PF (green inside the cut), your row tinted, "Full history" link.
+// Settled, it adds a weekly sparkline, luck and this week's game; tap a row
+// (not the name — that's still the roster link) for detail.
 //
-// Why it plays instead of scrubbing on scroll: it sits at the very top of
-// the Dashboard, so there is no scroll runway before it — a scroll-driven
-// version would load half-finished. It plays once per session per new
-// week (sessionStorage), tap skips, Replay and the week dots re-run it,
-// and prefers-reduced-motion gets the settled table straight away.
+// It sits at the very top, so it gets its own scroll runway: the header +
+// card are `position: sticky` inside a taller track, and progress is how
+// far the track has scrolled. The runway is ~230px per week plus ~520px for
+// the standings / luck / settle beats. No pin (settled table straight away)
+// under prefers-reduced-motion, when there are no weekly scores, or when
+// the card is taller than the screen (a phone held sideways).
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { SectionHeader, TeamAvatar, BeltRow } from './shared'
 import TeamLink from './TeamLink'
@@ -45,49 +48,83 @@ export default function StandingsReel({ season, standings, weeklyScores, userTea
     return fs.listenToLiveScores(season, setBoard, () => setBoard(null))
   }, [season, isPreview, previewBoard])
 
-  // ── playback ──
+  // ── scroll-driven playback ──
   const weekCount = reel?.weeks.length ?? 0
-  const playKey = `standingsReel.played.${season}.${reel?.gamesPlayed ?? 0}.${weekCount}`
-  const alreadyPlayed = () => { try { return sessionStorage.getItem(playKey) === '1' } catch { return false } }
-  const [p, setP] = useState(() => (reducedMotion() || alreadyPlayed() ? 1 : 0))
-  const [playing, setPlaying] = useState(false)
-  const raf = useRef(0)
-  const cardRef = useRef(null)
-  const duration = clamp(4500 + weekCount * 300, 5000, 8500, )
+  const runway = clamp(weekCount * 230 + 520, 900, 3200)
+  const trackRef = useRef(null)
+  const pinRef = useRef(null)
+  const scroller = useRef(null)
+  const [p, setP] = useState(() => (reducedMotion() ? 1 : 0))
+  const [pinH, setPinH] = useState(0)
+  const [view, setView] = useState({ h: 800, stick: 8 })
+  const pinned = !reducedMotion() && weekCount > 0 && pinH > 0 && pinH + view.stick + 24 <= view.h
 
-  const play = (from = 0) => {
-    if (reducedMotion()) { setP(1); return }
-    cancelAnimationFrame(raf.current)
-    const t0 = performance.now() - from * duration
-    setPlaying(true)
-    const step = (now) => {
-      const v = clamp((now - t0) / duration)
-      setP(v)
-      if (v < 1) raf.current = requestAnimationFrame(step)
-      else { setPlaying(false); try { sessionStorage.setItem(playKey, '1') } catch { /* private mode */ } }
-    }
-    raf.current = requestAnimationFrame(step)
-  }
-  const skip = () => { cancelAnimationFrame(raf.current); setPlaying(false); setP(1); try { sessionStorage.setItem(playKey, '1') } catch { /* */ } }
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
-
-  // Start the first time the card is properly on screen.
+  // The Dashboard scrolls inside .screen-body on phones and the window on
+  // desktop — use whichever ancestor actually scrolls.
   useEffect(() => {
-    if (!reel || p >= 1 || playing || !cardRef.current) return
-    if (!('IntersectionObserver' in window)) { play(); return }
-    const io = new IntersectionObserver((es) => {
-      if (es[0].isIntersecting) { io.disconnect(); play() }
-    }, { threshold: 0.35 })
-    io.observe(cardRef.current)
-    return () => io.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reel, playKey])
+    let el = trackRef.current?.parentElement
+    while (el && el !== document.body) {
+      const oy = getComputedStyle(el).overflowY
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) break
+      el = el.parentElement
+    }
+    scroller.current = el && el !== document.body ? el : window
+  }, [reel])
+
+  // Card height (rows open/close) and the visible area under any sticky nav bar.
+  useEffect(() => {
+    if (!pinRef.current) return
+    const measure = () => {
+      const sc = scroller.current
+      const h = sc && sc !== window ? sc.clientHeight : window.innerHeight
+      const nav = (sc && sc !== window ? sc : document).querySelector('.nav-bar')
+      const navH = nav && getComputedStyle(nav).position === 'sticky' ? nav.offsetHeight : 0
+      setPinH(pinRef.current.offsetHeight)
+      setView({ h: h - navH, stick: navH + 8 })
+    }
+    measure()
+    const ro = 'ResizeObserver' in window ? new ResizeObserver(measure) : null
+    ro?.observe(pinRef.current)
+    window.addEventListener('resize', measure)
+    return () => { ro?.disconnect(); window.removeEventListener('resize', measure) }
+  }, [reel])
+
+  // Progress = how far the track has scrolled past the pin line.
+  useEffect(() => {
+    if (!pinned) { setP(1); return }
+    const sc = scroller.current || window
+    let raf = 0
+    const read = () => {
+      raf = 0
+      const top = trackRef.current?.getBoundingClientRect().top
+      if (top == null) return
+      const base = sc === window ? 0 : sc.getBoundingClientRect().top
+      setP(clamp((base + view.stick - top) / runway))
+    }
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(read) }
+    read()
+    sc.addEventListener('scroll', onScroll, { passive: true })
+    return () => { sc.removeEventListener('scroll', onScroll); cancelAnimationFrame(raf) }
+  }, [pinned, runway, view.stick])
+
+  /** Scroll so the card shows progress `q` (week dots, Replay). */
+  const seek = (q) => {
+    const sc = scroller.current || window
+    const top = trackRef.current?.getBoundingClientRect().top
+    if (top == null) return
+    const base = sc === window ? 0 : sc.getBoundingClientRect().top
+    const delta = top - base - view.stick + q * runway
+    const smooth = reducedMotion() ? 'auto' : 'smooth'
+    if (sc === window) window.scrollBy({ top: delta, behavior: smooth })
+    else sc.scrollBy({ top: delta, behavior: smooth })
+  }
 
   // ── expanded row (settled only) ──
   const [open, setOpen] = useState(null)
   const xpRef = useRef(null)
   const [xpH, setXpH] = useState(0)
   useEffect(() => { setXpH(open && xpRef.current ? xpRef.current.offsetHeight : 0) }, [open, p, board])
+  useEffect(() => { if (p < 1 && open) setOpen(null) }, [p, open])
 
   if (!reel) return null
 
@@ -105,7 +142,7 @@ export default function StandingsReel({ season, standings, weeklyScores, userTea
   let hudLeft = 'Kickoff', hudMsg = <>{reel.teams.length} teams · {reel.cutPlace} playoff spots</>
   if (inRace) {
     const i = wk - 1, { high, low } = reel.extremes[i]
-    hudLeft = `Week ${reel.weeks[i]}${i > 0 ? ' · total' : ''}`
+    hudLeft = i > 0 ? `Through week ${reel.weeks[i]}` : `Week ${reel.weeks[i]}`
     hudMsg = high
       ? <>High <em>{high} {fmt2(reel.points[high][i])}</em>{low && low !== high && <> · Low {low} {fmt2(reel.points[low][i])}</>}</>
       : null
@@ -142,14 +179,10 @@ export default function StandingsReel({ season, standings, weeklyScores, userTea
   const cols = reel.luckValid ? 'sr-cols' : 'sr-cols sr-noluck'
 
   return (
-    <div>
+    <div ref={trackRef} className="sr-track" style={{ height: pinned ? pinH + runway : undefined }}>
+      <div ref={pinRef} className={pinned ? 'sr-pin' : undefined} style={pinned ? { top: view.stick } : undefined}>
       <SectionHeader title={`${season} Standings`} actionLabel="Full history" onAction={onOpenHistory} />
-      <div
-        ref={cardRef}
-        className="iff-card sr-card"
-        style={{ marginTop: 10 }}
-        onClick={(e) => { if (playing && !e.target.closest('a,button')) skip() }}
-      >
+      <div className="iff-card sr-card" style={{ marginTop: 10 }}>
         <div className="sr-hud" style={{ height: 42 * (1 - b.settle), opacity: 1 - b.settle }} aria-hidden={settled}>
           <span className="sr-hud-l">{hudLeft}</span>
           <span className="sr-hud-m">{hudMsg}</span>
@@ -158,7 +191,7 @@ export default function StandingsReel({ season, standings, weeklyScores, userTea
               <button
                 key={w} type="button" title={`Jump to week ${w}`} aria-label={`Jump to week ${w}`}
                 className={wk > i || b.standings > 0 ? 'on' : ''}
-                onClick={(e) => { e.stopPropagation(); play(0.08 + (0.58 * (i + 1)) / weekCount - 0.005) }}
+                onClick={(e) => { e.stopPropagation(); seek(0.08 + (0.58 * (i + 1)) / weekCount - 0.005) }}
               />
             ))}
           </span>
@@ -271,13 +304,17 @@ export default function StandingsReel({ season, standings, weeklyScores, userTea
         </div>
 
         <div className="sr-foot">
-          {playing
-            ? <button type="button" onClick={(e) => { e.stopPropagation(); skip() }}>Skip ›</button>
+          {!settled
+            ? <>
+                <span>Keep scrolling — the season plays as you go</span>
+                <button type="button" onClick={(e) => { e.stopPropagation(); seek(1) }}>Skip ›</button>
+              </>
             : <>
-                <span>{settled ? 'Tap a team for its weeks' : ''}</span>
-                {weekCount > 0 && <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(null); play(0) }}>↻ Replay season</button>}
+                <span>Tap a team for its weeks</span>
+                {pinned && <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(null); seek(0) }}>↻ Replay season</button>}
               </>}
         </div>
+      </div>
       </div>
     </div>
   )

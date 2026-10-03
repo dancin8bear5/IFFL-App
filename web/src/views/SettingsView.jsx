@@ -1,6 +1,12 @@
 // SettingsView — the full settings experience.
-// Profile, appearance (90s mode, accent, text size, confetti — all with
-// LIVE preview while editing, restored on cancel), league prefs, sign out.
+// Profile, appearance (era, accent, text size, confetti), league prefs,
+// sign out.
+//
+// Appearance SAVES ON THE TAP; everything else waits for the Save button.
+// The split is deliberate: a theme is a view preference you judge by looking
+// at it, and gating it behind a button at the bottom of a long page meant
+// leaving by ‹ Back — or by tapping outside the panel — showed the new look
+// and then quietly threw it away.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName, FMK_ENABLED } from '../data/staticData'
@@ -14,25 +20,81 @@ const APP_VERSION = 'Insanity League Web 1.0'
 const TAB_NAMES = ['Dashboard', 'Rosters', 'Market', 'League']
 
 export default function SettingsView({ onClose }) {
-  const { user, userTeam, setUserTeam, setSelectedTeam, userSettings, saveUserSettings, isAdmin } = useApp()
+  const {
+    user, userTeam, setUserTeam, setSelectedTeam,
+    userSettings, didLoadSettings, saveUserSettings, savePartialSettings, isAdmin,
+  } = useApp()
   const [settings, setSettings] = useState(userSettings)
   const [team, setTeam] = useState(userTeam)
   const [saving, setSaving] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [error, setError] = useState(null)
 
   const set = (patch) => setSettings((s) => ({ ...s, ...patch }))
 
-  // LIVE preview of appearance while editing; restore saved values on close
+  // Re-seed from the stored settings the moment they arrive.
+  //
+  // This panel is reachable from the sidebar immediately, while
+  // fetchUserSettings is still a round trip away — so useState's initial
+  // value can be the DEFAULTS. Saving then wrote those defaults over the
+  // real document, which is how a theme chosen earlier got erased by a
+  // later, unrelated save. Only seeds once, so it can never stomp an edit
+  // in progress.
+  const seeded = useRef(didLoadSettings)
+  useEffect(() => {
+    if (!didLoadSettings || seeded.current) return
+    seeded.current = true
+    setSettings(userSettings)
+  }, [didLoadSettings, userSettings])
+
+  /**
+   * Appearance saves ON CLICK — picking a theme IS the save.
+   *
+   * It used to preview live and persist only via the Save button at the
+   * bottom of the page, so leaving by ‹ Back or by tapping outside the
+   * panel threw the choice away after showing it working. A view preference
+   * with a hidden second step is the whole complaint.
+   */
+  async function setAppearance(patch) {
+    set(patch)
+    setError(null)
+    try {
+      await savePartialSettings(patch)
+    } catch {
+      // savePartialSettings already put the stored value back; mirror that
+      // locally so the panel agrees with what is actually saved.
+      setSettings((s) => ({ ...s, ...Object.fromEntries(Object.keys(patch).map((k) => [k, userSettings[k]])) }))
+      setError('Could not save that — check your connection and try again.')
+    }
+  }
+
+  // Appearance follows the local copy so a pick shows instantly, and the
+  // team selector is included because the "My Team" accent depends on it.
   useEffect(() => {
     applyAppearance(settings, team || userTeam)
   }, [settings.retroMode, settings.uiTheme, settings.accentColor, settings.textSize, team, userTeam])
-  useEffect(() => {
-    return () => applyAppearance(userSettings, userTeam) // unmount → saved state
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userSettings, userTeam])
+
+  // On the way out, fall back to what is actually SAVED.
+  //
+  // A no-op for the appearance controls, which save on the tap — this is
+  // here for the ESPN Team dropdown, which does not. Picking a team moves
+  // the "My Team" accent live, and that choice is commissioner-gated, so
+  // leaving without a successful save would otherwise strand (and cache)
+  // an accent belonging to a team that was never assigned.
+  //
+  // A ref, and an unmount-only effect: the previous version listed
+  // `userSettings` as a dependency, so every save re-ran its cleanup with
+  // the PRE-save values and briefly re-applied the look the user had just
+  // replaced.
+  const savedRef = useRef(null)
+  savedRef.current = { settings: userSettings, team: userTeam }
+  useEffect(() => () => {
+    applyAppearance(savedRef.current.settings, savedRef.current.team)
+  }, [])
 
   async function save() {
     setSaving(true)
+    setError(null)
     try {
       await saveUserSettings(settings)
       if (team && team !== userTeam && user) {
@@ -49,6 +111,12 @@ export default function SettingsView({ onClose }) {
         }
       }
       onClose()
+    } catch (err) {
+      // Previously unhandled: the write failed, the panel stayed open with
+      // no explanation, and local state still showed the change. Say so
+      // rather than letting it read as saved.
+      console.error('saveUserSettings failed:', err)
+      setError('Could not save your settings — check your connection and try again.')
     } finally {
       setSaving(false)
     }
@@ -83,7 +151,7 @@ export default function SettingsView({ onClose }) {
 
         <ProfilePictureSection />
 
-        <Section title="Appearance — changes preview live">
+        <Section title="Appearance — saves as you pick">
           {/* Era themes — each decade reskins the whole app */}
           <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--iff-divider)' }}>
             <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginBottom: 10 }}>🕰️ Era</div>
@@ -94,7 +162,7 @@ export default function SettingsView({ onClose }) {
                   <button
                     key={t.key}
                     // retroMode kept in sync so pre-era saved settings stay valid
-                    onClick={() => set({ uiTheme: t.key, retroMode: t.key === '90s' })}
+                    onClick={() => setAppearance({ uiTheme: t.key, retroMode: t.key === '90s' })}
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3,
                       padding: '9px 11px', borderRadius: 10, textAlign: 'left',
@@ -123,7 +191,7 @@ export default function SettingsView({ onClose }) {
                   return (
                     <button
                       key={c.key}
-                      onClick={() => set({ accentColor: c.key })}
+                      onClick={() => setAppearance({ accentColor: c.key })}
                       title={c.label}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
@@ -151,7 +219,7 @@ export default function SettingsView({ onClose }) {
                 return (
                   <button
                     key={t.key}
-                    onClick={() => set({ textSize: t.key })}
+                    onClick={() => setAppearance({ textSize: t.key })}
                     style={{
                       padding: '4px 12px', borderRadius: 7, fontWeight: 700,
                       fontSize: t.key === 'small' ? 11 : t.key === 'large' ? 15 : 13,
@@ -175,7 +243,8 @@ export default function SettingsView({ onClose }) {
             >
               try it
             </button>
-            <MiniToggle on={settings.confetti ?? true} onChange={(v) => set({ confetti: v })} label="Victory Confetti" />
+            {/* In the Appearance section, so it saves on the tap like the rest of it */}
+            <MiniToggle on={settings.confetti ?? true} onChange={(v) => setAppearance({ confetti: v })} label="Victory Confetti" />
           </div>
         </Section>
 
@@ -215,6 +284,19 @@ export default function SettingsView({ onClose }) {
               </span>
             </button>
           </Section>
+        )}
+
+        {error && (
+          <div
+            data-testid="settings-error"
+            style={{
+              padding: '10px 14px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+              background: 'rgba(239, 68, 68, 0.12)', color: '#F87171',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+            }}
+          >
+            {error}
+          </div>
         )}
 
         <button className="btn-primary" onClick={save} disabled={saving}>

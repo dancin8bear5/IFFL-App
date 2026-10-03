@@ -84,6 +84,13 @@ export function AppProvider({ children }) {
   const [allLeagueFMK, setAllLeagueFMK] = useState([])
   const [userSettings, setUserSettings] = useState(DEFAULT_SETTINGS)
   const [didLoadSettings, setDidLoadSettings] = useState(false)
+  // Did the settings READ actually succeed? didLoadSettings also goes true
+  // when it failed (so the app stops waiting), and the two must not be
+  // confused: appearance is only ever applied FROM state once the stored
+  // settings are authoritative. Before that the cached theme main.jsx
+  // painted is the best thing on screen, and a failed read must not replace
+  // it with defaults — that is the silent revert this guards against.
+  const [settingsAuthoritative, setSettingsAuthoritative] = useState(false)
   const [leagueHistory, setLeagueHistory] = useState([])
   const [historyMatchups, setHistoryMatchups] = useState([]) // historyMatchups/{year} docs, lazy
   const [historyAggregates, setHistoryAggregates] = useState(null) // {scoring, draft}, lazy
@@ -130,12 +137,19 @@ export function AppProvider({ children }) {
     })
   }, [])
 
-  // Appearance (90s mode, accent color, text size) applied from saved settings
+  // Appearance (era, accent color, text size) applied from saved settings,
+  // and only once those settings are the real ones — see
+  // settingsAuthoritative above. main.jsx has already painted the cached
+  // theme, so there is nothing to show in the meantime and nothing to fix.
   useEffect(() => {
+    if (!DEV_PREVIEW && !settingsAuthoritative) return
     import('../services/appearance').then(({ applyAppearance }) =>
       applyAppearance(userSettings, userTeam),
     )
-  }, [userSettings.retroMode, userSettings.uiTheme, userSettings.accentColor, userSettings.textSize, userTeam])
+  }, [
+    settingsAuthoritative, userTeam,
+    userSettings.retroMode, userSettings.uiTheme, userSettings.accentColor, userSettings.textSize,
+  ])
 
   // Dev preview: load sample data once instead of Firestore
   useEffect(() => {
@@ -194,6 +208,7 @@ export function AppProvider({ children }) {
       setUserTeam(''); setSelectedTeam(''); setIsCommissioner(false)
       setRookieDraft(null)
       setIsInitialLoadComplete(false); setDidLoadSettings(false)
+      setSettingsAuthoritative(false)
       setUserSettings(DEFAULT_SETTINGS)
       return
     }
@@ -272,9 +287,17 @@ export function AppProvider({ children }) {
         .then((s) => {
           if (cancelled) return
           if (s) setUserSettings({ ...DEFAULT_SETTINGS, ...s })
+          // A successful read is authoritative whether or not a doc exists:
+          // no doc means this user really is on the defaults.
+          setSettingsAuthoritative(true)
           setDidLoadSettings(true)
         })
-        .catch(() => !cancelled && setDidLoadSettings(true))
+        .catch((err) => {
+          if (cancelled) return
+          // Deliberately NOT authoritative — leave the cached theme up.
+          console.error('fetchUserSettings failed; keeping the cached appearance:', err)
+          setDidLoadSettings(true)
+        })
     }
 
     setup()
@@ -620,6 +643,40 @@ export function AppProvider({ children }) {
     [uid],
   )
 
+  /**
+   * Save SOME settings keys, optimistically, and put them back if the write
+   * is refused.
+   *
+   * The appearance picker uses this so that choosing a theme is the save —
+   * there is no second step to forget. It takes a patch rather than the whole
+   * settings object for two reasons: a half-filled nickname in the editor
+   * must not ride along with a theme click, and reverting has to restore only
+   * the keys this call touched.
+   *
+   * Throws on failure, after reverting, so the caller can say so. A silent
+   * failure here is exactly the bug this replaces — the screen showed a theme
+   * that was never written, and the next reload took it away.
+   */
+  const savePartialSettings = useCallback(
+    async (patch) => {
+      if (!uid) return
+      const keys = Object.keys(patch)
+      let before = null
+      setUserSettings((prev) => {
+        before = Object.fromEntries(keys.map((k) => [k, prev[k]]))
+        return { ...prev, ...patch }
+      })
+      if (DEV_PREVIEW) return
+      try {
+        await fs.saveUserSettings(patch, uid)
+      } catch (err) {
+        if (before) setUserSettings((prev) => ({ ...prev, ...before }))
+        throw err
+      }
+    },
+    [uid],
+  )
+
   const proposeTradeFor = useCallback((asset) => {
     setSelectedAssetForTrade(asset)
     setTriggerTradeProposal(true)
@@ -799,7 +856,7 @@ export function AppProvider({ children }) {
     interestedAssetIds, toggleInterest,
     allLeagueInterests, loadAllLeagueInterests,
     // settings + history
-    userSettings, didLoadSettings, saveUserSettings,
+    userSettings, didLoadSettings, saveUserSettings, savePartialSettings,
     leagueHistory, loadLeagueHistory,
     historyMatchups, loadHistoryMatchups,
     historyAggregates, loadHistoryAggregates,

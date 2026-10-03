@@ -343,6 +343,66 @@ opponent draft from Admin → League → Standings, and needs the math whenever.
 No agent publishes playoff seeds: `parseStandings` reads ESPN's
 `playoffSeed` only to order a standings table and drops the field.
 
+### Appearance saves on the tap (Oct 3, 2026)
+Picking an era/accent/text size didn't stick. There was no single bug —
+**four** separate ways the same choice got lost, and the first two are the
+ones that bit:
+
+1. **It was Save-gated while labelled "changes preview live."** The picker
+   applied the theme instantly but only `saveUserSettings` persisted it, and
+   that button is at the BOTTOM of a long page. Leaving by `‹ Back` — or by
+   tapping the backdrop, which `DetailOverlay` also wires to `onBack` — threw
+   the choice away after showing it working. Appearance now writes on the
+   click via `savePartialSettings`; everything else still waits for Save.
+   That split is the design, not an inconsistency: a theme is judged by
+   looking at it, a nickname isn't.
+2. **The panel seeded its local state once, at mount.** Settings is reachable
+   from the sidebar immediately, while `fetchUserSettings` is still a round
+   trip away — so `useState(userSettings)` could capture the DEFAULTS, and
+   any later Save wrote those defaults over the real document, erasing a
+   theme chosen earlier. It re-seeds (once, so it can't stomp an edit in
+   progress) when `didLoadSettings` goes true.
+3. **The theme lived ONLY in Firestore**, read after auth, so every load
+   painted Modern and then switched. The applied "recipe" is now mirrored to
+   `localStorage` (`iffl.appearance`) and replayed from `main.jsx` before
+   React mounts. Firestore stays the source of truth — that is what follows
+   you to another browser; this is the fast path.
+4. **A failed read silently repainted the defaults.** `didLoadSettings` goes
+   true on failure too (so the app stops waiting), so appearance is applied
+   from state only once `settingsAuthoritative` is set — which happens on a
+   SUCCESSFUL read, doc or no doc. A read that never lands leaves the cached
+   theme up rather than replacing it with Modern.
+
+**`appearanceRecipe()` is pure and resolves the accent to a hex** (14 tests
+in `services/appearance.test.js`). That is what makes the boot replay
+possible: `accentColor: 'team'` needs a team to resolve and at boot there is
+no team yet, so the cache stores the four values that actually hit `<html>`
+(`retro`, `era`, `accent`, `fontSize`), not the settings that imply them.
+Every cache read is coerced and `try`/`catch`ed in both directions — this
+runs before React, so a throw there is a blank app, and private mode makes
+the accessor itself throw.
+
+**`fs.saveUserSettings` MERGES now.** It has to: the picker saves
+`{uiTheme}` alone and must not drop the nickname, default tab or FMK
+preference in the same doc. `setDoc`+merge rather than `updateDoc` because
+the document doesn't exist until the first save.
+
+Write failures are surfaced in the panel instead of swallowed —
+`savePartialSettings` reverts the optimistic local value and rethrows, and
+`save()` finally has a `catch` (it had none, so a rejected write left the
+panel open with no explanation and the change still on screen).
+
+The unmount cleanup that restores saved appearance was **kept, but is
+unmount-only** via a ref. It is a no-op for the auto-saving controls and
+exists for the ESPN Team dropdown, which previews the "My Team" accent live
+and is commissioner-gated. The old version listed `userSettings` in its deps,
+so every save re-ran its cleanup with the PRE-save values and briefly
+re-applied the look just replaced.
+
+`services/appearance.js` imports `../data/staticData.js` **with the
+extension** — `node --test` can't resolve it otherwise. Same trip-up as
+`./odds/index.js` and `./rankingsRelease.js`.
+
 ### Live scoreboard polling — the commissioner's window (Sep 28, 2026)
 > **PAUSED since Sep 29, 2026** at the commissioner's request, until he says
 > otherwise. `LIVE_SCORES_PAUSED = true` in `functions/espnScores.js`:

@@ -1,7 +1,9 @@
 // appearance — applies user appearance settings to the document.
 // Used by AppContext (saved settings) and SettingsView (live preview while
 // editing, restored on cancel).
-import { teamByName } from '../data/staticData'
+// Extension is explicit so `node --test` can resolve this under the new
+// appearance.test.js — Vite is happy either way, Node is not.
+import { teamByName } from '../data/staticData.js'
 
 // Era themes — each reskins the whole app to a decade (or to Soldier Field).
 // '90s' keeps the original data-retro CSS; the rest use data-era blocks.
@@ -40,27 +42,99 @@ export function resolveAccent(accentColor, userTeam) {
   return ACCENT_CHOICES.find((c) => c.key === accentColor)?.color ?? '#E63946'
 }
 
-/** Apply appearance settings to the live document. */
-export function applyAppearance(settings, userTeam) {
-  const root = document.documentElement
+/**
+ * The four things appearance does to the document, as data.
+ *
+ * Pure, so it is unit-testable and — more importantly — so the exact values
+ * that were applied can be CACHED and replayed at boot without re-deriving
+ * them. The accent is resolved to a hex here precisely because 'team' needs
+ * a team to resolve, and at boot we have no team yet.
+ */
+export function appearanceRecipe(settings = {}, userTeam) {
   const theme = resolveTheme(settings)
-
-  // Era theme: 90s rides the original data-retro CSS; others use data-era
-  if (theme === '90s') root.dataset.retro = '1'
-  else delete root.dataset.retro
-  if (theme !== 'default' && theme !== '90s') root.dataset.era = theme
-  else delete root.dataset.era
-
-  // Accent — era themes own their own palette; don't fight them
-  if (theme === 'default' && settings.accentColor && settings.accentColor !== 'red') {
-    root.style.setProperty('--iff-accent', resolveAccent(settings.accentColor, userTeam))
-  } else {
-    root.style.removeProperty('--iff-accent')
-  }
-  // Text size
   const size = TEXT_SIZES.find((t) => t.key === settings.textSize)?.pct
-  if (size && size !== '100%') root.style.fontSize = size
+  return {
+    // 90s rides the original data-retro CSS; the other eras use data-era
+    retro: theme === '90s',
+    era: theme !== 'default' && theme !== '90s' ? theme : null,
+    // Era themes own their own palette — don't fight them
+    accent: theme === 'default' && settings.accentColor && settings.accentColor !== 'red'
+      ? resolveAccent(settings.accentColor, userTeam)
+      : null,
+    fontSize: size && size !== '100%' ? size : null,
+  }
+}
+
+/** Put a recipe on <html>. */
+export function applyRecipe(recipe) {
+  const root = document.documentElement
+  if (recipe.retro) root.dataset.retro = '1'
+  else delete root.dataset.retro
+  if (recipe.era) root.dataset.era = recipe.era
+  else delete root.dataset.era
+  if (recipe.accent) root.style.setProperty('--iff-accent', recipe.accent)
+  else root.style.removeProperty('--iff-accent')
+  if (recipe.fontSize) root.style.fontSize = recipe.fontSize
   else root.style.removeProperty('font-size')
+}
+
+// ── The local cache ───────────────────────────────────────────
+//
+// Appearance is a VIEW preference, and until Sep 2026 its only home was a
+// Firestore doc read after sign-in. That made the look of the app depend on
+// a network round trip: every load painted Modern first and switched once
+// the read landed, and a read that was slow, offline or refused left the
+// user looking at a theme they had not chosen — indistinguishable from
+// "my setting didn't save".
+//
+// So the applied recipe is mirrored here and replayed before React mounts.
+// Firestore stays the source of truth (it is what follows you to another
+// browser); this is the fast path, and it is per-browser by nature.
+export const APPEARANCE_CACHE_KEY = 'iffl.appearance'
+
+/** Last applied recipe, or null. Never throws — storage can be unavailable. */
+export function readCachedRecipe() {
+  try {
+    const raw = window.localStorage.getItem(APPEARANCE_CACHE_KEY)
+    if (!raw) return null
+    const r = JSON.parse(raw)
+    if (!r || typeof r !== 'object') return null
+    return {
+      retro: !!r.retro,
+      era: typeof r.era === 'string' ? r.era : null,
+      accent: typeof r.accent === 'string' ? r.accent : null,
+      fontSize: typeof r.fontSize === 'string' ? r.fontSize : null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/** Remember a recipe for the next boot. Never throws. */
+export function cacheRecipe(recipe) {
+  try {
+    window.localStorage.setItem(APPEARANCE_CACHE_KEY, JSON.stringify(recipe))
+  } catch {
+    /* private mode, quota, storage blocked — the Firestore copy still works */
+  }
+}
+
+/**
+ * Apply the cached recipe, if any. Called once from main.jsx before render
+ * so the app paints in the user's own theme instead of flashing Modern.
+ */
+export function applyCachedAppearance() {
+  const r = readCachedRecipe()
+  if (r) applyRecipe(r)
+  return r
+}
+
+/** Apply appearance settings to the live document, and remember them. */
+export function applyAppearance(settings, userTeam) {
+  const recipe = appearanceRecipe(settings ?? {}, userTeam)
+  applyRecipe(recipe)
+  cacheRecipe(recipe)
+  return recipe
 }
 
 // ── Victory confetti ──────────────────────────────────────────

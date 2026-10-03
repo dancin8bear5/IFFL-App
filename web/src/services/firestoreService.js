@@ -1012,8 +1012,14 @@ export async function fetchUserSettings(userId) {
   return snap.exists() ? snap.data() : null
 }
 
+/**
+ * Write settings for one user. MERGES, so a caller may send a patch — the
+ * appearance picker saves `{uiTheme}` alone and must not drop the nickname,
+ * default tab or FMK preference sitting in the same document. setDoc+merge
+ * rather than updateDoc because the doc does not exist until the first save.
+ */
 export function saveUserSettings(settings, userId) {
-  return setDoc(doc(db, COL.userSettings, userId), settings)
+  return setDoc(doc(db, COL.userSettings, userId), settings, { merge: true })
 }
 
 // ── GroupMe notification mapping — config/groupme ─────────────

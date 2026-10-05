@@ -1,14 +1,16 @@
 # Agent #1 — deploy + verify. Spec: docs/agents/01-deploy-agent.md
 #
 #   test ─▶ deploy ─▶ live smoke ─(fail)▶ auto-rollback hosting
-#                   └▶ critical-process health ─▶ Telegram report
+#                   └▶ critical-process health
+#
+# ON DEMAND ONLY (Oct 5, 2026): pushes and PRs run `test`; nothing deploys unless someone runs
+# this workflow by hand — Actions → "Deploy + verify" → Run workflow (main), or
+# `gh workflow run deploy.yml --ref main`. The Telegram report was removed with the automation.
 #
 # Secrets (repo → Settings → Secrets → Actions):
 #   FIREBASE_SA            deploy service-account JSON key
 #   VITE_FIREBASE_API_KEY  VITE_FIREBASE_APP_ID      (web/.env values)
-#   TELEGRAM_BOT_TOKEN     TELEGRAM_CHAT_ID          (optional TELEGRAM_THREAD_ID)
 #   SMOKE_EMAIL            SMOKE_PASSWORD            read-only account in config/league.smokeUIDs
-# Reporting is failure-only; set repo variable REPORT_ALWAYS=true to hear about green runs too.
 name: Deploy + verify
 
 on:
@@ -60,7 +62,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions: { contents: read }
     outputs:
@@ -151,32 +153,9 @@ jobs:
         if: steps.smoke.outcome == 'failure' || steps.health.outcome == 'failure'
         run: exit 1
 
-  report:
-    needs: [test, deploy]
-    if: always() && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - name: Telegram
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          TELEGRAM_THREAD_ID: ${{ secrets.TELEGRAM_THREAD_ID }}
-          TEST: ${{ needs.test.result }}
-          DEPLOY: ${{ needs.deploy.result }}
-          SMOKE: ${{ needs.deploy.outputs.smoke }}
-          ROLLED_BACK: ${{ needs.deploy.outputs.rolled_back }}
-          HEALTH: ${{ needs.deploy.outputs.health }}
-          SHA: ${{ github.sha }}
-          MSG: ${{ github.event.head_commit.message }}
-          REPORT_ALWAYS: ${{ vars.REPORT_ALWAYS }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: node .github/scripts/report.mjs
-
   # ── Deploy Captain (brain/deploy) — additive; the jobs above are Agent #1's and unchanged ──
   estate:
-    # Same outcome as the Telegram report, into Supabase estate_events (urn est:deploy:iffl-app),
-    # so the estate status views and the Deploy Captain digest see the web app.
+    # Test/deploy outcome into Supabase estate_events (urn est:deploy:iffl-app) for the status views.
     needs: [test, deploy]
     if: always() && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -208,6 +187,8 @@ jobs:
           fi
           if [ "$TEST" != success ]; then
             status=error; summary="tests failed — nothing deployed"
+          elif [ "$DEPLOY" = skipped ]; then
+            status=ok; summary="tests green — deploy is on demand (not requested)"
           elif [ "$DEPLOY" = success ]; then
             status=ok; summary="green: test, deploy, live smoke, health"
           elif [ "$ROLLED_BACK" = true ]; then
@@ -219,19 +200,3 @@ jobs:
           fi
           bash $r run "$status" "[$GITHUB_EVENT_NAME $GITHUB_REF_NAME] $summary" "$detail"
 
-  claude-fix:
-    # Main-branch failures only. claude-code-action can't run on a `push` event, so this hands
-    # off to claude-fix.yml (rendered by brain/deploy) via workflow_dispatch, which it supports.
-    if: failure() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: [estate]
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    steps:
-      - name: Hand off to Claude (claude-fix.yml)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh workflow run claude-fix.yml -R "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" \
-            -f run_id="$GITHUB_RUN_ID" -f sha="$GITHUB_SHA" -f workflow="$GITHUB_WORKFLOW"
-          echo "::notice::Claude fix dispatched for run $GITHUB_RUN_ID"

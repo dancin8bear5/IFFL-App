@@ -13,7 +13,7 @@ On a push to the deploy branch, the agent runs the tests, builds, deploys, smoke
 ```
 push → unit tests (web + functions) → vite build → rules emulator tests
      → firebase deploy → smoke (Playwright vs live) → critical-process checks
-     → report (Telegram) → [fail] rollback or alert
+     → [fail] rollback
 ```
 
 ## Build steps
@@ -24,7 +24,7 @@ push → unit tests (web + functions) → vite build → rules emulator tests
 - **Done when:** `firebase projects:list` succeeds in a throwaway workflow.
 
 ### 2. Workflow `.github/workflows/deploy.yml`
-- Trigger: push to `main`, plus `workflow_dispatch`.
+- Trigger: **`workflow_dispatch` only** (on demand, since Oct 5, 2026). Pushes and PRs to `main` run the `test` job only.
 - Steps: `npm ci` (web, functions) → `npm test` in both → write `web/.env` from secrets → `npm run build` → `firebase deploy --only hosting,firestore:rules,functions --non-interactive`.
 - Any red step means no deploy.
 - **Done when:** a trivial commit deploys with no manual step.
@@ -52,7 +52,7 @@ push → unit tests (web + functions) → vite build → rules emulator tests
 - **Done when:** a stale poller turns the run red.
 
 ### 6. Report + rollback
-- Telegram (IFFL Bots, "Deploys" topic): commit SHA, then test / smoke / critical-process results as ✅/❌.
+- ~~Telegram report~~ — removed Oct 5, 2026. Results are in the Actions run and the estate status feed.
 - On a smoke failure: `firebase hosting:clone iffl-auth:<prev> iffl-auth:live`, or alert only (see open decisions).
 - **Done when:** a failed run posts ❌ with the failing step named.
 

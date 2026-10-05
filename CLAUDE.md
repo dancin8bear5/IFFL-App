@@ -406,10 +406,24 @@ extension** — `node --test` can't resolve it otherwise. Same trip-up as
 
 ### Live scoreboard polling — the commissioner's window (Sep 28, 2026)
 > **PAUSED since Sep 29, 2026** at the commissioner's request, until he says
-> otherwise. `LIVE_SCORES_PAUSED = true` in `functions/espnScores.js`:
-> `pollEspnScores` returns before its config read, so a paused poller costs
-> nothing. Everything below still stands and resuming is that one flag plus a
-> deploy.
+> otherwise. `LIVE_SCORES_PAUSED = true` in `functions/espnScores.js`.
+> Everything below still stands and resuming is that one flag plus a deploy.
+>
+> **The flag gates the EXPORT, not just the body** (Oct 5, 2026). It used to
+> `return` early inside the handler, which stopped the ESPN calls and the
+> writes — but the function still existed, so Cloud Scheduler still held a
+> job for it and still fired it every 5 minutes: 8,640 invocations a month to
+> run one `return`, and **$0.10/month for the job** (only 3 scheduler jobs
+> are free per billing account, and this project has 7 left). `if
+> (!LIVE_SCORES_PAUSED) exports.pollEspnScores = …` means a deploy removes
+> the function and its job outright. **Scheduler bills per JOB, not per run**
+> — slowing a poller down saves nothing, removing one saves $0.10.
+>
+> **A deploy does not delete it; one command does.** `firebase deploy
+> --non-interactive` leaves a function that has vanished from source in
+> place, so flipping the flag ON needs `firebase functions:delete
+> pollEspnScores --project iffl-auth --force` once. Flipping it OFF needs
+> nothing extra — the deploy recreates the function and its job.
 >
 > **`pollerHealth` reads the same flag, and that is load-bearing.** Its
 > live-scores check only expects a write DURING a game window, so pausing the

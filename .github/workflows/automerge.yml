@@ -1,0 +1,99 @@
+# RENDERED by brain/deploy/render.py (template: automerge.yml) — edit there, then re-render.
+# Deploy Captain auto-merge: a Claude PR (head branch claude/*) whose CI finished green is
+# squash-merged, then shipped. One whose CI went red is handed straight to claude-fix.yml, which
+# pushes a fix onto the PR — at most 3 attempts per PR, then it is flagged for a human.
+# Human-branch PRs are never touched.
+#
+# A merge made with GITHUB_TOKEN does not fire `push` (GitHub blocks that to prevent loops),
+# so this dispatches the deploy workflow on main itself — workflow_dispatch is allowed.
+# Safety is unchanged: CI gates the merge; the live probe/smoke gates the deploy and rolls back.
+name: Auto-merge
+
+on:
+  workflow_run:
+    workflows: ["Deploy \\+ verify"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: auto-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'claude/') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge the PR this green run tested, then deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # Only an open, non-draft PR whose head is still the commit this run tested:
+          # a push after the green run means the new head hasn't been tested yet.
+          pr=$(gh pr list -R "$REPO" --head "$HEAD_BRANCH" --base main --state open \
+                 --json number,isDraft,headRefOid \
+                 -q '.[] | select(.isDraft | not) | select(.headRefOid == $ENV.SHA) | .number' | head -n1)
+          if [ -z "$pr" ]; then
+            echo "No open, ready PR from $HEAD_BRANCH at ${SHA:0:7} — nothing to merge."
+            exit 0
+          fi
+          gh pr merge "$pr" -R "$REPO" --squash --match-head-commit "$SHA"
+          echo "::notice::Merged #$pr (${SHA:0:7})"
+          gh workflow run deploy.yml -R "$REPO" --ref main
+          echo "::notice::Deploy dispatched on main"
+
+  fix:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'failure' &&
+      startsWith(github.event.workflow_run.head_branch, 'claude/') &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hand the red PR to Claude (at most 3 attempts per PR)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW: ${{ github.event.workflow_run.name }}
+        run: |
+          # Same PR filter as merge: open, not a draft (drafts are work in progress), still at
+          # the failed commit (a newer push means someone is already fixing it).
+          pr=$(gh pr list -R "$REPO" --head "$HEAD_BRANCH" --base main --state open \
+                 --json number,isDraft,headRefOid \
+                 -q '.[] | select(.isDraft | not) | select(.headRefOid == $ENV.SHA) | .number' | head -n1)
+          if [ -z "$pr" ]; then
+            echo "No open, ready PR from $HEAD_BRANCH at ${SHA:0:7} — nothing to fix."
+            exit 0
+          fi
+          # Attempts are counted from marker comments on the PR, so the cap survives re-runs.
+          comments=$(gh pr view "$pr" -R "$REPO" --json comments -q '[.comments[].body]')
+          tries=$(jq '[.[] | select(startswith("<!-- claude-fix-attempt -->"))] | length' <<<"$comments")
+          if [ "$tries" -ge 3 ]; then
+            if [ "$(jq '[.[] | select(startswith("<!-- claude-fix-stopped -->"))] | length' <<<"$comments")" = 0 ]; then
+              gh pr comment "$pr" -R "$REPO" --body "<!-- claude-fix-stopped -->
+          🛑 CI is still red after 3 automatic Claude fix attempts. Stopping here — this needs a human. Latest failure: $RUN_URL"
+            fi
+            echo "::warning::PR #$pr: 3 fix attempts used — flagged for a human."
+            exit 0
+          fi
+          gh pr comment "$pr" -R "$REPO" --body "<!-- claude-fix-attempt -->
+          🔧 CI red at ${SHA:0:7} — Claude fix attempt $((tries + 1))/3 started. Failure: $RUN_URL"
+          gh workflow run claude-fix.yml -R "$REPO" --ref main \
+            -f run_id="$RUN_ID" -f sha="$SHA" -f workflow="$WORKFLOW" -f pr="$pr" -f branch="$HEAD_BRANCH"
+          echo "::notice::Claude fix dispatched for PR #$pr (attempt $((tries + 1))/3)"

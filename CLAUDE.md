@@ -16,6 +16,8 @@
 # Deploys are CI now (Sep 25, 2026): merge a PR into main → .github/workflows/deploy.yml
 # tests, deploys, smokes the live site, auto-rolls hosting back on failure, reports to Telegram.
 # The manual commands below still work as a fallback.
+# Merging is automatic too (Sep 30, 2026): a PR from a claude/* branch squash-merges itself once
+# Deploy + verify is green on it (.github/workflows/automerge.yml), then deploys. Other branches never auto-merge.
 
 # Deploy Cloud Functions
 cd ~/claude-agents/apps/iffl-web-app && firebase deploy --only functions

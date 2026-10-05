@@ -27,6 +27,7 @@ import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
+import StandingsReel from '../components/StandingsReel'
 import OddsBoard from '../components/OddsBoard'
 // Lazy: the rankings view carries its own stylesheet and is only needed
 // once a section is released, so it loads after the Dashboard has painted.
@@ -108,8 +109,20 @@ export default function DashboardView({ setTab }) {
   // listened to in-season — the section doesn't exist in any other phase.
   const standingsLive = isPhase(['regular', 'playoffs'])
   const [espnStandings, setEspnStandings] = useState(null)
+  // Preview has no Firestore: sample standings + this week's board stand in
+  // for the two docs StandingsReel reads live.
+  const [previewLiveBoard, setPreviewLiveBoard] = useState(null)
   useEffect(() => {
-    if (!standingsLive || isPreview) return
+    if (!standingsLive) return
+    if (isPreview) {
+      let gone = false
+      import('../data/previewData').then((d) => {
+        if (gone) return
+        setEspnStandings(d.previewEspnStandings ?? null)
+        setPreviewLiveBoard(d.previewStandingsBoard ?? null)
+      })
+      return () => { gone = true }
+    }
     return fs.listenToEspnStandings(activeSeason, setEspnStandings, () => setEspnStandings(null))
   }, [standingsLive, isPreview, activeSeason])
 
@@ -711,38 +724,22 @@ export default function DashboardView({ setTab }) {
     (espnStandings?.season === activeSeason && espnStandings.standings?.length > 0 && espnStandings.gamesPlayed > 0)
       ? espnStandings
       : leagueHistory.find((h) => h.season === activeSeason)
+  // Animated since Oct 1, 2026 — StandingsReel replays the season, then
+  // settles into the same table this section always rendered (place, team
+  // link, belts, W-L, PF, "Full history"), plus sparkline, luck and this
+  // week's game. Same source and same "nothing until there are standings"
+  // rule as before; it leads the Dashboard in the regular season
+  // (dashboardSections.js).
   const standingsSection = currentStandings?.standings?.length > 0 && (
-    <div>
-      <SectionHeader title={`${currentStandings.season} Standings`} actionLabel="Full history" onAction={openHistory} />
-      <div className="iff-card" style={{ marginTop: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '9px 14px', fontSize: 10, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid var(--iff-divider)' }}>
-          <span /><span>Team</span><span style={{ textAlign: 'center' }}>W-L</span><span style={{ textAlign: 'right' }}>PF</span>
-        </div>
-        {[...currentStandings.standings].sort((a, b) => a.place - b.place).map((s) => (
-          <div
-            key={s.teamName}
-            style={{
-              display: 'grid', gridTemplateColumns: '26px 1fr 52px 62px', padding: '7px 14px',
-              fontSize: 13, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)',
-              background: s.teamName === userTeam ? 'rgba(230,57,70,0.08)' : 'transparent',
-            }}
-          >
-            <span className="tnum" style={{ fontWeight: 700, color: s.place === 1 ? 'var(--iff-gold)' : s.place === 2 ? '#B8B8C8' : s.place === 3 ? '#CD7F32' : 'var(--iff-subtext)' }}>
-              {s.place}
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-              <TeamAvatar name={s.teamName} size={20} />
-              <span style={{ fontWeight: s.teamName === userTeam ? 700 : 400 }}><TeamLink name={s.teamName} /></span>
-              <BeltRow count={teamByName[s.teamName]?.beltWins ?? 0} size={8} />
-            </span>
-            <span className="tnum" style={{ textAlign: 'center', color: 'var(--iff-subtext)', fontSize: 12 }}>{s.record ?? '—'}</span>
-            <span className="tnum" style={{ textAlign: 'right', fontSize: 12, color: s.place <= 6 ? 'var(--iff-green)' : 'var(--iff-subtext)' }}>
-              {s.pointsFor != null ? s.pointsFor.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
+    <StandingsReel
+      season={currentStandings.season}
+      standings={currentStandings.standings}
+      weeklyScores={weeklyScores}
+      userTeam={userTeam}
+      onOpenHistory={openHistory}
+      isPreview={isPreview}
+      previewBoard={isPreview ? previewLiveBoard : null}
+    />
   )
 
   // Rules & Reminders — new rules read like league announcements

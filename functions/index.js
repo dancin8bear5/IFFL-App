@@ -895,13 +895,33 @@ async function fetchGroupMeMessagesSince(token, afterId) {
  * commissioner set — all day Sunday and Monday 7pm–midnight Central. See
  * inGameWindow in espnScores.js, which also records what that gives up.
  */
-exports.pollEspnScores = onSchedule(
+/**
+ * NOT DEPLOYED WHILE PAUSED — the flag gates the EXPORT, not just the body.
+ *
+ * Returning early inside the handler stopped the ESPN calls and the writes,
+ * but the function still existed, so Cloud Scheduler still held a job for it
+ * and still fired it every 5 minutes: 8,640 invocations a month to run one
+ * `return`, plus $0.10/month for the job itself (only 3 scheduler jobs are
+ * free per billing account). Not exporting it means the next deploy removes
+ * the function AND its scheduler job, which is the only way the schedule
+ * actually costs nothing.
+ *
+ * Resuming is still one flag and a deploy: set LIVE_SCORES_PAUSED to false
+ * in espnScores.js and merge. The deploy recreates the function and its
+ * 5-minute job, and `pollerHealth` starts expecting a write in the window
+ * again — it reads the SAME constant, which is what keeps the two halves
+ * from disagreeing. Never pause one without the other: a health check that
+ * expects writes from a function that is not deployed fails every Sunday,
+ * and fails the deploy with it.
+ *
+ * One-time cleanup when flipping this ON: the function is already deployed,
+ * and `firebase deploy --non-interactive` does not delete functions that
+ * have vanished from source. Run `firebase functions:delete pollEspnScores`
+ * once to remove it and its job.
+ */
+if (!LIVE_SCORES_PAUSED) exports.pollEspnScores = onSchedule(
   {schedule: "every 5 minutes", timeZone: "America/Chicago", retryCount: 0},
   async () => {
-    // Paused by the commissioner — see LIVE_SCORES_PAUSED in espnScores.js.
-    // Before the config read, so a paused poller costs nothing at all.
-    if (LIVE_SCORES_PAUSED) return;
-
     const cfgSnap = await db.doc("config/league").get();
     const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
     const stateRef = db.doc(`espnLiveScores/${season}`);

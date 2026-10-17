@@ -19,16 +19,16 @@
 # No auto-merge, no Claude fixer, no Telegram report — all retired with the automation.
 
 # Deploy Cloud Functions
-cd ~/claude-agents/apps/iffl-web-app && firebase deploy --only functions
+cd ~/claude-agents/iffl-web-app && firebase deploy --only functions
 
 # Deploy WEB APP + security rules (hosting serves web/dist — see web/DEPLOY.md)
-cd ~/claude-agents/apps/iffl-web-app/web && npm run build && cd .. && firebase deploy --only hosting,firestore:rules
+cd ~/claude-agents/iffl-web-app/web && npm run build && cd .. && firebase deploy --only hosting,firestore:rules
 
 # Web app local dev (http://localhost:5173 — add ?preview=1 for sample data, no sign-in)
-cd ~/claude-agents/apps/iffl-web-app/web && npm run dev
+cd ~/claude-agents/iffl-web-app/web && npm run dev
 
 # Pull from active branch
-cd ~/claude-agents/apps/iffl-web-app && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
+cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-league-ios-app-g73Jo
 ```
 
 ## Agents (Sep 25, 2026) — specs in `docs/agents/`
@@ -419,11 +419,19 @@ extension** — `node --test` can't resolve it otherwise. Same trip-up as
 > the function and its job outright. **Scheduler bills per JOB, not per run**
 > — slowing a poller down saves nothing, removing one saves $0.10.
 >
-> **A deploy does not delete it; one command does.** `firebase deploy
-> --non-interactive` leaves a function that has vanished from source in
-> place, so flipping the flag ON needs `firebase functions:delete
-> pollEspnScores --project iffl-auth --force` once. Flipping it OFF needs
-> nothing extra — the deploy recreates the function and its job.
+> **The deploy DOES delete it — no manual step.** An earlier version of this
+> note said `firebase deploy --non-interactive` leaves a function that has
+> vanished from source in place, and that flipping the flag ON therefore
+> needed a `firebase functions:delete`. That was wrong: run 50 (Oct 11,
+> 2026) removed `pollEspnScores` and its scheduler job by itself, and
+> `firebase functions:list` afterwards showed 12 functions with seven
+> scheduled — the exact set this flag predicts. Flipping the flag either way
+> needs nothing but a deploy.
+>
+> **`firebase functions:list --project iffl-auth` is the check**, and it is
+> the only one that settles it: the deploy log is drowned in apt and
+> Playwright download progress bars, so the CLI's own line about the deleted
+> function is not realistically findable in CI output.
 >
 > **`pollerHealth` reads the same flag, and that is load-bearing.** Its
 > live-scores check only expects a write DURING a game window, so pausing the
@@ -837,12 +845,23 @@ M. Zurek = known 2008 champion). The full mapping prints when the script runs.
 ## Project at a glance
 - Web app (`web/`, Vite + React) + Cloud Functions (`functions/`), Firebase backend (Auth/Firestore/Messaging), Google Sign-In.
 - Firebase project: **IFFL Auth** (id `iffl-auth`, sender `876749980452`). The archived `codered-2b3b4` project is dead — never reference it.
-- **Deploy box — one clone, verified Aug 26, 2026:** `~/claude-agents/apps/iffl-web-app`.
-  Two earlier paths in these notes were wrong and each cost a session:
-  `~/Documents/Claude/Projects/IFFL-App` and
-  `~/Documents/Claude/Projects/IFFL/"iOS App"`. Neither exists. There is
+- **Deploy box — one clone, verified Oct 17, 2026:** `~/claude-agents/iffl-web-app`
+  (home is `/Users/jaredtaylor`). **THREE** earlier paths in these notes were
+  wrong, and each cost a session:
+  `~/Documents/Claude/Projects/IFFL-App`,
+  `~/Documents/Claude/Projects/IFFL/"iOS App"`, and — recorded here as
+  verified from Aug 26 until Oct 17 — `~/claude-agents/apps/iffl-web-app`.
+  **There is no `apps/` directory.** None of the three exists. There is
   also `~/Desktop/IFFL-backup-2026-08-16`, a dated snapshot — never deploy
   from it.
+  **Don't trust this line; prove it.** It has now been wrong three times,
+  and a `cd` to a missing directory is easy to miss because the NEXT command
+  often still works — `firebase functions:list --project iffl-auth` reported
+  the whole estate happily from the home directory, which is exactly how a
+  stale path survives. One command finds the truth:
+  `find ~ -maxdepth 6 -name firebase.json -not -path "*/node_modules/*"`.
+  It also returns `reel-shelf` and two `agent-fixer-agent/work/*` copies —
+  those are OTHER projects, not The Belt.
   **There is only ever one machine**, and it is a **MacBook Pro**
   (`Mac15,6`, M3 Pro) despite being *named* "Mac Pro" — not a Mac Pro
   desktop. Verified Sep 4, 2026: `ComputerName` = `Taylor Mac Pro`,
@@ -888,7 +907,7 @@ Color tokens (hex → use): `beltBg #0A0D1A` (screens), `beltSurface #141827` (c
 - **Belt wins** — hardcoded in `DataModels.swift`: Jared 3, Bill 2, Ryan 2, Abad/Cantone/Faybik/M.Zurek/Wayne 1 each, others 0
 
 ### Pending / next session
-- [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/claude-agents/apps/iffl-web-app` (verified Aug 26 — earlier notes had two wrong paths). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
+- [x] **DEPLOY RESPONSIVE WEB APP** — ✅ DONE Aug 13, 2026. R1–R5 responsive redesign live at iffl-auth.web.app (desktop sidebar layout; phones unchanged). NOTE: repo path on Mac is `~/claude-agents/iffl-web-app` (verified Aug 26 — earlier notes had two wrong paths). Build warning about 500kB+ chunk is cosmetic (Firebase SDK size); code-splitting is a future nice-to-have.
 - [x] **EMAIL AUTO-LINK ONBOARDING** — ✅ LIVE Aug 13, 2026. `claimTeam` callable matches verified Google email against `config/league.teamEmailMap` → auto-assigns team on first sign-in. All 11 member emails entered via web Admin → Teams → Auto-Link by Email. League onboarding = just share iffl-auth.web.app. NOTE: one legacy @icloud.com auth account exists (Sign in with Apple era) — can't be used on web; that member auto-links via their Gmail instead.
 - [x] **TRADE PORTAL v2 + GROUPME NOTIFICATIONS** — ✅ SHIPPED & VERIFIED LIVE Aug 13, 2026 (web). Incoming-offer badges + Dashboard banners, offer notes, counter-offer loop w/ chain history, ESPN execution checklist (players swap in ESPN / picks app-only), GroupMe DMs on propose/accept/decline/counter/execute via onTradeWrite (GROUPME_TOKEN secret in Secret Manager; team→GroupMe mapping in `config/groupme`, managed from web Admin → GroupMe). Jared confirmed end-to-end GroupMe test successful.
 - [x] **ROOKIE DRAFT ROOM** — ✅ BUILT Aug 29, 2026 (hidden until opened).

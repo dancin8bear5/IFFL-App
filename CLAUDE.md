@@ -100,6 +100,30 @@ rules deployed):
   and 2008 filled in (10 teams; champion M. Zurek, runner-up Bill).
   champion/runnerUp/notableTrades preserved from the seeds.
 
+### 2026 weekly player lines — scraped every Tuesday (Oct 29, 2026)
+ESPN's box-score view keeps no history (past weeks show today's roster at
+0.0), but the **team clubhouse page with `scoringPeriodId=N`** keeps the
+week-of lineup. `web/scripts/scrape-espn-week.mjs` reads all 12 of those
+pages plus the scoreboard with Playwright (real Chrome, persistent profile
+`.espn-chrome-profile/`, gitignored) and, only if every starter's game is
+final, every team's starters sum to its ESPN total and those totals match
+the scoreboard, writes:
+- `PlayerWeek` + `TeamWeek` rows into `data/iffl_fantasy_history_2008-2025.csv`
+  (same 40 columns; that season+week's rows are replaced, never duplicated;
+  a timestamped copy goes to `out/history-csv-backups/` first),
+- `historyPlayerWeeks/{year}-{WW}` and a season-to-date
+  `historyPlayerSeasons/{year}` (read back and row-counted after the write).
+
+Runs Tuesdays 08:00 from `ops/com.iffl.espn-weekly.plist` →
+`ops/espn-weekly.sh` (log `out/espn-weekly.log`, Mac notification on failure).
+ESPN sign-in expires occasionally: `node scripts/scrape-espn-week.mjs --login`.
+Backfill/redo: `--week N` or `--weeks 1-7`; `--dry-run` writes nothing.
+The League History season picker lists completed seasons **plus the season in
+progress on Player Scores only** (`services/historySeasons.js`).
+`espn-team-identity-map.json` now carries 2026, and `import-history.mjs` falls
+back to it for a season with no TeamSeason rows — without that, a re-import
+would relabel every 2026 player line `ESPN#5`.
+
 ### Big Board — REMOVED from the app (Aug 31, 2026)
 The view, `bigBoardFilter.js`, the Firestore helpers, the `#board` tab and
 its nav toggle are all gone. **The `bigBoard` Firestore collection was NOT

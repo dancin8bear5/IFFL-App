@@ -19,6 +19,7 @@ import { ChipScroller, LoadingList } from '../components/shared'
 import TeamLink from '../components/TeamLink'
 import * as fs from '../services/firestoreService'
 import { CATEGORIES, categoryBySlug, slugOf } from '../services/historyCategories'
+import { seasonsFor } from '../services/historySeasons'
 import {
   indexRows, queryRows, optionsFor, toCSV, exportFilename, downloadCSV,
 } from '../services/historyTable'
@@ -119,10 +120,12 @@ export default function HistoryView() {
   const view = useAlt && category.alt ? category.alt : category
   const columns = view.columns
 
-  const seasonsAvailable = useMemo(() => {
-    const ys = leagueHistory.map((s) => Number(s.season)).filter(Number.isFinite)
-    return ys.length ? ys.sort((a, b) => b - a) : []
-  }, [leagueHistory])
+  // Completed seasons, plus the one in progress for Player Scores — its weekly
+  // lines land every Tuesday, long before the season has standings.
+  const seasonsAvailable = useMemo(
+    () => seasonsFor(category.key, leagueHistory.map((s) => s.season)),
+    [category.key, leagueHistory],
+  )
 
   useEffect(() => {
     if (category.cost === 'season' && season == null && seasonsAvailable.length) {

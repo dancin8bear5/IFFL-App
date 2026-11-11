@@ -15,6 +15,10 @@
 //      League History → Player Scores tab reads. Same shape import-history.mjs writes.
 //   3. Firestore historyPlayerSeasons/{season} — season-to-date totals rebuilt from
 //      every week of the season in the CSV, so "Season totals" works mid-season.
+//   4. Firestore historyMatchups/{season} + historyTeamSeasons/{season} — the
+//      season's games and W-L/PF/PA to date, rebuilt from the CSV's TeamWeek rows
+//      (same shapes import-history.mjs writes), so the in-progress season shows up
+//      alongside 2008-2025. finalRank/playoffSeed stay null until the season ends.
 //
 // Fail closed: nothing is written unless all 12 teams load, every starter's
 // game is final, every team's starters add up to its ESPN total, and those totals
@@ -25,6 +29,8 @@
 //   node scripts/scrape-espn-week.mjs                    the week that just finished (auto)
 //   node scripts/scrape-espn-week.mjs --week 8 [--dry-run]
 //   node scripts/scrape-espn-week.mjs --weeks 1-7        backfill
+//   node scripts/scrape-espn-week.mjs --season-docs      rebuild only the season-to-date docs
+//                                                        (3 + 4) from the CSV; no browser
 //   node scripts/scrape-espn-week.mjs --from-json f.json build + validate from a saved
 //                                                        scrape (tests; no browser)
 import { readFileSync, writeFileSync, renameSync, mkdirSync, readdirSync, unlinkSync, copyFileSync, existsSync } from 'node:fs'
@@ -297,6 +303,56 @@ export function toSeasonDoc(ref, csvLines) {
   return { path: `historyPlayerSeasons/${SEASON}`, data: { season: SEASON, throughWeek, source: 'espn-weekly-scrape (season to date)', rows } }
 }
 
+// Games to date, one row per team per game — same shape as import-history.mjs.
+export function toMatchupsDoc(ref, csvLines) {
+  const c = ref.col
+  const rows = [], perWeek = new Map()
+  for (const l of csvLines) {
+    const r = l.split(',')
+    if (r[0] !== 'TeamWeek' || Number(r[c.Season]) !== SEASON) continue
+    const week = Number(r[c.Week])
+    perWeek.set(week, (perWeek.get(week) ?? 0) + 1)
+    const n = (k) => (r[c[k]] === '' || r[c[k]] == null ? null : Number(r[c[k]]))
+    rows.push({
+      week,
+      team: ref.owners[r[c.TeamId]] ?? `ESPN#${r[c.TeamId]}`,
+      opponent: ref.owners[r[c.OpponentTeamId]] ?? `ESPN#${r[c.OpponentTeamId]}`,
+      points: n('TeamScore'), oppPoints: n('OpponentScore'),
+      margin: n('Margin') != null ? r2(n('Margin')) : null,
+      result: r[c.Winner] || null,
+      benchPoints: n('TeamBenchPoints'),
+      espnTeamId: Number(r[c.TeamId]), espnName: r[c.TeamName],
+    })
+  }
+  for (const [w, k] of perWeek) if (k !== 12) throw new Error(`historyMatchups: week ${w} has ${k} TeamWeek rows, expected 12`)
+  rows.sort((a, b) => a.week - b.week || String(a.team).localeCompare(String(b.team)))
+  const throughWeek = Math.max(0, ...perWeek.keys())
+  return { path: `historyMatchups/${SEASON}`, data: { season: SEASON, throughWeek, source: 'espn-weekly-scrape (season to date)', rows } }
+}
+// Regular-season record to date per team (playoff weeks excluded), ranked by
+// W-L then points for. rankToDate is NOT a final rank — finalRank stays null.
+export function toTeamSeasonDoc(ref, matchupsDoc) {
+  const REG = SEASON >= 2021 ? 14 : 13
+  const by = new Map()
+  for (const g of matchupsDoc.data.rows) {
+    if (g.week > REG) continue
+    const t = by.get(g.espnTeamId) ?? { espnTeamId: g.espnTeamId, espnName: g.espnName, team: g.team, finalRank: null, playoffSeed: null, wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0, lastWeek: 0 }
+    if (g.result === 'W') t.wins++; else if (g.result === 'L') t.losses++; else if (g.result === 'T') t.ties++
+    t.pointsFor = r2(t.pointsFor + (g.points ?? 0)); t.pointsAgainst = r2(t.pointsAgainst + (g.oppPoints ?? 0))
+    if (g.week >= t.lastWeek) { t.lastWeek = g.week; t.espnName = g.espnName }
+    by.set(g.espnTeamId, t)
+  }
+  const pct = (t) => (t.wins + t.ties / 2) / Math.max(1, t.wins + t.losses + t.ties)
+  const teams = [...by.values()].sort((a, b) => pct(b) - pct(a) || b.pointsFor - a.pointsFor)
+    .map(({ lastWeek, ...t }, i) => ({ ...t, rankToDate: i + 1 }))
+  if (teams.length !== 12) throw new Error(`historyTeamSeasons: ${teams.length} teams, expected 12`)
+  return { path: `historyTeamSeasons/${SEASON}`, data: { season: SEASON, throughWeek: matchupsDoc.data.throughWeek, source: 'espn-weekly-scrape (season to date)', teams } }
+}
+export function seasonDocs(ref, csvLines) {
+  const m = toMatchupsDoc(ref, csvLines)
+  return [toSeasonDoc(ref, csvLines), m, toTeamSeasonDoc(ref, m)]
+}
+
 async function writeFirestore(docs) {
   const token = execSync('gcloud auth print-access-token', { encoding: 'utf8' }).trim()
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
@@ -305,8 +361,9 @@ async function writeFirestore(docs) {
     const res = await fetch(`${FS_BASE.replace('/documents', '')}/documents:commit`, { method: 'POST', headers, body: JSON.stringify(body) })
     if (!res.ok) throw new Error(`Firestore commit ${d.path}: ${res.status} ${await res.text()}`)
     const back = await fetch(`${FS_BASE}/${d.path}`, { headers }).then((r) => r.json())
-    const n = back?.fields?.rows?.arrayValue?.values?.length ?? 0
-    if (n !== d.data.rows.length) throw new Error(`Firestore read-back ${d.path}: ${n} rows, wrote ${d.data.rows.length}`)
+    const key = Array.isArray(d.data.rows) ? 'rows' : 'teams'
+    const n = back?.fields?.[key]?.arrayValue?.values?.length ?? 0
+    if (n !== d.data[key].length) throw new Error(`Firestore read-back ${d.path}: ${n} ${key}, wrote ${d.data[key].length}`)
     log(`firestore ${d.path}: ${n} rows verified`)
   }
 }
@@ -366,6 +423,14 @@ async function main() {
     return
   }
   const ref = loadReference()
+  if (flag('--season-docs')) {
+    const docs = seasonDocs(ref, readFileSync(CSV, 'utf8').split(/\r?\n/).filter(Boolean))
+    for (const d of docs) log(`${d.path}: ${(d.data.rows ?? d.data.teams).length} ${d.data.rows ? 'rows' : 'teams'} through week ${d.data.throughWeek}`)
+    if (dryRun) { writeFileSync(join(OUT, `season-docs-${SEASON}.json`), JSON.stringify(docs, null, 1)); log('dry run: Firestore untouched'); return }
+    await writeFirestore(docs)
+    log('done')
+    return
+  }
   const weeks = weeksToRun()
   if (weeks.some((w) => w < 1 || w > 18 || w > lastFinishedWeek())) throw new Error(`refusing week(s) ${weeks.join(',')}: last finished week is ${lastFinishedWeek()}`)
   log(`season ${SEASON} week(s) ${weeks.join(',')}${dryRun ? ' (dry run)' : ''}`)
@@ -400,7 +465,7 @@ async function main() {
   if (flag('--no-firestore')) log('firestore skipped (--no-firestore)')
   else {
     const csvNow = readFileSync(CSV, 'utf8').split(/\r?\n/).filter(Boolean)
-    await writeFirestore([...built.map((b) => toFirestoreDoc(ref, b)), toSeasonDoc(ref, csvNow)])
+    await writeFirestore([...built.map((b) => toFirestoreDoc(ref, b)), ...seasonDocs(ref, csvNow)])
   }
   log('done')
 }

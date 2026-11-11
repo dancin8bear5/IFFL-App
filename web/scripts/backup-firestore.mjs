@@ -151,7 +151,7 @@ const mountLine = mounts.split('\n').find((l) => l.includes(` on ${NAS_MOUNT} `)
 if (!mountLine || !/smbfs|afpfs|nfs/.test(mountLine)) {
   console.error(`ABORT: ${NAS_MOUNT} is not a mounted network share — no backup written.`)
   console.error('  Mount it in Finder (Go → Connect to Server → smb://192.168.1.124) and re-run:')
-  console.error('  bash ~/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh')
+  console.error('  bash ~/claude-agents/iffl-web-app/ops/weekly-backup.sh')
   process.exit(2)
 }
 

@@ -10,7 +10,7 @@ LOG="$PROJECT_DIR/out/espn-weekly.log"
 mkdir -p "$(dirname "$LOG")"
 
 # launchd runs with a minimal PATH; node lives under nvm here (same as weekly-backup.sh).
-export PATH="$HOME/.nvm/versions/node/v22.23.2/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="$HOME/.nvm/versions/node/v22.23.4/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"IFFL ESPN scrape\"" >/dev/null 2>&1 || true; }
 

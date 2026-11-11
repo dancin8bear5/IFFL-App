@@ -105,8 +105,8 @@ database's ~47 MiB — because they rebuild from the CSV in this directory. It
 captures the ~1 MiB that exists nowhere else: rosters, trades, the transaction
 ledger, rules and votes, avatars, keeper plans, the big board, and config.
 
-Check on it: `tail ~/claude-agents/apps/iffl-web-app/out/weekly-backup.log`
-Run it now: `bash ~/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh`
+Check on it: `tail ~/claude-agents/iffl-web-app/out/weekly-backup.log`
+Run it now: `bash ~/claude-agents/iffl-web-app/ops/weekly-backup.sh`
 See snapshots: `ls -la /Volumes/homes/jaredrogtaylor/Backups/IFFL/`
 
 Two likely failures, both logged explicitly: the NAS share isn't mounted

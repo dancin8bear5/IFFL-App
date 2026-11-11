@@ -1,6 +1,6 @@
 # IFFL Agent Backlog
 
-Build specs for the six agents in Todoist → Fantasy (`IFFL` label). Build them **in order**: each one assumes the ones above it exist.
+Build specs for the seven agents in Todoist → Fantasy (`IFFL` label). Build them **in order**: each one assumes the ones above it exist.
 
 | # | Agent | Runs where | Visible to | Spec |
 |---|-------|-----------|-----------|------|
@@ -10,6 +10,7 @@ Build specs for the six agents in Todoist → Fantasy (`IFFL` label). Build them
 | 4 | Waiver targets | Analytics Engine (Rudy / ACC) | Jared only | [04-waiver-agent.md](04-waiver-agent.md) |
 | 5 | Start/sit | Analytics Engine (Rudy / ACC) | Jared only | [05-start-sit-agent.md](05-start-sit-agent.md) |
 | 6 | Design + usability review | GitHub Actions + Claude API | Jared (Todoist tickets) | [06-design-review-agent.md](06-design-review-agent.md) |
+| 7 | Reels (watch + request, human-approved) | Web app + Cloud Functions + Mac renderer | League, after approval | [07-reels-agent.md](07-reels-agent.md) |
 
 ## Status — Sep 25, 2026
 

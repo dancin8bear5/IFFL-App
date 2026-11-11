@@ -21,6 +21,16 @@ cd "$PROJECT_DIR/web" || { echo "cannot cd to $PROJECT_DIR/web" >> "$LOG"; notif
 # replace-by-week, so a second attempt can never duplicate rows.
 for attempt in 1 2; do
   if node scripts/scrape-espn-week.mjs "$@" >> "$LOG" 2>&1; then
+    # Commit the history CSV so it never piles up as a pending change. Only that
+    # file, only if it changed; a push failure is logged but never fails the run.
+    CSV=data/iffl_fantasy_history_2008-2025.csv
+    if [ "$(git -C "$PROJECT_DIR" branch --show-current)" = main ] && ! git -C "$PROJECT_DIR" diff --quiet -- "$CSV"; then
+      { git -C "$PROJECT_DIR" commit -q -m "data: 2026 ESPN weekly scrape $(date +%F)" -- "$CSV" \
+          && git -C "$PROJECT_DIR" pull -q --rebase --autostash origin main \
+          && git -C "$PROJECT_DIR" push -q origin HEAD:main \
+          && echo "csv committed + pushed" ; } >> "$LOG" 2>&1 \
+        || { echo "WARN: csv commit/push failed (data is safe in Firestore)" >> "$LOG"; notify "CSV push failed — see log"; }
+    fi
     echo "=== $(date '+%Y-%m-%d %H:%M:%S') OK ===" >> "$LOG"
     tail -n 2000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
     exit 0

@@ -10,7 +10,8 @@ const {reconcile} = require("./tradeReconcile");
 const {parseEspnTradeEmail, classifyEspnEmail, looksTradeRelated} = require("./espnEmailParser");
 const gmailWatch = require("./gmailWatch");
 const {runFeedSync} = require("./ifflFeedSync");
-const {parseScoreboard, parseStandings, parseWeeklyScores, recordsFromStandings, currentWeek, inGameWindow, LIVE_SCORES_PAUSED} = require("./espnScores");
+const {parseScoreboard, parseStandings, currentWeek, inGameWindow, LIVE_SCORES_PAUSED} = require("./espnScores");
+const {gamesFromMatchupRows, newWeekLanded} = require("./weeklyRecap");
 const notes = require("./leagueNotes");
 
 admin.initializeApp();
@@ -1001,74 +1002,64 @@ exports.pollEspnStandings = onSchedule(
 );
 
 /**
- * Agent #2 — weekly scores from ESPN (docs/agents/02-weekly-dashboard-agent.md).
+ * Agent #2 — weekly scores (docs/agents/02-weekly-dashboard-agent.md).
  *
- * Tuesday 10:00 CT, after MNF and Monday stat corrections. Writes every
- * COMPLETE regular-season week plus season W-L into weeklyScores/{season},
- * the doc the scoring chart, parlay and bracket already read. Idempotent:
- * each week is a keyed map entry, so a re-run overwrites and a missed
- * Tuesday heals itself next time.
+ * RETIRED AS A POLLER (Nov 2026). pollWeeklyScores used to fetch ESPN every
+ * Tuesday and write weeklyScores/{season}. The Mac's Tuesday scrape
+ * (web/scripts/scrape-espn-week.mjs) reads the same totals off ESPN, checks
+ * them against the scoreboard, and already stored them in historyMatchups —
+ * so two jobs were pulling one number. The scrape is now the ONLY writer of
+ * weeklyScores/{season} and of the health doc config/weeklyPoller.
  *
- * Kill switch: 'weeklyAgent' in config/league.disabledAreas.
- * Health: config/weeklyPoller (checked by the deploy workflow).
- * Backfill/force: set config/weeklyPoller.forceRun = true, it runs within
- * the hour via pollWeeklyForce and clears the flag.
+ * What is left here is the half that needs secrets and so cannot live on
+ * the Mac: when a NEW week lands in the active season's weeklyScores doc,
+ * DM the commissioner and draft the week's recap. Games come from
+ * historyMatchups/{season} (the scrape writes it BEFORE weeklyScores, in
+ * that order, for exactly this reason) and the table from
+ * espnStandings/{season}. No ESPN call.
+ *
+ * Kill switch: 'weeklyAgent' in config/league.disabledAreas silences the DM
+ * and the recap. It no longer stops the scores themselves — that job is on
+ * the Mac (`launchctl unload ~/Library/LaunchAgents/com.iffl.espn-weekly.plist`).
+ *
+ * One-time cleanup after the first deploy of this change: `firebase deploy
+ * --non-interactive` does not delete functions that vanished from source.
+ *   firebase functions:delete pollWeeklyScores pollWeeklyForce --project iffl-auth --force
+ * removes both and their two Cloud Scheduler jobs ($0.10/month each).
  */
-async function runWeeklyScores(reason) {
-  const cfg = (await db.doc("config/league").get()).data() ?? {};
-  const stateRef = db.doc("config/weeklyPoller");
-  if ((cfg.disabledAreas ?? []).includes("weeklyAgent")) {
-    console.log("weeklyScores: disabled via Admin → Areas");
-    await stateRef.set({lastRunAt: admin.firestore.Timestamp.now(), lastError: null, skipped: "disabled"}, {merge: true});
-    return;
-  }
-  const season = cfg.activeSeasonYear ?? new Date().getFullYear();
-  const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
-    `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mMatchupScore&view=mTeam`;
-  let data;
-  try {
-    const res = await fetch(url, {headers: {"User-Agent": "iffl-app/1.0"}});
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    data = await res.json();
-  } catch (e) {
-    console.error("weeklyScores: fetch failed:", e.message);
-    await stateRef.set({lastError: e.message, lastRunAt: admin.firestore.Timestamp.now()}, {merge: true});
-    await sendGroupMeDM(COMMISSIONER_TEAM_NAME, `⚠️ Weekly scores: ESPN fetch failed (${e.message}).`).catch(() => {});
-    return;
-  }
+exports.onWeeklyScoresWritten = onDocumentWritten(
+  {document: "weeklyScores/{season}", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retry: false},
+  async (event) => {
+    const season = Number(event.params.season);
+    const cfg = (await db.doc("config/league").get()).data() ?? {};
+    const week = newWeekLanded({
+      season,
+      activeSeason: cfg.activeSeasonYear ?? new Date().getFullYear(),
+      beforeWeeks: event.data?.before?.data()?.weeks,
+      afterWeeks: event.data?.after?.data()?.weeks,
+    });
+    if (!week) return;
+    if ((cfg.disabledAreas ?? []).includes("weeklyAgent")) {
+      console.log(`weeklyScores: week ${week} landed; DM + recap disabled via Admin → Areas`);
+      return;
+    }
 
-  const {weeks, completeWeeks, problems} = parseWeeklyScores(data);
-  const st = parseStandings(data);
-  const records = st.standings.length ? recordsFromStandings(st.standings) : null;
-  const allProblems = [...problems, ...st.problems];
+    const rows = (await db.doc(`historyMatchups/${season}`).get()).data()?.rows ?? [];
+    const games = gamesFromMatchupRows(rows, week);
+    const standings = (await db.doc(`espnStandings/${season}`).get()).data()?.standings ?? [];
+    const weeksOnFile = Object.keys(event.data.after.data().weeks ?? {}).length;
 
-  if (completeWeeks.length) {
-    await db.doc(`weeklyScores/${season}`).set({
-      season: Number(season),
-      weeks,
-      ...(records ? {records} : {}),
-      updatedAt: admin.firestore.Timestamp.now(),
-      source: "espn",
-    }, {merge: true});
-  }
-  const latest = completeWeeks[completeWeeks.length - 1] ?? null;
-  await stateRef.set({
-    season, latestWeek: latest, completeWeeks, problems: allProblems,
-    lastError: null, lastRunAt: admin.firestore.Timestamp.now(), reason, forceRun: false, skipped: null,
-  }, {merge: true});
+    const msg = `📊 Weekly scores: week ${week} written (${weeksOnFile} weeks on file)` +
+      (games.length ? "" : `\n⚠️ No games for week ${week} in historyMatchups — recap not drafted.`);
+    await sendGroupMeDM(COMMISSIONER_TEAM_NAME, msg).catch(() => {});
+    console.log("weeklyScores:", msg);
 
-  const msg = latest
-    ? `📊 Weekly scores: week ${latest} written (${completeWeeks.length} weeks on file)` +
-      (allProblems.length ? `\n⚠️ ${allProblems.length} problem(s): ${allProblems.slice(0, 3).join("; ")}` : " · 0 problems")
-    : "📊 Weekly scores: no completed week yet — nothing written.";
-  await sendGroupMeDM(COMMISSIONER_TEAM_NAME, msg).catch(() => {});
-  console.log("weeklyScores:", msg);
-
-  if (latest) {
-    await draftRecapNote({season, week: latest, data, standings: st.standings, cfg})
-      .catch((e) => console.error("draftRecapNote failed:", e.message));
-  }
-}
+    if (games.length) {
+      await draftRecapNote({season, week, games, standings, cfg})
+        .catch((e) => console.error("draftRecapNote failed:", e.message));
+    }
+  },
+);
 
 // ── Agent #3 — league notes (docs/agents/03-league-notes-agent.md) ──
 // Drafts only. Nothing reaches the league until Jared approves the body
@@ -1088,14 +1079,14 @@ async function claudeDraft(prompt, model) {
   return (j.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim() || null;
 }
 
-async function draftRecapNote({season, week, data, standings, cfg}) {
+async function draftRecapNote({season, week, games, standings, cfg}) {
   if ((cfg.disabledAreas ?? []).includes("notesAgent")) return;
   const ref = db.doc(`leagueNotes/recap-${season}-w${week}`);
   const existing = (await ref.get()).data();
   // Never touch a note Jared already acted on.
   if (existing && existing.status !== "draft") return;
 
-  const facts = notes.recapFacts({season, week, games: parseScoreboard(data, week).games, standings});
+  const facts = notes.recapFacts({season, week, games, standings});
   if (!facts.games.length) return;
 
   let body = null;
@@ -1164,19 +1155,6 @@ exports.sendLeagueNotes = onSchedule(
       onFailure: (id, e) => sendGroupMeDM(COMMISSIONER_TEAM_NAME, `❌ Note ${id} failed to send: ${e.message}`).catch(() => {}),
     });
     if (results.length) console.log("sendLeagueNotes:", JSON.stringify(results));
-  },
-);
-
-exports.pollWeeklyScores = onSchedule(
-  {schedule: "every tuesday 10:00", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retryCount: 1},
-  () => runWeeklyScores("schedule"),
-);
-
-exports.pollWeeklyForce = onSchedule(
-  {schedule: "every 60 minutes", timeZone: "America/Chicago", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retryCount: 0},
-  async () => {
-    const st = (await db.doc("config/weeklyPoller").get()).data();
-    if (st?.forceRun === true) await runWeeklyScores("force");
   },
 );
 

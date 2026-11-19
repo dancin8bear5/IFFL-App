@@ -1,5 +1,19 @@
 # Agent 2: Weekly Dashboard Update
 
+> **Superseded Nov 2026 — one ESPN job, not two.** The `pollWeeklyScores` / `pollWeeklyForce`
+> Cloud Functions described below are retired. The Mac's Tuesday scrape
+> (`web/scripts/scrape-espn-week.mjs`, run by `ops/espn-weekly.sh`) already read the same
+> team totals off ESPN for the player-score history, so it now also writes
+> `weeklyScores/{season}` (same shape, merge by week) and the health doc
+> `config/weeklyPoller`. The only Cloud Function left is `onWeeklyScoresWritten`: when a new
+> week lands it DMs the commissioner and drafts the recap from `historyMatchups/{season}` +
+> `espnStandings/{season}` (`functions/weeklyRecap.js`). Backfill or redo a week:
+> `node scripts/scrape-espn-week.mjs --week N`, or `--season-docs` to rebuild the season
+> docs from the CSV with no browser. There is no `forceRun` flag any more.
+> Trade-off, accepted by Jared: the league-facing scores now depend on the Mac being awake
+> on Tuesday (launchd runs the job on wake if it was asleep).
+> The rest of this file is the original spec, kept as history.
+
 **Todoist:** `[2/6] Weekly dashboard update agent` · p2
 **Runs:** Cloud Function `pollEspnWeekly` (`iffl-auth`)
 **Depends on:** #1, so it deploys and gets health-checked.

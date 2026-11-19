@@ -1138,8 +1138,9 @@ const APP_AREAS = [
     { key: 'playoffs', label: 'Playoff bracket', glyph: '🏆' },
   ]},
   { group: 'Agents', items: [
-    // Server-side: pollWeeklyScores reads config/league.disabledAreas.
-    { key: 'weeklyAgent', label: 'Weekly scores from ESPN (Tue 10 AM)', glyph: '📊' },
+    // Server-side: onWeeklyScoresWritten reads config/league.disabledAreas. It gates the
+    // commissioner DM + recap draft only — the scores themselves come from the Mac's scrape.
+    { key: 'weeklyAgent', label: 'Weekly scores DM + recap draft', glyph: '📊' },
     { key: 'notesAgent',  label: 'League notes drafting (recap)', glyph: '📝' },
   ]},
 ]

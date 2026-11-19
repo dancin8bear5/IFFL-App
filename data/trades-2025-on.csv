@@ -1,0 +1,242 @@
+trade_id,season,date,to_team,from_team,asset,asset_type,pick_season,pick_slot,pick_round,pick_original_team
+iffl-trade-1,2025,2025-02-12,Jason,Bill,Lamar Jackson,player,,,,
+iffl-trade-1,2025,2025-02-12,Jason,Bill,Terry McLaurin,player,,,,
+iffl-trade-1,2025,2025-02-12,Jason,Bill,2025 R2 (A. Zurek),pick,2025,,2,A. Zurek
+iffl-trade-1,2025,2025-02-12,Bill,Jason,Drake Maye,player,,,,
+iffl-trade-1,2025,2025-02-12,Bill,Jason,Rashee Rice,player,,,,
+iffl-trade-1,2025,2025-02-12,Bill,Jason,2025 R1 (Jason),pick,2025,,1,Jason
+iffl-trade-1,2025,2025-02-12,Bill,Jason,2025 R2 (M. Zurek),pick,2025,,2,M. Zurek
+iffl-trade-2,2025,2025-04-25,Wayne,M. Zurek,2025 R1 (Wayne),pick,2025,,1,Wayne
+iffl-trade-2,2025,2025-04-25,Wayne,M. Zurek,Rome Odunze,player,,,,
+iffl-trade-2,2025,2025-04-25,M. Zurek,Wayne,Trey McBride,player,,,,
+iffl-trade-2,2025,2025-04-25,M. Zurek,Wayne,Kyren Williams,player,,,,
+iffl-trade-3,2025,2025-05-13,Jason,Ryan,Amon-Ra St. Brown,player,,,,
+iffl-trade-3,2025,2025-05-13,Ryan,Jason,2025 R2 (Dugan),pick,2025,,2,Dugan
+iffl-trade-3,2025,2025-05-13,Ryan,Jason,2025 R2 (A. Zurek),pick,2025,,2,A. Zurek
+iffl-trade-4,2025,2025-05-28,Ryan,Bill,Drake Maye,player,,,,
+iffl-trade-4,2025,2025-05-28,Ryan,Bill,2025 R1 (Jason),pick,2025,,1,Jason
+iffl-trade-4,2025,2025-05-28,Ryan,Bill,2025 R2 (M. Zurek),pick,2025,,2,M. Zurek
+iffl-trade-4,2025,2025-05-28,Ryan,Bill,2026 R2 (Bill),pick,2026,,2,Bill
+iffl-trade-4,2025,2025-05-28,Bill,Ryan,Justin Herbert,player,,,,
+iffl-trade-4,2025,2025-05-28,Bill,Ryan,2025 R1 (Ryan),pick,2025,,1,Ryan
+iffl-trade-4,2025,2025-05-28,Bill,Ryan,2025 R2 (Dugan),pick,2025,,2,Dugan
+iffl-trade-4,2025,2025-05-28,Bill,Ryan,2026 R1 (Ryan),pick,2026,,1,Ryan
+iffl-trade-5,2025,2025-06-12,Abad,M. Zurek,2026 R1 (M. Zurek),pick,2026,,1,M. Zurek
+iffl-trade-5,2025,2025-06-12,Abad,M. Zurek,2026 R2 (M. Zurek),pick,2026,,2,M. Zurek
+iffl-trade-5,2025,2025-06-12,M. Zurek,Abad,2025 R1 (Cantone),pick,2025,,1,Cantone
+iffl-trade-5,2025,2025-06-12,M. Zurek,Abad,2025 R1 (Bill),pick,2025,,1,Bill
+iffl-trade-5,2025,2025-06-12,M. Zurek,Abad,DJ Moore,player,,,,
+iffl-trade-6,2025,2025-06-15,M. Zurek,Jason,Jayden Daniels,player,,,,
+iffl-trade-6,2025,2025-06-15,M. Zurek,Jason,Jordan Addison,player,,,,
+iffl-trade-6,2025,2025-06-15,M. Zurek,Jason,2026 R1 (Jason),pick,2026,,1,Jason
+iffl-trade-6,2025,2025-06-15,Jason,M. Zurek,Brian Thomas Jr,player,,,,
+iffl-trade-6,2025,2025-06-15,Jason,M. Zurek,Justin Fields,player,,,,
+iffl-trade-6,2025,2025-06-15,Jason,M. Zurek,2025 R1 (Cantone),pick,2025,,1,Cantone
+iffl-trade-6,2025,2025-06-15,Jason,M. Zurek,2025 R1 (Bill),pick,2025,,1,Bill
+iffl-trade-7,2025,2025-07-21,Jared,M. Zurek,Trevor Lawrence,player,,,,
+iffl-trade-7,2025,2025-07-21,Jared,M. Zurek,2025 R1 (Foley),pick,2025,,1,Foley
+iffl-trade-7,2025,2025-07-21,M. Zurek,Jared,2025 R1 (M. Zurek),pick,2025,,1,M. Zurek
+iffl-trade-8,2025,2025-07-21,Jason,Jared,2025 R2 (Bill),pick,2025,,2,Bill
+iffl-trade-8,2025,2025-07-21,Jared,Jason,2026 R2 (Jason),pick,2026,,2,Jason
+iffl-trade-9,2025,2025-08-18,Faybik,Jason,Justin Fields,player,,,,
+iffl-trade-9,2025,2025-08-18,Faybik,Jason,Xavier Worthy,player,,,,
+iffl-trade-9,2025,2025-08-18,Faybik,Jason,Jayden Higgins,player,,,,
+iffl-trade-9,2025,2025-08-18,Jason,Faybik,Nico Collins,player,,,,
+iffl-trade-9,2025,2025-08-18,Jason,Faybik,2026 R2 (Faybik),pick,2026,,2,Faybik
+iffl-trade-10,2025,2025-08-21,Ryan,M. Zurek,Bryce Young,player,,,,
+iffl-trade-10,2025,2025-08-21,Ryan,M. Zurek,Michael Penix,player,,,,
+iffl-trade-10,2025,2025-08-21,Ryan,M. Zurek,Jaxson Dart,player,,,,
+iffl-trade-10,2025,2025-08-21,M. Zurek,Ryan,Josh Allen,player,,,,
+iffl-trade-11,2025,2025-08-30,Cantone,Jared,Tank Bigsby,player,,,,
+iffl-trade-11,2025,2025-08-30,Jared,Cantone,Brandon Aiyuk,player,,,,
+iffl-trade-12,2025,2025-08-30,Faybik,Cantone,Kendre Miller,player,,,,
+iffl-trade-12,2025,2025-08-30,Faybik,Cantone,2026 R2 (Cantone),pick,2026,,2,Cantone
+iffl-trade-12,2025,2025-08-30,Cantone,Faybik,Nick Chubb,player,,,,
+iffl-trade-13,2025,2025-09-16,Cantone,Abad,Quinshon Judkins,player,,,,
+iffl-trade-13,2025,2025-09-16,Cantone,Abad,Colston Loveland,player,,,,
+iffl-trade-13,2025,2025-09-16,Cantone,Abad,Travis Hunter,player,,,,
+iffl-trade-13,2025,2025-09-16,Cantone,Abad,2026 R1 (M. Zurek),pick,2026,,1,M. Zurek
+iffl-trade-13,2025,2025-09-16,Cantone,Abad,2026 R2 (M. Zurek),pick,2026,,2,M. Zurek
+iffl-trade-13,2025,2025-09-16,Abad,Cantone,Patrick Mahomes,player,,,,
+iffl-trade-13,2025,2025-09-16,Abad,Cantone,JaMarr Chase,player,,,,
+iffl-trade-14,2025,2025-09-16,A. Zurek,M. Zurek,Jarquez Hunter,player,,,,
+iffl-trade-14,2025,2025-09-16,A. Zurek,M. Zurek,Omarion Hampton,player,,,,
+iffl-trade-14,2025,2025-09-16,A. Zurek,M. Zurek,Brian Robinson Jr,player,,,,
+iffl-trade-14,2025,2025-09-16,A. Zurek,M. Zurek,2026 R1 (Jason),pick,2026,,1,Jason
+iffl-trade-14,2025,2025-09-16,M. Zurek,A. Zurek,Saquon Barkley,player,,,,
+iffl-trade-14,2025,2025-09-16,M. Zurek,A. Zurek,Darius Slayton,player,,,,
+iffl-trade-14,2025,2025-09-16,M. Zurek,A. Zurek,Ray Davis,player,,,,
+iffl-trade-15,2025,2025-09-16,A. Zurek,Ryan,Tyrone Tracy Jr,player,,,,
+iffl-trade-15,2025,2025-09-16,A. Zurek,Ryan,Matthew Golden,player,,,,
+iffl-trade-15,2025,2025-09-16,A. Zurek,Ryan,Jaxson Dart,player,,,,
+iffl-trade-15,2025,2025-09-16,A. Zurek,Ryan,2026 R2 (Ryan),pick,2026,,2,Ryan
+iffl-trade-15,2025,2025-09-16,Ryan,A. Zurek,Drake London,player,,,,
+iffl-trade-15,2025,2025-09-16,Ryan,A. Zurek,Kenneth Walker III,player,,,,
+iffl-trade-16,2025,2025-09-18,Jason,Cantone,Jared Goff,player,,,,
+iffl-trade-16,2025,2025-09-18,Cantone,Jason,J.J. McCarthy,player,,,,
+iffl-trade-16,2025,2025-09-18,Cantone,Jason,2026 R2 (Faybik),pick,2026,,2,Faybik
+iffl-trade-17,2025,2025-09-29,Jason,Ryan,Derrick Henry,player,,,,
+iffl-trade-17,2025,2025-09-29,Jason,Ryan,Drake London,player,,,,
+iffl-trade-17,2025,2025-09-29,Jason,Ryan,Kenneth Walker III,player,,,,
+iffl-trade-17,2025,2025-09-29,Jason,Ryan,Mark Andrews,player,,,,
+iffl-trade-17,2025,2025-09-29,Jason,Ryan,Christian Kirk,player,,,,
+iffl-trade-17,2025,2025-09-29,Ryan,Jason,Brian Thomas Jr,player,,,,
+iffl-trade-17,2025,2025-09-29,Ryan,Jason,Emeka Egbuka,player,,,,
+iffl-trade-17,2025,2025-09-29,Ryan,Jason,Tyler Warren,player,,,,
+iffl-trade-17,2025,2025-09-29,Ryan,Jason,Isiah Pacheco,player,,,,
+iffl-trade-17,2025,2025-09-29,Ryan,Jason,Anthony Richardson,player,,,,
+iffl-trade-18,2025,2025-09-30,Bill,Foley,Jameson Williams,player,,,,
+iffl-trade-18,2025,2025-09-30,Foley,Bill,Geno Smith,player,,,,
+iffl-trade-19,2025,2025-10-04,Jared,Ryan,Brian Thomas Jr,player,,,,
+iffl-trade-19,2025,2025-10-04,Ryan,Jared,Malik Nabers,player,,,,
+iffl-trade-20,2025,2025-10-21,Wayne,Ryan,Aaron Rodgers,player,,,,
+iffl-trade-20,2025,2025-10-21,Ryan,Wayne,RJ Harvey,player,,,,
+iffl-trade-20,2025,2025-10-21,Ryan,Wayne,2026 R2 (Wayne),pick,2026,,2,Wayne
+iffl-trade-21,2025,2025-10-22,Faybik,A. Zurek,Sam Darnold,player,,,,
+iffl-trade-21,2025,2025-10-22,Faybik,A. Zurek,Brian Robinson Jr,player,,,,
+iffl-trade-21,2025,2025-10-22,Faybik,A. Zurek,Jordan Addison,player,,,,
+iffl-trade-21,2025,2025-10-22,A. Zurek,Faybik,Jimmy Garoppolo,player,,,,
+iffl-trade-21,2025,2025-10-22,A. Zurek,Faybik,Jayden Higgins,player,,,,
+iffl-trade-21,2025,2025-10-22,A. Zurek,Faybik,2026 R1 (Faybik),pick,2026,,1,Faybik
+iffl-trade-21,2025,2025-10-22,A. Zurek,Faybik,2026 R2 (Cantone),pick,2026,,2,Cantone
+iffl-trade-22,2025,2025-10-23,M. Zurek,Faybik,Khalil Shakir,player,,,,
+iffl-trade-22,2025,2025-10-23,M. Zurek,Faybik,Keon Coleman,player,,,,
+iffl-trade-22,2025,2025-10-23,Faybik,M. Zurek,Kayshon Boutte,player,,,,
+iffl-trade-22,2025,2025-10-23,Faybik,M. Zurek,Emanuel Wilson,player,,,,
+iffl-trade-23,2025,2025-11-02,Bill,M. Zurek,Dallas Goedert,player,,,,
+iffl-trade-23,2025,2025-11-02,M. Zurek,Bill,Jameson Williams,player,,,,
+iffl-trade-24,2025,2025-11-05,Bill,M. Zurek,Kenneth Gainwell,player,,,,
+iffl-trade-24,2025,2025-11-05,M. Zurek,Bill,Blake Corum,player,,,,
+iffl-trade-25,2025,2025-11-08,Jared,Faybik,Parker Washington,player,,,,
+iffl-trade-25,2025,2025-11-08,Faybik,Jared,Jaylen Wright,player,,,,
+iffl-trade-25,2025,2025-11-08,Faybik,Jared,2026 R2 (Jared),pick,2026,,2,Jared
+iffl-trade-26,2025,2025-11-12,Wayne,Dugan,Jonathan Taylor,player,,,,
+iffl-trade-26,2025,2025-11-12,Dugan,Wayne,Rome Odunze,player,,,,
+iffl-trade-26,2025,2025-11-12,Dugan,Wayne,Zach Charbonnet,player,,,,
+iffl-trade-26,2025,2025-11-12,Dugan,Wayne,Troy Franklin,player,,,,
+iffl-trade-26,2025,2025-11-12,Dugan,Wayne,2026 R1 (Wayne),pick,2026,,1,Wayne
+iffl-trade-27,2025,2025-11-12,Abad,Cantone,Travis Kelce,player,,,,
+iffl-trade-27,2025,2025-11-12,Cantone,Abad,Luke Musgrave,player,,,,
+iffl-trade-27,2025,2025-11-12,Cantone,Abad,2026 R2 (Abad),pick,2026,,2,Abad
+iffl-trade-28,2025,2025-11-12,Abad,Foley,James Cook,player,,,,
+iffl-trade-28,2025,2025-11-12,Abad,Foley,Sam Laporta,player,,,,
+iffl-trade-28,2025,2025-11-12,Foley,Abad,Marvin Harrison Jr,player,,,,
+iffl-trade-28,2025,2025-11-12,Foley,Abad,Travis Etienne,player,,,,
+iffl-trade-28,2025,2025-11-12,Foley,Abad,TJ Hockenson,player,,,,
+iffl-trade-28,2025,2025-11-12,Foley,Abad,2026 R1 (Abad),pick,2026,,1,Abad
+iffl-trade-29,2025,2025-11-13,Jason,Abad,Sam Laporta,player,,,,
+iffl-trade-29,2025,2025-11-13,Jason,Abad,Chuba Hubbard,player,,,,
+iffl-trade-29,2025,2025-11-13,Abad,Jason,Aaron Jones,player,,,,
+iffl-trade-29,2025,2025-11-13,Abad,Jason,Jordan Mason,player,,,,
+iffl-trade-29,2025,2025-11-13,Abad,Jason,Mark Andrews,player,,,,
+iffl-trade-30,2025,2025-11-14,Jared,Foley,Dak Prescott,player,,,,
+iffl-trade-30,2025,2025-11-14,Jared,Foley,Joe Burrow,player,,,,
+iffl-trade-30,2025,2025-11-14,Jared,Foley,Jakobi Meyers,player,,,,
+iffl-trade-30,2025,2025-11-14,Foley,Jared,Cam Skattebo,player,,,,
+iffl-trade-30,2025,2025-11-14,Foley,Jared,Tetairoa McMillan,player,,,,
+iffl-trade-30,2025,2025-11-14,Foley,Jared,Elijah Arroyo,player,,,,
+iffl-trade-31,2025,2025-11-14,Dugan,M. Zurek,Khalil Shakir,player,,,,
+iffl-trade-31,2025,2025-11-14,Dugan,M. Zurek,Tory Horton,player,,,,
+iffl-trade-31,2025,2025-11-14,M. Zurek,Dugan,Joe Flacco,player,,,,
+iffl-trade-32,2025,2025-11-18,Bill,Dugan,Breece Hall,player,,,,
+iffl-trade-32,2025,2025-11-18,Bill,Dugan,Keenan Allen,player,,,,
+iffl-trade-32,2025,2025-11-18,Dugan,Bill,Tucker Kraft,player,,,,
+iffl-trade-32,2025,2025-11-18,Dugan,Bill,Devin Neal,player,,,,
+iffl-trade-32,2025,2025-11-18,Dugan,Bill,2026 R1 (Bill),pick,2026,,1,Bill
+iffl-trade-33,2025,2025-11-19,Abad,Cantone,Texans,player,,,,
+iffl-trade-33,2025,2025-11-19,Abad,Cantone,Samaje Perine,player,,,,
+iffl-trade-33,2025,2025-11-19,Cantone,Abad,Davis Mills,player,,,,
+iffl-trade-33,2025,2025-11-19,Cantone,Abad,C.J. Stroud,player,,,,
+hist-2026-04-02-faybik-a-zurek,2026,2026-04-02,A. Zurek,Faybik,Jaxon Smith-Njigba,player,,,,
+hist-2026-04-02-faybik-a-zurek,2026,2026-04-02,Faybik,A. Zurek,2026 1.02 (A. Zurek),pick,2026,1.02,1,A. Zurek
+hist-2026-04-02-faybik-a-zurek,2026,2026-04-02,Faybik,A. Zurek,2026 2.04 (Ryan),pick,2026,2.04,2,Ryan
+hist-2026-04-02-faybik-a-zurek,2026,2026-04-02,Faybik,A. Zurek,Emari Demercado,player,,,,
+hist-2026-04-02-faybik-jared,2026,2026-04-02,Jared,Faybik,2026 1.02 (A. Zurek),pick,2026,1.02,1,A. Zurek
+hist-2026-04-02-faybik-jared,2026,2026-04-02,Jared,Faybik,Trey Lance,player,,,,
+hist-2026-04-02-faybik-jared,2026,2026-04-02,Faybik,Jared,Bijan Robinson,player,,,,
+hist-2026-04-02-faybik-jared,2026,2026-04-02,Faybik,Jared,2026 2.10 (Jason),pick,2026,2.10,2,Jason
+hist-2026-04-15-faybik-bill,2026,2026-04-15,Bill,Faybik,Javonte Williams,player,,,,
+hist-2026-04-15-faybik-bill,2026,2026-04-15,Faybik,Bill,Jaylen Waddle,player,,,,
+hist-2026-05-04-bill-m-zurek,2026,2026-05-04,M. Zurek,Bill,Justin Herbert,player,,,,
+hist-2026-05-04-bill-m-zurek,2026,2026-05-04,Bill,M. Zurek,Michael Wilson,player,,,,
+hist-2026-05-23-wayne-m-zurek,2026,2026-05-23,M. Zurek,Wayne,De'Von Achane,player,,,,
+hist-2026-05-23-wayne-m-zurek,2026,2026-05-23,Wayne,M. Zurek,Trey McBride,player,,,,
+hist-2026-05-31-jason-m-zurek,2026,2026-05-31,M. Zurek,Jason,Rico Dowdle,player,,,,
+hist-2026-05-31-jason-m-zurek,2026,2026-05-31,Jason,M. Zurek,Jonathan Brooks,player,,,,
+hist-2026-05-31-jason-m-zurek,2026,2026-05-31,Jason,M. Zurek,Jonathon Brooks,player,,,,
+hist-2026-08-04-dugan-m-zurek,2026,2026-08-04,M. Zurek,Dugan,2027 1st (Dugan),pick,2027,,1,Dugan
+hist-2026-08-04-dugan-m-zurek,2026,2026-08-04,Dugan,M. Zurek,2027 1st (M. Zurek),pick,2027,,1,M. Zurek
+IzVwuSEN9yVhmjpNLXQP,2026,2026-08-16,Jason,Jared,Dak Prescott,player,,,,
+IzVwuSEN9yVhmjpNLXQP,2026,2026-08-16,Jared,Jason,KaVontae Turpin,player,,,,
+IzVwuSEN9yVhmjpNLXQP,2026,2026-08-16,Jared,Jason,2027 Round 2,pick,2027,,2,
+8xlhr2hF0TNJ0SMXwfIx,2026,2026-08-26,M. Zurek,Jared,Malik Willis,player,,,,
+8xlhr2hF0TNJ0SMXwfIx,2026,2026-08-26,Jared,M. Zurek,Kyren Williams,player,,,,
+GoHA74VoLesWhrcJByh7,2026,2026-08-27,Jared,A. Zurek,Matthew Stafford,player,,,,
+GoHA74VoLesWhrcJByh7,2026,2026-08-27,A. Zurek,Jared,Kyren Williams,player,,,,
+GoHA74VoLesWhrcJByh7,2026,2026-08-27,A. Zurek,Jared,2027 R2 (Jared),pick,2027,,2,Jared
+iffl-trade-44,2026,2026-08-27,M. Zurek,Bill,Michael Wilson,player,,,,
+iffl-trade-44,2026,2026-08-27,M. Zurek,Bill,2027 R2 (Bill),pick,2027,,2,Bill
+iffl-trade-44,2026,2026-08-27,Bill,M. Zurek,Blake Corum,player,,,,
+iffl-trade-45,2026,2026-08-28,M. Zurek,Abad,JaMarr Chase,player,,,,
+iffl-trade-45,2026,2026-08-28,Abad,M. Zurek,Josh Allen,player,,,,
+iffl-trade-46,2026,2026-08-28,Faybik,M. Zurek,Justin Herbert,player,,,,
+iffl-trade-46,2026,2026-08-28,M. Zurek,Faybik,2027 R2 (Faybik),pick,2027,,2,Faybik
+iffl-trade-47,2026,2026-10-08,M. Zurek,Bill,Baker Mayfield,player,,,,
+iffl-trade-47,2026,2026-10-08,Bill,M. Zurek,Malik Willis,player,,,,
+DqwUVXi7rbK1siqpMkXS,2026,2026-10-19,Jared,Abad,Chase Brown,player,,,,
+DqwUVXi7rbK1siqpMkXS,2026,2026-10-19,Abad,Jared,Stefon Diggs,player,,,,
+DqwUVXi7rbK1siqpMkXS,2026,2026-10-19,Abad,Jared,2027 R2 (Jason),pick,2027,,2,Jason
+iffl-trade-49,2026,2026-10-21,Faybik,Bill,Tyjae Spears,player,,,,
+iffl-trade-49,2026,2026-10-21,Faybik,Bill,Malik Willis,player,,,,
+iffl-trade-49,2026,2026-10-21,Faybik,Bill,2027 R1 (Bill),pick,2027,,1,Bill
+iffl-trade-49,2026,2026-10-21,Bill,Faybik,Justin Herbert,player,,,,
+iffl-trade-49,2026,2026-10-21,Bill,Faybik,D'Andre Swift,player,,,,
+iffl-trade-50,2026,2026-10-21,Faybik,Jason,Kimani Vidal,player,,,,
+iffl-trade-50,2026,2026-10-21,Faybik,Jason,2027 R1 (Jason),pick,2027,,1,Jason
+iffl-trade-50,2026,2026-10-21,Jason,Faybik,George Pickens,player,,,,
+S6yms2ijhi2hRsbPf5mc,2026,2026-10-29,Faybik,M. Zurek,Chuba Hubbard,player,,,,
+S6yms2ijhi2hRsbPf5mc,2026,2026-10-29,M. Zurek,Faybik,Braelon Allen,player,,,,
+S6yms2ijhi2hRsbPf5mc,2026,2026-10-29,M. Zurek,Faybik,2027 R1 (Bill),pick,2027,,1,Bill
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,De'Von Achane,player,,,,
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,Jayden Daniels,player,,,,
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,2027 R1 (Bill),pick,2027,,1,Bill
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,2027 R1 (Dugan),pick,2027,,1,Dugan
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,2027 R2 (Bill),pick,2027,,2,Bill
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,2027 R2 (M. Zurek),pick,2027,,2,M. Zurek
+iffl-trade-54,2026,2026-11-10,Jason,M. Zurek,2027 R2 (Faybik),pick,2027,,2,Faybik
+iffl-trade-54,2026,2026-11-10,M. Zurek,Jason,Mike Evans,player,,,,
+iffl-trade-54,2026,2026-11-10,M. Zurek,Jason,AJ Brown,player,,,,
+iffl-trade-54,2026,2026-11-10,M. Zurek,Jason,Sam Laporta,player,,,,
+iffl-trade-54,2026,2026-11-10,M. Zurek,Jason,Kenneth Walker III,player,,,,
+iffl-trade-54,2026,2026-11-10,M. Zurek,Jason,Jared Goff,player,,,,
+iffl-trade-55,2026,2026-11-10,Jason,Cantone,Jadarian Price,player,,,,
+iffl-trade-55,2026,2026-11-10,Jason,Cantone,Ty Simpson,player,,,,
+iffl-trade-55,2026,2026-11-10,Jason,Cantone,Terry McLaurin,player,,,,
+iffl-trade-55,2026,2026-11-10,Cantone,Jason,Breece Hall,player,,,,
+iffl-trade-55,2026,2026-11-10,Cantone,Jason,Harold Fannin Jr,player,,,,
+iffl-trade-55,2026,2026-11-10,Cantone,Jason,Jaguars,player,,,,
+iffl-trade-56,2026,2026-11-10,Wayne,Bill,Justin Herbert,player,,,,
+iffl-trade-56,2026,2026-11-10,Wayne,Bill,Caleb Douglas,player,,,,
+iffl-trade-56,2026,2026-11-10,Wayne,Bill,Bryce Young,player,,,,
+iffl-trade-56,2026,2026-11-10,Wayne,Bill,Javonte Williams,player,,,,
+iffl-trade-56,2026,2026-11-10,Bill,Wayne,Sam Darnold,player,,,,
+iffl-trade-56,2026,2026-11-10,Bill,Wayne,Josh Jacobs,player,,,,
+iffl-trade-56,2026,2026-11-10,Bill,Wayne,Justin Jefferson,player,,,,
+iffl-trade-56,2026,2026-11-10,Bill,Wayne,Drew Lock,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Faybik,Cantone,De'Zhaun Stribling,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Faybik,Cantone,Carson Beck,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Faybik,Cantone,Quinshon Judkins,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Faybik,Cantone,Woody Marks,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Faybik,Cantone,2027 R1 (Cantone),pick,2027,,1,Cantone
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Faybik,Cantone,2027 R2 (Cantone),pick,2027,,2,Cantone
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Cantone,Faybik,Jameis Winston,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Cantone,Faybik,Bo Nix,player,,,,
+S3fNIzC51PXKlZSpudxX,2026,2026-11-10,Cantone,Faybik,Bijan Robinson,player,,,,
+vruT2zRM0VUOoLysi0a4,2026,2026-11-10,A. Zurek,Jason,Dak Prescott,player,,,,
+vruT2zRM0VUOoLysi0a4,2026,2026-11-10,Jason,A. Zurek,Jaxson Dart,player,,,,
+iffl-trade-57,2026,2026-11-18,Wayne,A. Zurek,Denzel Boston,player,,,,
+iffl-trade-57,2026,2026-11-18,Wayne,A. Zurek,Kyle Monangai,player,,,,
+iffl-trade-57,2026,2026-11-18,Wayne,A. Zurek,2027 R1 (A. Zurek),pick,2027,,1,A. Zurek
+iffl-trade-57,2026,2026-11-18,Wayne,A. Zurek,2027 R2 (A. Zurek),pick,2027,,2,A. Zurek
+iffl-trade-57,2026,2026-11-18,A. Zurek,Wayne,Puka Nacua,player,,,,
+iffl-trade-57,2026,2026-11-18,A. Zurek,Wayne,David Montgomery,player,,,,

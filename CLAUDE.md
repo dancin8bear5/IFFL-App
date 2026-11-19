@@ -35,14 +35,26 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
 | # | Agent | Where | Key files |
 |---|---|---|---|
 | 1 | Deploy + verify | GitHub Actions on `main` | `.github/workflows/deploy.yml`, `web/e2e/`, `tests/rules/`, `functions/pollerHealth.js` |
-| 2 | Weekly scores | `pollWeeklyScores` Tue 10:00 CT | `functions/espnScores.js` `parseWeeklyScores` |
+| 2 | Weekly scores | **Mac launchd Tue 08:00** `ops/espn-weekly.sh` (the one ESPN job) + `onWeeklyScoresWritten` for the DM/recap | `web/scripts/scrape-espn-week.mjs`, `web/scripts/export-trades.mjs`, `functions/weeklyRecap.js` |
 | 3 | League notes | `sendLeagueNotes` every 5 min + Admin → Notes | `functions/leagueNotes.js` |
 | 4 | Waiver targets | Mac launchd, analytics repo | `iffl-analytics-agent/waiver_scout.py` |
 | 5 | Start/sit | Mac launchd, analytics repo | `iffl-analytics-agent/start_sit.py` |
 
-- **Weekly scores are written again** — by agent #2, from ESPN, every complete
-  regular-season week (the note under POD below about nothing writing them is
-  history). Kill switch: Admin → Areas → Agents. Health: `config/weeklyPoller`.
+- **Weekly scores have ONE writer: the Mac's Tuesday scrape** (Nov 2026). The
+  `pollWeeklyScores`/`pollWeeklyForce` Cloud Functions are retired — they fetched
+  the same team totals the scrape already validates against ESPN's scoreboard.
+  `scrape-espn-week.mjs` now writes `weeklyScores/{season}` (merge by week, same
+  shape) and `config/weeklyPoller` (health) after the history docs. A new week
+  landing fires `onWeeklyScoresWritten`, which DMs the commissioner and drafts
+  the recap from `historyMatchups` + `espnStandings` — no ESPN call. Admin →
+  Areas → Agents `weeklyAgent` now gates only that DM + recap. **If the Mac is
+  off on Tuesday the league's charts wait** until it wakes (launchd catches up).
+  After the first deploy of this change, once:
+  `firebase functions:delete pollWeeklyScores pollWeeklyForce --project iffl-auth --force`.
+- **Finished trades are exported weekly** to `data/trades-2025-on.csv` by
+  `web/scripts/export-trades.mjs` (same 11 columns as `trades-2022-2024.csv`),
+  right after the scrape, and pushed with the history CSV. Only `completed` /
+  `historical` trades — never proposals, declines or notes; this repo is public.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

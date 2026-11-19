@@ -19,6 +19,15 @@
 //      season's games and W-L/PF/PA to date, rebuilt from the CSV's TeamWeek rows
 //      (same shapes import-history.mjs writes), so the in-progress season shows up
 //      alongside 2008-2025. finalRank/playoffSeed stay null until the season ends.
+//   5. Firestore weeklyScores/{season} — every regular-season week's twelve team
+//      scores plus W-L, the doc the scoring chart, parlay, bracket and playoff gate
+//      read. This job is its ONLY writer since Nov 2026 (the pollWeeklyScores Cloud
+//      Function was retired); only the `weeks.N`, `records` and stamp fields are
+//      touched, so anything else on the doc survives. Written LAST: the
+//      onWeeklyScoresWritten function drafts the week's recap from historyMatchups
+//      the moment a new week lands here.
+//   6. Firestore config/weeklyPoller — {lastRunAt, latestWeek, lastError}, the
+//      health doc the deploy workflow checks (functions/pollerHealth.js).
 //
 // Fail closed: nothing is written unless all 12 teams load, every starter's
 // game is final, every team's starters add up to its ESPN total, and those totals
@@ -254,6 +263,7 @@ function writeCsv(ref, weeksBuilt) {
 function encodeValue(v) {
   if (v === null || v === undefined) return { nullValue: null }
   if (typeof v === 'boolean') return { booleanValue: v }
+  if (v instanceof Date) return { timestampValue: v.toISOString() }
   if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v }
   if (typeof v === 'string') return { stringValue: v }
   if (Array.isArray(v)) return { arrayValue: { values: v.map(encodeValue) } }
@@ -348,19 +358,77 @@ export function toTeamSeasonDoc(ref, matchupsDoc) {
   if (teams.length !== 12) throw new Error(`historyTeamSeasons: ${teams.length} teams, expected 12`)
   return { path: `historyTeamSeasons/${SEASON}`, data: { season: SEASON, throughWeek: matchupsDoc.data.throughWeek, source: 'espn-weekly-scrape (season to date)', teams } }
 }
-export function seasonDocs(ref, csvLines) {
+// weeklyScores/{season} in the app's native shape — { weeks: { "3": [{teamName, points}] },
+// records: { team: {wins, losses, ties} } } — the same doc parseWeeklyScores used to
+// produce from ESPN's API. Regular season only: a playoff week has four teams and would
+// skew every weekly median. A week is written only with all twelve scores, never half.
+// `mask` limits the write to the weeks we have plus records/stamps (a MERGE, like the
+// function's set(..., {merge: true}) was), so nothing else on the doc is replaced.
+export const REG_SEASON_WEEKS = SEASON >= 2021 ? 14 : 13
+export function toWeeklyScoresDoc(matchupsDoc, teamSeasonDoc, now = new Date()) {
+  const byWeek = new Map()
+  for (const g of matchupsDoc.data.rows) {
+    if (g.week > REG_SEASON_WEEKS || g.points == null) continue
+    if (!byWeek.has(g.week)) byWeek.set(g.week, [])
+    byWeek.get(g.week).push({ teamName: g.team, points: r2(g.points) })
+  }
+  const weeks = {}
+  for (const [w, scores] of [...byWeek.entries()].sort((a, b) => a[0] - b[0])) {
+    if (scores.length !== 12) throw new Error(`weeklyScores: week ${w} has ${scores.length} scores, expected 12`)
+    if (scores.some((s) => /^ESPN#/.test(s.teamName))) throw new Error(`weeklyScores: week ${w} has a team with no owner name`)
+    weeks[String(w)] = scores.sort((a, b) => a.teamName.localeCompare(b.teamName))
+  }
+  const records = Object.fromEntries(teamSeasonDoc.data.teams.map((t) => [t.team, { wins: t.wins, losses: t.losses, ties: t.ties }]))
+  const completeWeeks = Object.keys(weeks).map(Number)
+  return {
+    path: `weeklyScores/${SEASON}`,
+    data: { season: SEASON, weeks, records, updatedAt: now, source: 'espn-weekly-scrape' },
+    mask: ['season', 'records', 'updatedAt', 'source', ...completeWeeks.map((w) => `weeks.\`${w}\``)],
+    verify: (back) => {
+      const f = back?.fields?.weeks?.mapValue?.fields ?? {}
+      const short = completeWeeks.filter((w) => (f[String(w)]?.arrayValue?.values?.length ?? 0) !== 12)
+      if (short.length) throw new Error(`Firestore read-back weeklyScores/${SEASON}: week(s) ${short.join(',')} not 12 scores`)
+      return `${completeWeeks.length} weeks verified`
+    },
+    completeWeeks,
+  }
+}
+// Health doc — same fields the retired Cloud Function wrote, so pollerHealth and
+// Admin keep reading it unchanged.
+export function toWeeklyPollerDoc(weeklyScoresDoc, now = new Date()) {
+  const completeWeeks = weeklyScoresDoc.completeWeeks
+  const data = {
+    season: SEASON, latestWeek: completeWeeks.at(-1) ?? null, completeWeeks, problems: [],
+    lastError: null, lastRunAt: now, reason: 'espn-weekly-scrape', forceRun: false, skipped: null,
+  }
+  return {
+    path: 'config/weeklyPoller', data, mask: Object.keys(data),
+    verify: (back) => {
+      if (Number(back?.fields?.latestWeek?.integerValue ?? 0) !== (data.latestWeek ?? 0)) throw new Error('Firestore read-back config/weeklyPoller: latestWeek mismatch')
+      return `latest week ${data.latestWeek}`
+    },
+  }
+}
+// Order matters: weeklyScores goes after historyMatchups (its trigger reads that doc),
+// and the health doc goes last so it is only ever stamped after everything else landed.
+export function seasonDocs(ref, csvLines, now = new Date()) {
   const m = toMatchupsDoc(ref, csvLines)
-  return [toSeasonDoc(ref, csvLines), m, toTeamSeasonDoc(ref, m)]
+  const t = toTeamSeasonDoc(ref, m)
+  const w = toWeeklyScoresDoc(m, t, now)
+  return [toSeasonDoc(ref, csvLines), m, t, w, toWeeklyPollerDoc(w, now)]
 }
 
 async function writeFirestore(docs) {
   const token = execSync('gcloud auth print-access-token', { encoding: 'utf8' }).trim()
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
   for (const d of docs) { // one doc per commit: each is ~50KB, far under the 10MB cap
-    const body = { writes: [{ update: { name: `projects/${PROJECT}/databases/(default)/documents/${d.path}`, fields: Object.fromEntries(Object.entries(d.data).map(([k, v]) => [k, encodeValue(v)])) } }] }
+    const write = { update: { name: `projects/${PROJECT}/databases/(default)/documents/${d.path}`, fields: Object.fromEntries(Object.entries(d.data).map(([k, v]) => [k, encodeValue(v)])) } }
+    if (d.mask) write.updateMask = { fieldPaths: d.mask } // merge: only these fields change
+    const body = { writes: [write] }
     const res = await fetch(`${FS_BASE.replace('/documents', '')}/documents:commit`, { method: 'POST', headers, body: JSON.stringify(body) })
     if (!res.ok) throw new Error(`Firestore commit ${d.path}: ${res.status} ${await res.text()}`)
     const back = await fetch(`${FS_BASE}/${d.path}`, { headers }).then((r) => r.json())
+    if (d.verify) { log(`firestore ${d.path}: ${d.verify(back)}`); continue }
     const key = Array.isArray(d.data.rows) ? 'rows' : 'teams'
     const n = back?.fields?.[key]?.arrayValue?.values?.length ?? 0
     if (n !== d.data[key].length) throw new Error(`Firestore read-back ${d.path}: ${n} ${key}, wrote ${d.data[key].length}`)
@@ -425,7 +493,10 @@ async function main() {
   const ref = loadReference()
   if (flag('--season-docs')) {
     const docs = seasonDocs(ref, readFileSync(CSV, 'utf8').split(/\r?\n/).filter(Boolean))
-    for (const d of docs) log(`${d.path}: ${(d.data.rows ?? d.data.teams).length} ${d.data.rows ? 'rows' : 'teams'} through week ${d.data.throughWeek}`)
+    for (const d of docs) {
+      const list = d.data.rows ?? d.data.teams
+      log(list ? `${d.path}: ${list.length} ${d.data.rows ? 'rows' : 'teams'} through week ${d.data.throughWeek}` : `${d.path}: through week ${docs.at(-1).data.latestWeek}`)
+    }
     if (dryRun) { writeFileSync(join(OUT, `season-docs-${SEASON}.json`), JSON.stringify(docs, null, 1)); log('dry run: Firestore untouched'); return }
     await writeFirestore(docs)
     log('done')

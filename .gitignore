@@ -82,3 +82,6 @@ tests/rules/node_modules/
 
 # Firebase emulator logs
 *-debug.log
+
+# ESPN weekly scraper: persistent Chrome profile holding the ESPN sign-in
+.espn-chrome-profile/

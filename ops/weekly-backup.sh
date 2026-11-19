@@ -5,12 +5,12 @@
 # See web/scripts/backup-firestore.mjs.
 set -uo pipefail
 
-PROJECT_DIR="$HOME/claude-agents/apps/iffl-web-app"
+PROJECT_DIR="$HOME/claude-agents/iffl-web-app"
 LOG="$PROJECT_DIR/out/weekly-backup.log"
 mkdir -p "$(dirname "$LOG")"
 
 # launchd runs with a minimal PATH; node lives under nvm here.
-export PATH="$HOME/.nvm/versions/node/v22.23.2/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+export PATH="$HOME/.nvm/versions/node/v22.23.4/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') starting ===" >> "$LOG"
 

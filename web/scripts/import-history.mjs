@@ -187,7 +187,11 @@ if (warnings.length) {
   for (const w of warnings) console.log('  ⚠ ' + w)
 }
 
-const owner = (season, teamId) => mapping.get(season)?.get(Number(teamId))?.team ?? `ESPN#${teamId}`
+// Seasons with no TeamSeason rows yet (the in-progress one, appended weekly by
+// scrape-espn-week.mjs) fall back to the frozen identity map instead of ESPN#id.
+const identityMap = JSON.parse(readFileSync(new URL('../../data/espn-team-identity-map.json', import.meta.url), 'utf8')).seasons
+const owner = (season, teamId) => mapping.get(season)?.get(Number(teamId))?.team
+  ?? identityMap[String(season)]?.[String(teamId)] ?? `ESPN#${teamId}`
 
 // ── 2. historyTeamSeasons + leagueHistory enrichment + weeklyScores records ──
 for (const season of seasonsOf(teamSeasons)) {

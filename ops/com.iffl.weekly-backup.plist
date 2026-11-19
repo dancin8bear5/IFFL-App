@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/jaredtaylor/claude-agents/apps/iffl-web-app/ops/weekly-backup.sh</string>
+        <string>/Users/jaredtaylor/claude-agents/iffl-web-app/ops/weekly-backup.sh</string>
     </array>
     <!-- Sundays at 09:00. RunAtLoad is false so installing it doesn't fire a
          run immediately; StartCalendarInterval catches up if the Mac was
@@ -21,8 +21,8 @@
     <key>RunAtLoad</key>
     <false/>
     <key>StandardOutPath</key>
-    <string>/Users/jaredtaylor/claude-agents/apps/iffl-web-app/out/weekly-backup.stdout.log</string>
+    <string>/Users/jaredtaylor/claude-agents/iffl-web-app/out/weekly-backup.stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/jaredtaylor/claude-agents/apps/iffl-web-app/out/weekly-backup.stderr.log</string>
+    <string>/Users/jaredtaylor/claude-agents/iffl-web-app/out/weekly-backup.stderr.log</string>
 </dict>
 </plist>

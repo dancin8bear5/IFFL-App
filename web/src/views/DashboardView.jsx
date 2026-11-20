@@ -1082,7 +1082,7 @@ export default function DashboardView({ setTab }) {
           ⚙
         </button>
         <div style={{ fontSize: 46, fontWeight: 900, fontStyle: 'italic', letterSpacing: '-2px', color: 'var(--iff-accent)', lineHeight: 1.05 }}>
-          Insanity League
+          IFFL
         </div>
         <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 6 }}>Fantasy Football League</div>
         <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(158,168,184,0.5)', letterSpacing: 4, marginTop: 3 }}>

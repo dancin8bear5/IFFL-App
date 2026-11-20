@@ -3,7 +3,7 @@
 //
 // Confirmed email format (2026-08-16 fixture):
 //   The following trade has been accepted in your ESPN Fantasy Football
-//   league Insanity League.
+//   league IFFL (ESPN still calls it "Insanity League" in its emails).
 //   To: Shoot the Moon: IV
 //   From: The Mojave Miracles
 //   MOON trades

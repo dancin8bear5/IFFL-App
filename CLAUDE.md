@@ -1,6 +1,12 @@
-# The Belt App — Working Notes
+# IFFL App — Working Notes
 
-> **App name is "The Belt"** (Fantasy Football League). The Firebase project id is still `iffl-auth` (project ids can't be renamed; backend migration deferred).
+> **The app is called "IFFL" everywhere a member can see it** (commissioner's
+> ruling, Nov 20, 2026). It used to carry three names at once — "Insanity
+> League" in the browser tab, home-screen icon, login and Settings, "IFFL" in
+> the sidebar, and "The Belt" in these notes. "The Belt" survives below only as
+> the old project name, and "Insanity League" only where ESPN says it: its trade
+> emails name the league that way, so the parser fixtures in `functions/` must
+> keep it. The Firebase project id is still `iffl-auth` (ids can't be renamed).
 
 > **WEB-ONLY since Sep 28, 2026.** Repeated App Store rejections (Aug 2026) led to a
 > full web port in `web/` (Vite + React + Firebase JS SDK, same `iffl-auth` backend),
@@ -439,6 +445,19 @@ re-applied the look just replaced.
 `services/appearance.js` imports `../data/staticData.js` **with the
 extension** — `node --test` can't resolve it otherwise. Same trip-up as
 `./odds/index.js` and `./rankingsRelease.js`.
+
+### Default Tab is stored by slug (Nov 20, 2026)
+Settings → Default Tab opened the wrong page: "Market" landed on Players and
+"League" on Trades. The picker saved a POSITION (0–3) and `App.jsx` passed it
+straight to `setTab`; then Players was inserted and the League tab retired, so
+the same numbers meant different tabs. Neither file was wrong alone.
+
+It now saves `defaultTabSlug` — the key the URL already uses — and
+`services/defaultTab.js` (6 tests) reads an old numeric `defaultTab` by the
+LABEL it was saved under: 2 was "Market" → `trades`, 3 was "League" →
+`dashboard`, since standings moved there. One test reads `TabLayout.jsx` and
+fails if the picker ever offers a slug the app doesn't have. The screen map is
+still positional (see Dashboard rework); anything a member SAVES must not be.
 
 ### Live scoreboard polling — the commissioner's window (Sep 28, 2026)
 > **PAUSED since Sep 29, 2026** at the commissioner's request, until he says

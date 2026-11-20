@@ -40,7 +40,7 @@ const ArchiveView = lazy(() => import('./ArchiveView'))
 // the app's public surface once someone shares one, so treat them as
 // permanent — rename the LABEL freely, but retire a slug only by adding
 // an alias in services/routing.js.
-const TABS = [
+export const TABS = [
   // The desktop brand ("IFFL") is the Dashboard link, so the rail doesn't
   // also need a row for it. The MOBILE bar still does — the phone has no
   // brand to click, and without this there'd be no way home from another

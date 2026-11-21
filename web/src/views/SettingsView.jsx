@@ -15,9 +15,9 @@ import { presetsForTeam, fileToAvatarDataUrl } from '../services/avatars'
 import { signOut } from '../services/authService'
 import * as fs from '../services/firestoreService'
 import { applyAppearance, resolveAccent, resolveTheme, ACCENT_CHOICES, TEXT_SIZES, UI_THEMES, fireConfetti } from '../services/appearance'
+import { DEFAULT_TAB_CHOICES, defaultTabSlug } from '../services/defaultTab'
 
-const APP_VERSION = 'Insanity League Web 1.0'
-const TAB_NAMES = ['Dashboard', 'Rosters', 'Market', 'League']
+const APP_VERSION = 'IFFL Web 1.0'
 
 export default function SettingsView({ onClose }) {
   const {
@@ -252,12 +252,12 @@ export default function SettingsView({ onClose }) {
           <div style={rowStyle}>
             <span>Default Tab</span>
             <select
-              value={settings.defaultTab}
-              onChange={(e) => set({ defaultTab: Number(e.target.value) })}
+              value={defaultTabSlug(settings)}
+              onChange={(e) => set({ defaultTabSlug: e.target.value })}
               style={{ width: 'auto', minWidth: 130 }}
             >
-              {TAB_NAMES.map((name, i) => (
-                <option key={name} value={i}>{name}</option>
+              {DEFAULT_TAB_CHOICES.map((c) => (
+                <option key={c.slug} value={c.slug}>{c.label}</option>
               ))}
             </select>
           </div>

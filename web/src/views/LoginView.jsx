@@ -49,7 +49,7 @@ export default function LoginView() {
             lineHeight: 1.05,
           }}
         >
-          Insanity League
+          IFFL
         </div>
         <div style={{ fontSize: 12, color: 'var(--iff-subtext)', marginTop: 8 }}>
           Fantasy Football League

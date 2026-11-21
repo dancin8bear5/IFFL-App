@@ -231,7 +231,9 @@ export default function StandingsReel({ season, standings, weeklyScores, userTea
                 <span className="c-sp sr-wide" style={{ opacity: b.settle }} aria-hidden>
                   {reel.points[t].slice(sparkFrom).map((v, k) => {
                     const i = sparkFrom + k, { high, low } = reel.extremes[i]
-                    return <i key={i} style={{ height: v == null ? 2 : Math.round(4 + 16 * v / maxWeekly), background: t === high ? 'var(--iff-gold)' : t === low ? 'var(--iff-accent)' : 'var(--iff-subtext)' }} />
+                    // Colour lives in standingsReel.css (.hi / .lo): the week's
+                    // high keeps the gold token, the week's low is light blue.
+                    return <i key={i} className={t === high ? 'hi' : t === low ? 'lo' : undefined} style={{ height: v == null ? 2 : Math.round(4 + 16 * v / maxWeekly) }} />
                   })}
                 </span>
                 {reel.luckValid && (

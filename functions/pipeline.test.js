@@ -773,3 +773,32 @@ test('F7 — a calendar notice is written once, however many hourly runs see it'
   assert.deepEqual(again, [{ id: 'milestone-trade-deadline-2026-11-25', skipped: true }])
   assert.deepEqual(await pipeline.publishMilestones({ disabledAreas: ['feedAgent'] }, tradeDeadlineMorning), [])
 })
+
+test('G1 — the watchdog DMs when a job breaks, stays quiet next hour, and reports recovery', async () => {
+  const now = Date.parse('2026-11-18T16:00:00Z') // Wed 10am Central — no game window
+  const iso = (minAgo) => new Date(now - minAgo * 60000).toISOString()
+  const seed = baseSeed()
+  seed.espnStandings = { 2026: { lastRunAt: iso(5), lastError: null } }
+  Object.assign(seed.config, {
+    groupmePoller: { lastRunAt: iso(5), lastError: null },
+    espnGmailPoller: { lastRunAt: iso(5), lastError: null },
+    ifflFeed: { lastRunAt: iso(3), lastError: null },
+    backupHealth: { lastRunAt: iso(60 * 24 * 10), lastError: null }, // ten days: a missed Sunday
+  })
+  const { db, pipeline, sent } = loadPipeline(seed)
+
+  const first = await pipeline.runWatchdog(2026, now)
+  assert.deepEqual(first.failing, ['Firestore backup'])
+  assert.match(first.msg, /🔴 Firestore backup — stale/)
+  const dms = () => sent.groupme.filter((m) => String(m.body).includes('watchdog')).length
+  assert.equal(dms(), 1)
+
+  const second = await pipeline.runWatchdog(2026, now + 10 * 60e3)
+  assert.equal(second.msg, null)
+  assert.equal(dms(), 1, 'no repeat on the next run')
+
+  db.store.get('config').set('backupHealth', { lastRunAt: new Date(now + 15 * 60e3).toISOString(), lastError: null })
+  const third = await pipeline.runWatchdog(2026, now + 20 * 60e3)
+  assert.match(third.msg, /🟢 Firestore backup — back to normal/)
+  assert.deepEqual(third.failing, [])
+})

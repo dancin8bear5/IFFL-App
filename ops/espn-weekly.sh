@@ -20,9 +20,25 @@ notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"IFFL 
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') starting ===" >> "$LOG"
 cd "$PROJECT_DIR/web" || { echo "cannot cd to $PROJECT_DIR/web" >> "$LOG"; notify "FAILED: repo missing"; exit 1; }
 
-# Two tries 10 minutes apart: ESPN pages occasionally stall. Every write is
-# replace-by-week, so a second attempt can never duplicate rows.
-for attempt in 1 2; do
+# Pre-flight: the gcloud login is what every Firestore write rides on, and it
+# expires. Checking it first turns "scraped twelve pages, then failed at the
+# write" into a five-second failure that names its own fix.
+if ! gcloud auth print-access-token >/dev/null 2>>"$LOG"; then
+  echo "=== $(date '+%Y-%m-%d %H:%M:%S') FAILED (pre-flight: gcloud login expired) ===" >> "$LOG"
+  notify "FAILED: gcloud login expired — run: gcloud auth login"
+  exit 1
+fi
+
+# The loop. Three kinds of failure, three different answers:
+#   stall        → try again in 10 minutes (ESPN pages occasionally hang)
+#   not final    → wait 3 hours and look again, up to MAX_WAITS times — a
+#                  Monday game that ran late fixes itself, just not in 10 min
+#   logged out   → stop and say so; only a person can sign in
+# Every write is replace-by-week, so no retry can duplicate rows.
+MAX_WAITS=3
+waits=0
+attempt=1
+while :; do
   if node scripts/scrape-espn-week.mjs "$@" >> "$LOG" 2>&1; then
     # Finished trades → data/trades-2025-on.csv (web/scripts/export-trades.mjs). The
     # scores are already safe by this point, so a failure here is logged and
@@ -51,9 +67,23 @@ for attempt in 1 2; do
     tail -n 2000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
     exit 0
   fi
-  # Logged-out and not-final failures won't fix themselves in 10 minutes.
-  if tail -n 20 "$LOG" | grep -qE "logged out|not final|refusing week"; then break; fi
-  [ "$attempt" = 1 ] && sleep 600
+  recent=$(tail -n 20 "$LOG")
+  if echo "$recent" | grep -q "logged out"; then
+    echo "=== $(date '+%Y-%m-%d %H:%M:%S') FAILED (ESPN session expired) ===" >> "$LOG"
+    notify "ESPN sign-in expired — run: cd ~/claude-agents/iffl-web-app/web && node scripts/scrape-espn-week.mjs --login"
+    exit 1
+  fi
+  if echo "$recent" | grep -qE "not final|refusing week"; then
+    [ "$waits" -ge "$MAX_WAITS" ] && break
+    waits=$((waits + 1))
+    echo "--- $(date '+%Y-%m-%d %H:%M:%S') week not final yet; waiting 3h (wait $waits of $MAX_WAITS) ---" >> "$LOG"
+    [ "$waits" = 1 ] && notify "Week not final yet — will retry every 3h, up to $MAX_WAITS times"
+    sleep 10800
+    continue
+  fi
+  [ "$attempt" -ge 2 ] && break
+  attempt=$((attempt + 1))
+  sleep 600
 done
 
 reason=$(grep -E "ERROR|FAIL" "$LOG" | tail -1 | cut -c21-120 | tr '"' "'")

@@ -177,6 +177,28 @@ try {
 
   console.log(`✓ ${join(dir, file)} (${(statSync(join(dir, file)).size / 1024).toFixed(0)} KiB)`)
   console.log(`  verified: ${back} docs read back · ${kept} snapshots kept${old.length ? `, ${old.length} pruned` : ''}`)
+
+  // Heartbeat for the hourly watchdog (functions/watchdog.js). Only a
+  // VERIFIED snapshot stamps it, so "fresh" means "a good archive exists".
+  // A failure can't reliably write here (an expired gcloud token is one of
+  // the two ways this job fails), so the watchdog reads staleness instead.
+  // Best-effort: the backup already succeeded and must not fail on this.
+  try {
+    const res = await fetch(`${BASE}/config/backupHealth`, {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: {
+        lastRunAt: { timestampValue: new Date().toISOString() },
+        lastError: { nullValue: null },
+        docs: { integerValue: String(back) },
+        file: { stringValue: file },
+      } }),
+    })
+    if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 120)}`)
+    console.log('  heartbeat: config/backupHealth stamped')
+  } catch (e) {
+    console.error(`  WARN: heartbeat not written (backup itself is fine): ${e.message}`)
+  }
 } catch (e) {
   console.error(`ABORT: write to NAS failed: ${e.message}`)
   process.exit(1)

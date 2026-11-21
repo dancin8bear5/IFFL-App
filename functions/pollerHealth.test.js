@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const {evaluate, checks} = require("./pollerHealth");
+const {evaluate, checks, watchdogChecks} = require("./pollerHealth");
 
 const S = 2026;
 const now = new Date("2026-09-16T15:00:00Z"); // Wed 10 AM CT — no games
@@ -74,3 +74,19 @@ test("the shipped flag says whether the poller is paused right now", () => {
   const {LIVE_SCORES_PAUSED} = require("./espnScores");
   assert.equal(LIVE_SCORES_PAUSED, true, "paused Sep 29, 2026 at the commissioner's request");
 })
+
+test("the watchdog watches more than the deploy does — and the deploy list is unchanged", () => {
+  const deploy = checks(S).map((c) => c.name);
+  const dog = watchdogChecks(S).map((c) => c.name);
+  assert.deepEqual(dog.slice(0, deploy.length), deploy);
+  assert.ok(dog.includes("Firestore backup") && dog.includes("League feed sync"));
+  assert.ok(!deploy.includes("Firestore backup"), "a stale backup must never fail a deploy");
+});
+
+test("backup: absent → skipped; nine days old → red", () => {
+  const docs = {...healthy(), "config/ifflFeed": {lastRunAt: ago(3).toISOString(), lastError: null}};
+  const run = (d) => evaluate(d, now, S, undefined, watchdogChecks(S)).find((x) => x.name === "Firestore backup");
+  assert.equal(run(docs).skipped, true);
+  assert.equal(run({...docs, "config/backupHealth": {lastRunAt: ago(60 * 24 * 6), lastError: null}}).ok, true);
+  assert.match(run({...docs, "config/backupHealth": {lastRunAt: ago(60 * 24 * 9), lastError: null}}).reason, /stale/);
+});

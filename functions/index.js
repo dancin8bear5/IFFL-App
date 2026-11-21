@@ -15,6 +15,8 @@ const {gamesFromMatchupRows, newWeekLanded} = require("./weeklyRecap");
 const notes = require("./leagueNotes");
 const feed = require("./leagueFeed");
 const recordWatch = require("./recordWatch");
+const watchdog = require("./watchdog");
+const pollerHealth = require("./pollerHealth");
 const CALENDAR = require("./calendar.json");
 
 admin.initializeApp();
@@ -977,7 +979,7 @@ exports.pollEspnStandings = onSchedule(
   // ANTHROPIC key: this hourly job also carries the League Feed's calendar
   // notices. Riding an existing schedule is deliberate — Cloud Scheduler
   // bills per JOB, and a notice needs no better than hourly.
-  {schedule: "every 60 minutes", timeZone: "America/Chicago", retryCount: 0, secrets: [ANTHROPIC_API_KEY]},
+  {schedule: "every 60 minutes", timeZone: "America/Chicago", retryCount: 0, secrets: [ANTHROPIC_API_KEY, GROUPME_TOKEN]},
   async () => {
     const cfgSnap = await db.doc("config/league").get();
     const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
@@ -987,6 +989,10 @@ exports.pollEspnStandings = onSchedule(
       .catch((e) => console.error("publishMilestones failed:", e.message));
     const ref = db.doc(`espnStandings/${season}`);
 
+    // The poll itself is wrapped so that its early return on a failed fetch
+    // still reaches the watchdog below — a standings outage is precisely
+    // when the watchdog has something to say.
+    await (async () => {
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
       `/segments/0/leagues/${ESPN_LEAGUE_ID}?view=mTeam`;
     let data;
@@ -1010,8 +1016,40 @@ exports.pollEspnStandings = onSchedule(
       lastRunAt: admin.firestore.Timestamp.now(),
     }, {merge: true});
     console.log(`pollEspnStandings: ${standings.length} teams, ${gamesPlayed} games played, ${problems.length} problems`);
+    })();
+
+    await runWatchdog(season).catch((e) => console.error("runWatchdog failed:", e.message));
   },
 );
+
+/**
+ * The hourly health loop (functions/watchdog.js). Reads every job's state
+ * doc, and DMs the commissioner only when something BREAKS, RECOVERS, or
+ * has been down another full day. Rides pollEspnStandings — no Scheduler
+ * job of its own. It cannot watch that job dying outright; the deploy
+ * check and the fixer on the Mac cover that side.
+ */
+async function runWatchdog(season, nowMs = Date.now()) {
+  const list = pollerHealth.watchdogChecks(season);
+  const docs = {};
+  for (const c of list) {
+    const snap = await db.doc(c.path).get();
+    docs[c.path] = snap.exists ? snap.data() : null;
+  }
+  const results = pollerHealth.evaluate(docs, new Date(nowMs), season, undefined, list);
+  // A note that failed to send sits in Admin → Notes saying nothing.
+  const failedNotes = (await db.collection("leagueNotes").where("status", "==", "failed").get()).docs.length;
+  results.push(failedNotes
+    ? {name: "League notes", ok: false, reason: `${failedNotes} failed to send — Admin → Notes`}
+    : {name: "League notes", ok: true, reason: "none failed"});
+
+  const ref = db.doc("config/watchdog");
+  const diff = watchdog.diffHealth((await ref.get()).data(), results, nowMs);
+  const msg = watchdog.watchdogMessage(diff, nowMs);
+  await ref.set({failing: diff.failing, lastRunAt: admin.firestore.Timestamp.now(), lastError: null});
+  if (msg) await sendGroupMeDM(COMMISSIONER_TEAM_NAME, msg).catch(() => {});
+  return {msg, failing: Object.keys(diff.failing)};
+}
 
 /**
  * Agent #2 — weekly scores (docs/agents/02-weekly-dashboard-agent.md).
@@ -1589,7 +1627,7 @@ exports.pollEspnGmail = onSchedule(
 // Firestore. This machine has no Java, so the Firestore emulator can't run
 // either. functions/pipeline.test.js injects a fake Firestore and drives
 // these directly. Production never touches this export.
-exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets, publishWeekFeed, publishTradeFeed, watchRecords, publishMilestones};
+exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets, publishWeekFeed, publishTradeFeed, watchRecords, publishMilestones, runWatchdog};
 
 // League-state export consumed by the Agent Control Center on the NAS
 // (job `iffl-snapshot`). Shared-secret auth; see leagueState.js.

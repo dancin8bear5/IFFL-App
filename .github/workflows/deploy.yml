@@ -49,6 +49,8 @@ jobs:
         run: cd functions && node --test *.test.js
       - name: Unit tests — CI scripts
         run: node --test .github/scripts/*.test.mjs
+      - name: Unit tests — Mac job graphs
+        run: node --test ops/graph/*.test.mjs
       - name: Rules — emulator
         run: cd tests/rules && npm test
       - name: Smoke — preview build (every phase)

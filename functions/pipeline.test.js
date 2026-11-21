@@ -726,3 +726,50 @@ test('F4 — a week publishes one post per game plus the review, and spares an e
   assert.equal(db.get('leagueFeed', 'week-2026-w11').body, 'Commissioner rewrote this.')
   assert.deepEqual(out.at(-1), { id: 'week-2026-w11', skipped: true })
 })
+
+test('F5 — a record-breaking week updates the Trophy Room card and posts it', async () => {
+  const seed = baseSeed()
+  const row = (week, team, opponent, points, oppPoints) => ({ week, team, opponent, points, oppPoints })
+  seed.historyMatchups = {
+    2025: { season: 2025, rows: [row(3, 'Jared', 'Jason', 150, 90), row(3, 'Jason', 'Jared', 90, 150)] },
+    2026: { season: 2026, rows: [row(11, 'Jared', 'Jason', 99, 201.5), row(11, 'Jason', 'Jared', 201.5, 99)] },
+  }
+  const { db, pipeline } = loadPipeline(seed)
+  const out = await pipeline.watchRecords({ season: 2026, week: 11, cfg: {} })
+
+  const card = db.get('leagueRecords', 'auto-highest-single-game')
+  assert.equal(card.team, 'Jason')
+  assert.equal(card.value, '201.5 pts')
+  assert.equal(card.source, 'record-watch')
+  const post = db.get('leagueFeed', 'record-auto-highest-single-game-2026-w11')
+  assert.equal(post.type, 'record')
+  assert.match(post.body, /Jason, 201.5 pts/)
+  assert.match(post.body, /old mark: Jared, 150 pts/)
+  assert.ok(out.length >= 1)
+})
+
+test('F6 — feedAgent off: the record card still updates, the post does not', async () => {
+  const seed = baseSeed()
+  seed.historyMatchups = { 2026: { season: 2026, rows: [
+    { week: 11, team: 'Jared', opponent: 'Jason', points: 99, oppPoints: 201.5 },
+    { week: 11, team: 'Jason', opponent: 'Jared', points: 201.5, oppPoints: 99 },
+  ] } }
+  const { db, pipeline } = loadPipeline(seed)
+  await pipeline.watchRecords({ season: 2026, week: 11, cfg: { disabledAreas: ['feedAgent'] } })
+  assert.equal(db.get('leagueRecords', 'auto-highest-single-game').team, 'Jason')
+  assert.equal(db.get('leagueFeed', 'record-auto-highest-single-game-2026-w11'), null)
+})
+
+test('F7 — a calendar notice is written once, however many hourly runs see it', async () => {
+  const { db, pipeline } = loadPipeline(baseSeed())
+  const tradeDeadlineMorning = Date.parse('2026-11-25T15:00:00Z') // 9am Central
+  const first = await pipeline.publishMilestones({ activeSeasonYear: 2026 }, tradeDeadlineMorning)
+  assert.equal(first.length, 1)
+  const post = db.get('leagueFeed', 'milestone-trade-deadline-2026-11-25')
+  assert.equal(post.type, 'milestone')
+  assert.match(post.body, /Today: Trade Deadline at 2:00p CST/)
+
+  const again = await pipeline.publishMilestones({ activeSeasonYear: 2026 }, tradeDeadlineMorning + 3600e3)
+  assert.deepEqual(again, [{ id: 'milestone-trade-deadline-2026-11-25', skipped: true }])
+  assert.deepEqual(await pipeline.publishMilestones({ disabledAreas: ['feedAgent'] }, tradeDeadlineMorning), [])
+})

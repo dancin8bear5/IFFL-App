@@ -14,6 +14,8 @@ const {parseScoreboard, parseStandings, currentWeek, inGameWindow, LIVE_SCORES_P
 const {gamesFromMatchupRows, newWeekLanded} = require("./weeklyRecap");
 const notes = require("./leagueNotes");
 const feed = require("./leagueFeed");
+const recordWatch = require("./recordWatch");
+const CALENDAR = require("./calendar.json");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -972,10 +974,17 @@ if (!LIVE_SCORES_PAUSED) exports.pollEspnScores = onSchedule(
  * and stat corrections land on Tuesdays.
  */
 exports.pollEspnStandings = onSchedule(
-  {schedule: "every 60 minutes", timeZone: "America/Chicago", retryCount: 0},
+  // ANTHROPIC key: this hourly job also carries the League Feed's calendar
+  // notices. Riding an existing schedule is deliberate — Cloud Scheduler
+  // bills per JOB, and a notice needs no better than hourly.
+  {schedule: "every 60 minutes", timeZone: "America/Chicago", retryCount: 0, secrets: [ANTHROPIC_API_KEY]},
   async () => {
     const cfgSnap = await db.doc("config/league").get();
     const season = cfgSnap.data()?.activeSeasonYear ?? new Date().getFullYear();
+    // First, and independent of ESPN: a standings outage must not cost the
+    // league its trade-deadline notice.
+    await publishMilestones(cfgSnap.data() ?? {})
+      .catch((e) => console.error("publishMilestones failed:", e.message));
     const ref = db.doc(`espnStandings/${season}`);
 
     const url = `https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}` +
@@ -1055,6 +1064,8 @@ exports.onWeeklyScoresWritten = onDocumentWritten(
     if (games.length) {
       await publishWeekFeed({season, week, games, standings, cfg})
         .catch((e) => console.error("publishWeekFeed failed:", e.message));
+      await watchRecords({season, week, cfg})
+        .catch((e) => console.error("watchRecords failed:", e.message));
     }
 
     if ((cfg.disabledAreas ?? []).includes("weeklyAgent")) {
@@ -1100,11 +1111,14 @@ async function claudeDraft(prompt, model) {
 const NOTES_MODEL = "claude-sonnet-5-5";
 const feedAgentOn = (cfg) => !(cfg?.disabledAreas ?? []).includes("feedAgent");
 
-async function publishFeedPost({id, type, season, week, title, facts, prompt, template, cfg}) {
+async function publishFeedPost({id, type, season, week, title, facts, prompt, template, cfg, once = false}) {
   const ref = db.doc(`leagueFeed/${id}`);
   const existing = (await ref.get()).data();
   // Never overwrite a post the commissioner edited or hid.
   if (feed.isLocked(existing)) return {id, skipped: true};
+  // `once`: an hourly caller (milestones) must not rewrite — and re-bill —
+  // the same post every run.
+  if (once && existing) return {id, skipped: true};
   const result = await feed.writeVerified({
     draft: (p) => claudeDraft(p, cfg.notesModel ?? NOTES_MODEL),
     prompt, facts, template,
@@ -1141,6 +1155,50 @@ async function publishWeekFeed({season, week, games, standings, cfg}) {
   const settled = await Promise.allSettled(jobs);
   const out = settled.map((s) => (s.status === "fulfilled" ? s.value : {error: s.reason?.message}));
   console.log("leagueFeed week", week, JSON.stringify(out));
+  return out;
+}
+
+/**
+ * Did the week that just landed take a single-game record? If so the
+ * Trophy Room card is updated here (it used to wait for a manual Admin →
+ * Records edit or a re-import) and the feed says so. The card update is
+ * data, so it is NOT behind the feedAgent switch; the post is.
+ */
+async function watchRecords({season, week, cfg}) {
+  const snap = await db.collection("historyMatchups").get();
+  const games = recordWatch.gamesFromMatchupDocs(snap.docs.map((d) => d.data()));
+  const owners = recordWatch.ownersOfSeason(games, season);
+  const broken = recordWatch.brokenRecords(games, owners, season, week);
+  const out = [];
+  for (const {card, previous} of broken) {
+    const {id, ...fields} = card;
+    await db.doc(`leagueRecords/${id}`).set({source: "record-watch", ...fields});
+    if (!feedAgentOn(cfg)) { out.push({id, card: "updated"}); continue; }
+    const facts = feed.recordFacts({card, previous});
+    out.push(await publishFeedPost({
+      id: feed.feedId.record(id, season, week), type: "record", season, week,
+      title: `New record: ${card.label}`,
+      facts, prompt: feed.recordPrompt(facts, cfg.notesVoice ?? ""), template: feed.templateRecord(facts), cfg,
+    }));
+  }
+  if (out.length) console.log("recordWatch week", week, JSON.stringify(out));
+  return out;
+}
+
+/** Calendar notices. Called hourly; each post is written once (fixed id + `once`). */
+async function publishMilestones(cfg, nowMs = Date.now()) {
+  if (!feedAgentOn(cfg)) return [];
+  const due = feed.milestonesDue(CALENDAR, nowMs);
+  const season = cfg.activeSeasonYear ?? new Date(nowMs).getFullYear();
+  const out = [];
+  for (const facts of due) {
+    out.push(await publishFeedPost({
+      id: feed.feedId.milestone(facts.name, facts.date, facts.kind), type: "milestone", season, week: null,
+      title: facts.kind === "reminder" ? `${facts.daysAway} days: ${facts.name}` : `${facts.icon} ${facts.name}`.trim(),
+      facts, prompt: feed.milestonePrompt(facts, cfg.notesVoice ?? ""), template: feed.templateMilestone(facts), cfg,
+      once: true,
+    }));
+  }
   return out;
 }
 
@@ -1531,7 +1589,7 @@ exports.pollEspnGmail = onSchedule(
 // Firestore. This machine has no Java, so the Firestore emulator can't run
 // either. functions/pipeline.test.js injects a fake Firestore and drives
 // these directly. Production never touches this export.
-exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets, publishWeekFeed, publishTradeFeed};
+exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets, publishWeekFeed, publishTradeFeed, watchRecords, publishMilestones};
 
 // League-state export consumed by the Agent Control Center on the NAS
 // (job `iffl-snapshot`). Shared-secret auth; see leagueState.js.

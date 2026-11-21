@@ -1,0 +1,106 @@
+[
+  {
+    "name": "Rookie Draft",
+    "icon": "🎓",
+    "date": "2026-07-16",
+    "phase": "preseason"
+  },
+  {
+    "name": "IR Slots Emptied",
+    "icon": "🩹",
+    "date": "2026-07-16"
+  },
+  {
+    "name": "Rookie Spots Open",
+    "icon": "📋",
+    "date": "2026-07-16"
+  },
+  {
+    "name": "Select Keepers",
+    "icon": "🕐",
+    "date": "2026-08-28",
+    "time": "12:00p CST"
+  },
+  {
+    "name": "Live Keeper Reaction",
+    "icon": "🎬",
+    "date": "2026-08-28"
+  },
+  {
+    "name": "Auction Draft",
+    "icon": "💰",
+    "date": "2026-09-01",
+    "time": "8:45p CST"
+  },
+  {
+    "name": "League Dues Due",
+    "icon": "💵",
+    "date": "2026-09-01"
+  },
+  {
+    "name": "NFL Season Start",
+    "icon": "🏈",
+    "date": "2026-09-09",
+    "phase": "regular"
+  },
+  {
+    "name": "Trade Deadline",
+    "icon": "⇄",
+    "date": "2026-11-25",
+    "time": "2:00p CST"
+  },
+  {
+    "name": "Playoffs Begin",
+    "icon": "🥊",
+    "date": "2026-12-16",
+    "phase": "playoffs"
+  },
+  {
+    "name": "Rosters Frozen",
+    "icon": "🧊",
+    "date": "2027-01-06",
+    "phase": "dead"
+  },
+  {
+    "name": "Super Bowl LXI",
+    "icon": "🏆",
+    "date": "2027-02-14"
+  },
+  {
+    "name": "League Year Opens",
+    "icon": "🔓",
+    "date": "2027-02-15",
+    "phase": "offseason"
+  },
+  {
+    "name": "Trade Window Opens",
+    "icon": "⇄",
+    "date": "2027-02-15"
+  },
+  {
+    "name": "Auction Values Sent",
+    "icon": "📊",
+    "date": "2027-02-15"
+  },
+  {
+    "name": "Rookie Pick Lottery",
+    "icon": "🎰",
+    "date": "2027-02-22",
+    "tentative": true
+  },
+  {
+    "name": "NFL Draft",
+    "icon": "🏟️",
+    "date": "2027-04-23"
+  },
+  {
+    "name": "New Rule Comms",
+    "icon": "📣",
+    "date": "2027-05-05"
+  },
+  {
+    "name": "New Rule Voting",
+    "icon": "🗳️",
+    "date": "2027-05-30"
+  }
+]

@@ -77,8 +77,24 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
   - Members' query MUST filter `hidden == false` or the rules refuse it
     (`fs.listenToLeagueFeed`). Two equality filters, sorted in the browser —
     no composite index needed.
-  - Not built yet: record alerts, milestone posts, and cap figures in trade
-    write-ups.
+  - **Record alerts.** `functions/recordWatch.js` is the ONE definition of
+    the seven single-game record cards: `import-history.mjs` calls it for
+    the Trophy Room, and `watchRecords` runs it when a week lands, comparing
+    the book WITH and WITHOUT that week (never against the stored cards —
+    those can be hand-edited). A fallen record rewrites its
+    `leagueRecords/auto-*` card that Tuesday and posts. The card update is
+    data and ignores `feedAgent`; the post obeys it. Player, streak and
+    season cards still come only from a re-import.
+  - **Calendar notices.** Day-of posts for every milestone, plus a heads-up
+    2 days before any with a clock time (the deadlines). They ride the
+    hourly `pollEspnStandings` job — no new Scheduler job — and each is
+    written once (fixed id). **`functions/calendar.json` is GENERATED** from
+    `milestones` by `web/scripts/generate-functions-calendar.mjs --write`;
+    `calendarExport.test.js` fails `npm test` if you move a date and forget.
+    Nothing posts before 7am Central, and only dates actually written in the
+    calendar post — a stale calendar goes quiet rather than guessing.
+  - Not built yet: cap figures in trade write-ups; "playoffs set" and
+    "champion crowned" posts (they need bracket data, not the calendar).
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

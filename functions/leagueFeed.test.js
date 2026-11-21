@@ -144,3 +144,61 @@ test("prompts carry the facts and the hard rules", () => {
   }
   assert.match(feed.tradePrompt(facts, "be mean to Bill"), /be mean to Bill/);
 });
+
+// ── records ──
+test("record post: template names the mark and the old holder, and passes its fact check", () => {
+  const f = feed.recordFacts({
+    card: {label: "Highest Single-Game Score", tone: "high", team: "Jared", value: "270.5 pts", detail: "vs Bill (270.5–120)", season: 2026, week: 11},
+    previous: {team: "M. Zurek", value: "264.12 pts", season: 2020, week: 16},
+  });
+  const body = feed.templateRecord(f);
+  assert.match(body, /Highest Single-Game Score: Jared, 270.5 pts/);
+  assert.match(body, /M. Zurek, 264.12 pts \(2020, week 16\)/);
+  assert.deepEqual(factCheck(body, f), []);
+  assert.ok(!feed.templateRecord({...f, previous: null}).includes("old mark"));
+});
+
+// ── calendar milestones ──
+const cal = [
+  {name: "NFL Season Start", icon: "🏈", date: "2026-09-09", phase: "regular"},
+  {name: "Trade Deadline", icon: "⇄", date: "2026-11-25", time: "2:00p CST"},
+  {name: "Playoffs Begin", icon: "🥊", date: "2026-12-16", phase: "playoffs"},
+];
+const at = (iso) => Date.parse(iso);
+
+test("centralNow: a UTC evening is still the same Central day", () => {
+  assert.deepEqual(feed.centralNow(at("2026-11-26T02:30:00Z")), {date: "2026-11-25", hour: 20});
+});
+
+test("milestonesDue: the day itself, with what comes next", () => {
+  const [m, ...rest] = feed.milestonesDue(cal, at("2026-11-25T15:00:00Z")); // 9am Central
+  assert.equal(rest.length, 0);
+  assert.deepEqual([m.kind, m.name, m.time, m.daysAway], ["today", "Trade Deadline", "2:00p CST", 0]);
+  assert.deepEqual(m.next, {name: "Playoffs Begin", date: "2026-12-16", daysAfter: 21});
+});
+
+test("milestonesDue: a reminder two days before a deadline — but only for dates with a clock time", () => {
+  const due = feed.milestonesDue(cal, at("2026-11-23T15:00:00Z"));
+  assert.deepEqual(due.map((m) => [m.kind, m.name]), [["reminder", "Trade Deadline"]]);
+  assert.deepEqual(feed.milestonesDue(cal, at("2026-12-14T15:00:00Z")), []); // Playoffs Begin has no time
+});
+
+test("milestonesDue: a phase boundary says which phase opens", () => {
+  const [m] = feed.milestonesDue(cal, at("2026-12-16T15:00:00Z"));
+  assert.equal(m.opensPhase, "Playoffs");
+  assert.match(feed.templateMilestone(m), /Today: Playoffs Begin\. Playoffs starts now\./);
+});
+
+test("milestonesDue: nothing before 7am Central, nothing on an ordinary day, nothing from a bad calendar", () => {
+  assert.deepEqual(feed.milestonesDue(cal, at("2026-11-25T08:00:00Z")), []); // 2am Central
+  assert.deepEqual(feed.milestonesDue(cal, at("2026-11-21T18:00:00Z")), []);
+  assert.deepEqual(feed.milestonesDue(null, at("2026-11-25T15:00:00Z")), []);
+  assert.deepEqual(feed.milestonesDue([{name: "Bad", date: "Nov 25"}], at("2026-11-25T15:00:00Z")), []);
+});
+
+test("milestone templates pass their own fact check", () => {
+  for (const when of ["2026-11-25T15:00:00Z", "2026-11-23T15:00:00Z", "2026-12-16T15:00:00Z"]) {
+    for (const f of feed.milestonesDue(cal, at(when))) assert.deepEqual(factCheck(feed.templateMilestone(f), f), []);
+  }
+  assert.notEqual(feed.feedId.milestone("Trade Deadline", "2026-11-25", "today"), feed.feedId.milestone("Trade Deadline", "2026-11-25", "reminder"));
+});

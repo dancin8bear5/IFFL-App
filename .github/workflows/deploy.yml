@@ -50,7 +50,7 @@ jobs:
       - name: Unit tests — CI scripts
         run: node --test .github/scripts/*.test.mjs
       - name: Unit tests — Mac job graphs
-        run: node --test ops/graph/*.test.mjs
+        run: node --test ops/graph/*.test.mjs ops/scouts/*.test.mjs
       - name: Rules — emulator
         run: cd tests/rules && npm test
       - name: Smoke — preview build (every phase)

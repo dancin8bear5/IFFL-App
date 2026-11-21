@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.iffl.scouts</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/jaredtaylor/claude-agents/iffl-web-app/ops/scouts.sh</string>
+    </array>
+    <!-- Wednesdays at 10:00 local (CT): the day after the Tuesday scrape, so
+         the data scout sees last week's games. If the Mac is asleep, launchd
+         runs it on wake. RunAtLoad false so installing doesn't fire a run.
+         NOT installed automatically — copy it to ~/Library/LaunchAgents and
+         `launchctl load` it when you want the scouts running on their own. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key><integer>3</integer>
+        <key>Hour</key><integer>10</integer>
+        <key>Minute</key><integer>0</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/jaredtaylor/claude-agents/iffl-web-app/out/scouts.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/jaredtaylor/claude-agents/iffl-web-app/out/scouts.stderr.log</string>
+</dict>
+</plist>

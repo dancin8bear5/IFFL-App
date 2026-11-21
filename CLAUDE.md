@@ -139,6 +139,40 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
   - No LangGraph or SDK: the estate has no framework, and the app's style
     is one declared object per thing. A second graph is one more file.
   `ops/weekly-backup.sh` notifies on failure — it used to fail silently.
+- **The scouts — agents that build** (Nov 21, 2026). `ops/graph/scouts.mjs`,
+  on the same runner as the Tuesday job. Weekly, three scouts (visuals,
+  usability, data) each look at the app and may propose ONE change; a
+  builder writes it; a reviewer on a different model tier approves or
+  rejects; what survives is a pull request labelled `scout` + `scout:<name>`.
+  **Nothing merges or deploys from there.** Specs: `docs/agents/08-scouts.md`.
+  - **Bounds are enforced by code, not by the prompt.** After the builder
+    stops, the graph itself runs `ops/scouts/policy.mjs` on the diff and
+    then `npm test` + `npm run build`. Scouts may change `web/src` and
+    `web/e2e` only — never rules, functions, `ops/`, `.github/`,
+    `firestoreService.js`, `context/`, Admin, Login, or dependencies; no
+    deleted files; no gutted tests; 12 files / 700 lines. One repair round,
+    then the change is dropped.
+  - **Their memory is GitHub.** A scout is shown its past pull requests:
+    merged = wanted, closed without merging = not wanted. Closing a scout
+    PR is how you teach it. A scout with a PR still OPEN proposes nothing.
+  - They work in a `git worktree` under `out/scout-work/`, cut from
+    `origin/main` — never in the checkout the launchd jobs run from.
+  - Claude runs headless exactly as the estate's fixer runs it
+    (`--restricted`, no permission prompts, no MCP, API key stripped so it
+    uses the subscription). Models come from the estate tier map
+    (`_shared/estate/models.json`): author = `default`, reviewer = its
+    `review_tier`.
+  - The visuals and usability scouts see ONLY sample-data mode
+    (`ops/scouts/capture.mjs` → `?preview=1`), so no member data reaches a
+    screenshot. The data scout reads the committed CSVs.
+  - **Not installed by default.** `ops/com.iffl.scouts.plist` (Wed 10:00)
+    is in the repo but must be copied to `~/Library/LaunchAgents` and
+    loaded by hand. `node ops/graph/scouts.mjs --plan` shows the steps;
+    `--only data --no-pr` is a safe trial.
+  - **Deliberately NOT built: data stories auto-posted to the League Feed.**
+    The feed's safety is a fact check against numbers computed by CODE. A
+    scout's "finding" has numbers computed by Claude, so checking Claude
+    against Claude proves nothing. Findings become tested code in a PR.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

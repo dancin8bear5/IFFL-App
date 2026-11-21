@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from './context/AppContext'
 import LoginView from './views/LoginView'
-import TabLayout from './views/TabLayout'
+import TabLayout, { TABS } from './views/TabLayout'
+import { tabForSlug } from './services/routing'
+import { defaultTabSlug } from './services/defaultTab'
 
 // Dev-only UI preview: `npm run dev` + ?preview=1 skips login so screens can be
 // checked without signing in. import.meta.env.DEV is false in production builds,
@@ -31,10 +33,12 @@ export default function App() {
     if (arrivedOnDeepLink.current) { appliedDefaultTab.current = true; return }
     if (didLoadSettings && !appliedDefaultTab.current) {
       appliedDefaultTab.current = true
-      const t = userSettings.defaultTab ?? 0
-      if (t >= 0 && t <= 3) setTab(t)
+      // By slug, never by position: the saved number used to be handed
+      // straight to setTab, and went wrong the day the tab list changed.
+      const t = tabForSlug(TABS, defaultTabSlug(userSettings))
+      if (t >= 0) setTab(t)
     }
-  }, [didLoadSettings, userSettings.defaultTab])
+  }, [didLoadSettings, userSettings.defaultTab, userSettings.defaultTabSlug])
 
   if (DEV_PREVIEW) return <TabLayout tab={tab} setTab={setTab} />
 

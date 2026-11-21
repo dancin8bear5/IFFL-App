@@ -26,7 +26,19 @@
 .c-lv b { color: var(--iff-text); font-weight: 600; }
 .sr-head .c-sp { text-align: center; }
 .sr-row .c-sp { display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 20px; }
-.sr-row .c-sp i { width: 8px; border-radius: 2px 2px 0 0; opacity: .85; }
+/* Weekly sparkline. Three states, and the two that matter are full strength:
+   .hi = that week's league high (gold token), .lo = that week's league low
+   (light blue). Every other bar is the subtext grey at HALF strength — at
+   .85 it sat ΔE ~12 from any light blue, i.e. hard to tell apart even with
+   full colour vision; dimmed, the pair clears 23 on the default card and 32
+   on Bears. Low used to be --iff-accent, which is red in most themes and so
+   read as "bad high" beside an orange-red gold on Bears. */
+.sr-card { --sr-low: #7DD3FC; }
+/* The two light-surface eras: light blue on cream or silver disappears. */
+[data-era="50s"] .sr-card, [data-era="2000s"] .sr-card { --sr-low: #0284C7; }
+.sr-row .c-sp i { width: 8px; border-radius: 2px 2px 0 0; background: var(--iff-subtext); opacity: .5; }
+.sr-row .c-sp i.hi { background: var(--iff-gold); opacity: 1; }
+.sr-row .c-sp i.lo { background: var(--sr-low); opacity: 1; }
 
 .sr-rows { position: relative; transition: height .25s ease; }
 .sr-row {

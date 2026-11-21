@@ -3,11 +3,18 @@
 // auction money goes, and which owner turns dollars into points.
 //
 // Reads historyAggregates/{scoring,draft} through AppContext rather than the
-// raw season docs — see services/draftAnalytics.js for why.
-import { useMemo } from 'react'
+// raw season docs — see services/draftAnalytics.js for why. Keeper Verdicts
+// is the exception: it needs real season points joined against the bundled
+// auction history, which no existing aggregate has, so it fetches
+// historyPlayerSeasons itself (same call HistoryView's Player Scores tab
+// makes) rather than going through AppContext.
+import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { teamByName, isActiveTeam } from '../data/staticData'
 import { scoringEras, positionSpendShare, draftROI, SPEND_POSITIONS } from '../services/draftAnalytics'
+import { keeperValue } from '../services/keeperValue'
+import { auctionHistory } from '../data/auctionHistory'
+import * as fs from '../services/firestoreService'
 
 const Label = ({ children }) => <div className="troom-section-label">{children}</div>
 
@@ -85,6 +92,22 @@ export default function TrophyDraftCharts({ showFormer }) {
   const spend = useMemo(() => positionSpendShare(historyAggregates?.draft), [historyAggregates])
   const roi = useMemo(() => draftROI(historyAggregates?.draft, include), [historyAggregates, include])
 
+  // Keeper Verdicts needs real season points, not a precomputed aggregate —
+  // fetched once here rather than through AppContext, same call HistoryView's
+  // Player Scores tab already makes.
+  const [playerSeasons, setPlayerSeasons] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    fs.fetchHistoryPlayerSeasons().then((docs) => {
+      if (!cancelled) setPlayerSeasons(docs)
+    })
+    return () => { cancelled = true }
+  }, [])
+  const keepers = useMemo(
+    () => keeperValue(auctionHistory, playerSeasons, include),
+    [playerSeasons, include],
+  )
+
   if (!historyAggregates) return null
 
   const signed = (n, d = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`
@@ -99,6 +122,7 @@ export default function TrophyDraftCharts({ showFormer }) {
   const peak = [...eras.seasons].sort((a, b) => b.leagueAvgPPG - a.leagueAvgPPG)[0]
 
   const roiMax = Math.max(0.1, ...roi.career.map((r) => r.ptsPerDollar))
+  const keeperMax = Math.max(0.1, ...keepers.leaderboard.map((r) => r.ptsPerDollar))
 
   // Spend-share callouts: the position that gained and lost the most share.
   let spendShift = null
@@ -273,6 +297,58 @@ export default function TrophyDraftCharts({ showFormer }) {
                 team={`${roi.worstClass.team} · ${roi.worstClass.season}`}
                 value={`${roi.worstClass.ptsPerDollar.toFixed(1)} pts/$`}
                 note={`$${Math.round(roi.worstClass.spend)} bought ${Math.round(roi.worstClass.points)} points`}
+              />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ── Keeper Verdicts ── */}
+      {keepers.leaderboard.length > 0 && (
+        <section>
+          <Label>KEEPER VERDICTS</Label>
+          <Caption>
+            Points per dollar on KEPT picks only — the receipt for every escalated keeper
+            price the league has ever paid. A bought pick earns nothing here; it already
+            has its say in Draft Return above.
+          </Caption>
+          <div className="iff-card" style={{ padding: '10px 12px' }}>
+            {keepers.leaderboard.map((r) => (
+              <div key={r.team} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                <span style={{ width: 66, flexShrink: 0, fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {r.team}
+                </span>
+                <div style={{ flex: 1, height: 16, background: 'var(--iff-elevated)', borderRadius: 3, overflow: 'hidden' }}>
+                  <div
+                    title={`${r.team}: $${Math.round(r.spend)} spent on ${r.picks} keeper${r.picks === 1 ? '' : 's'}, ${Math.round(r.points)} points`}
+                    style={{
+                      width: `${(r.ptsPerDollar / keeperMax) * 100}%`, height: '100%',
+                      background: teamByName[r.team]?.color ?? 'var(--iff-accent)', opacity: 0.85,
+                    }}
+                  />
+                </div>
+                <span className="tnum" style={{ width: 44, flexShrink: 0, textAlign: 'right', fontSize: 10.5, fontWeight: 800, color: 'var(--iff-gold)' }}>
+                  {r.ptsPerDollar.toFixed(1)}
+                </span>
+              </div>
+            ))}
+            <div style={{ fontSize: 9.5, color: 'var(--iff-subtext)', padding: '4px 6px 0' }}>
+              points per dollar, kept players only
+            </div>
+          </div>
+          {keepers.bestPick && keepers.worstPick && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 10 }}>
+              <StatNote
+                label="BEST KEEPER CALL"
+                team={`${keepers.bestPick.team} · ${keepers.bestPick.player}`}
+                value={`${keepers.bestPick.ptsPerDollar.toFixed(1)} pts/$`}
+                note={`${keepers.bestPick.season} · $${keepers.bestPick.price} kept, ${Math.round(keepers.bestPick.points)} points`}
+              />
+              <StatNote
+                label="WORST KEEPER CALL"
+                team={`${keepers.worstPick.team} · ${keepers.worstPick.player}`}
+                value={`${keepers.worstPick.ptsPerDollar.toFixed(1)} pts/$`}
+                note={`${keepers.worstPick.season} · $${keepers.worstPick.price} kept, ${Math.round(keepers.worstPick.points)} points`}
               />
             </div>
           )}

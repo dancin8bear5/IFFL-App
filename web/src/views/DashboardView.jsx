@@ -27,6 +27,7 @@ import PowerRankingsView from '../components/PowerRankingsView'
 import PowerRankingsChart from '../components/PowerRankingsChart'
 import LegacyPowerRankings from '../components/LegacyPowerRankings'
 import LiveScoreboard from '../components/LiveScoreboard'
+import LeagueFeed from '../components/LeagueFeed'
 import StandingsReel from '../components/StandingsReel'
 import OddsBoard from '../components/OddsBoard'
 // Lazy: the rankings view carries its own stylesheet and is only needed
@@ -950,6 +951,8 @@ export default function DashboardView({ setTab }) {
     calendar,
     tda: tdaStrip,
     messages: messagesSection,
+    // Self-publishing recaps + trade write-ups. Renders nothing when empty.
+    feed: areaEnabled('feed') && <LeagueFeed />,
     rankings: rankingsTile,
     odds: oddsTile,
     archive: archiveTile,

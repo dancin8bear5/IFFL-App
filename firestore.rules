@@ -248,6 +248,18 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
+    // League Feed — recaps and trade write-ups published by Cloud Functions
+    // with NO approval step (functions/leagueFeed.js). Members read what
+    // isn't hidden; the commissioner's only powers are to edit the words
+    // or pull a post. Nobody creates or deletes one from a browser. The
+    // member query must filter `hidden == false` or it is refused.
+    match /leagueFeed/{postId} {
+      allow read: if isCommissioner() || (isReader() && resource.data.hidden == false);
+      allow update: if isCommissioner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'body', 'hidden', 'editedAt']);
+      allow create, delete: if false;
+    }
+
     match /leagueHistory/{year} {
       allow read: if isReader();
       allow write: if isCommissioner();

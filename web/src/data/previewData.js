@@ -559,3 +559,19 @@ export const previewEspnStandings = (() => {
 
 /** The next week's games, mid-Sunday, for the StandingsReel "this week" column. */
 export const previewStandingsBoard = { ...previewLiveScores, week: Object.keys(previewWeeklyScores).length + 1 }
+
+// League Feed (components/LeagueFeed.jsx) — what functions/leagueFeed.js publishes.
+export const previewFeed = [
+  { id: 'week-2026-w3', type: 'week', season: 2026, week: 3, hidden: false, writer: 'claude', attempts: 1,
+    title: 'Week 3 in review', publishedAt: new Date(Date.now() - 2 * 3600e3),
+    body: 'Jared dropped 141.2 and never looked back, while Bill limped home with 99.4 — the low score of the week. The game of the week was Ryan over Abad by 0.9, which is roughly one garbage-time reception.\n\nJared sits alone on top at 3-0.' },
+  { id: 'game-2026-w3-bill-v-jared', type: 'game', season: 2026, week: 3, hidden: false, writer: 'claude', attempts: 2,
+    title: 'Jared 141.2, Bill 99.4', publishedAt: new Date(Date.now() - 2 * 3600e3),
+    body: 'Bill’s pony club got put out to pasture. Jared won by 41.8 and it was not that close.' },
+  { id: 'game-2026-w3-abad-v-ryan', type: 'game', season: 2026, week: 3, hidden: false, writer: 'template', attempts: 2,
+    title: 'Ryan 101, Abad 100.1', publishedAt: new Date(Date.now() - 2 * 3600e3),
+    body: 'Ryan 101, Abad 100.1. Margin: 0.9.' },
+  { id: 'trade-demo', type: 'trade', season: 2026, week: null, hidden: false, writer: 'claude', attempts: 1,
+    title: 'Trade: Foley ↔ Wayne', publishedAt: new Date(Date.now() - 26 * 3600e3),
+    body: 'Foley gets the running back he has needed since August; Wayne gets a 2027 first and the right to say he is building for the future.' },
+]

@@ -658,3 +658,71 @@ test('J3 — a created proposed trade still sends the offer', async () => {
   assert.equal(sent.push.length, 1)
   assert.match(sent.push[0].notification.title, /Trade Offer/)
 })
+
+/* ═══════════════ PATH F — League Feed auto-publish ═══════════════ */
+// No ANTHROPIC key in the harness, so every post takes the template path —
+// which is exactly the guarantee worth pinning: with Claude unavailable the
+// feed still publishes, and what it publishes is built only from the facts.
+
+const completedNow = (Timestamp, extra = {}) => ({
+  proposingTeamName: 'Jared', receivingTeamName: 'Bill', status: 'completed', season: 2026,
+  assetsFromProposer: [{ assetType: 'player', assetId: 'p1', displayName: 'Puka Nacua' }],
+  assetsFromReceiver: [{ assetType: 'player', assetId: 'p2', displayName: 'Jalen Hurts' }],
+  completedAt: Timestamp.now(), ...extra,
+})
+
+test('F1 — a completed trade publishes a write-up with no approval step', async () => {
+  const { db, pipeline, Timestamp } = loadPipeline(baseSeed())
+  const trade = completedNow(Timestamp)
+  await pipeline.handleTradeWrite(evt({ ...trade, status: 'accepted' }, trade, 'tr9'))
+
+  const post = db.get('leagueFeed', 'trade-tr9')
+  assert.ok(post, 'post was written')
+  assert.equal(post.type, 'trade')
+  assert.equal(post.hidden, false)
+  assert.equal(post.writer, 'template')
+  assert.match(post.body, /Jared gets Jalen Hurts/)
+  assert.match(post.body, /Bill gets Puka Nacua/)
+})
+
+test('F2 — a backfilled old trade recorded as completed is not news', async () => {
+  const { db, pipeline, Timestamp } = loadPipeline(baseSeed())
+  const old = completedNow(Timestamp, { completedAt: Timestamp.fromMillis(Date.now() - 60 * 864e5) })
+  await pipeline.handleTradeWrite(evt(null, old, 'old1'))
+  assert.equal(db.get('leagueFeed', 'trade-old1'), null)
+})
+
+test('F3 — the feedAgent switch silences the feed; a proposal never posts', async () => {
+  const seed = baseSeed()
+  seed.config.league.disabledAreas = ['feedAgent']
+  const off = loadPipeline(seed)
+  const trade = completedNow(off.Timestamp)
+  await off.pipeline.handleTradeWrite(evt({ ...trade, status: 'accepted' }, trade, 'tr9'))
+  assert.equal(off.db.get('leagueFeed', 'trade-tr9'), null)
+
+  const on = loadPipeline(baseSeed())
+  await on.pipeline.handleTradeWrite(evt(null, { ...completedNow(on.Timestamp), status: 'proposed' }, 'tr10'))
+  assert.equal(on.db.get('leagueFeed', 'trade-tr10'), null)
+})
+
+test('F4 — a week publishes one post per game plus the review, and spares an edited post', async () => {
+  const seed = baseSeed()
+  seed.historyPlayerWeeks = { '2026-11': { rows: [
+    { team: 'Jared', player: 'Josh Allen', position: 'QB', slot: 'QB', points: 31.2 },
+  ] } }
+  seed.leagueFeed = { 'week-2026-w11': { body: 'Commissioner rewrote this.', editedAt: 1, hidden: false } }
+  const { db, pipeline } = loadPipeline(seed)
+  const games = [
+    { home: 'Bill', away: 'Jared', homeScore: 99.4, awayScore: 141.26, final: true },
+    { home: 'Abad', away: 'Ryan', homeScore: 100.1, awayScore: 101, final: true },
+  ]
+  const out = await pipeline.publishWeekFeed({ season: 2026, week: 11, games, standings: [], cfg: {} })
+
+  assert.equal(out.length, 3)
+  const g = db.get('leagueFeed', 'game-2026-w11-bill-v-jared')
+  assert.equal(g.title, 'Jared 141.26, Bill 99.4')
+  assert.match(g.body, /Josh Allen \(31.2\)/)
+  assert.ok(db.get('leagueFeed', 'game-2026-w11-abad-v-ryan'))
+  assert.equal(db.get('leagueFeed', 'week-2026-w11').body, 'Commissioner rewrote this.')
+  assert.deepEqual(out.at(-1), { id: 'week-2026-w11', skipped: true })
+})

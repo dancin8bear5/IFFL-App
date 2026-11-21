@@ -13,6 +13,7 @@ const {runFeedSync} = require("./ifflFeedSync");
 const {parseScoreboard, parseStandings, currentWeek, inGameWindow, LIVE_SCORES_PAUSED} = require("./espnScores");
 const {gamesFromMatchupRows, newWeekLanded} = require("./weeklyRecap");
 const notes = require("./leagueNotes");
+const feed = require("./leagueFeed");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -325,6 +326,7 @@ async function handleTradeWrite(event) {
     // about; it's already done.
     if (after.status === "completed") {
       await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
+      await publishTradeFeed(event.params?.tradeId, after);
       return null;
     }
     // Backfilled and imported records (keeper sheet, feed adoption) are not
@@ -442,6 +444,7 @@ async function handleTradeWrite(event) {
 
     case "completed":
       await notifyCompleted(proposer, receiver, youGet, theyGet, after.source);
+      await publishTradeFeed(event.params?.tradeId, after);
       break;
 
     default:
@@ -452,7 +455,7 @@ async function handleTradeWrite(event) {
 }
 
 exports.onTradeWrite = onDocumentWritten(
-  {document: "trades/{tradeId}", secrets: [GROUPME_TOKEN]},
+  {document: "trades/{tradeId}", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY]},
   handleTradeWrite,
 );
 
@@ -1028,7 +1031,10 @@ exports.pollEspnStandings = onSchedule(
  * removes both and their two Cloud Scheduler jobs ($0.10/month each).
  */
 exports.onWeeklyScoresWritten = onDocumentWritten(
-  {document: "weeklyScores/{season}", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retry: false},
+  // 300s: the feed writes one post per game plus the week-in-review, each
+  // of which may take two Claude calls. They run in parallel, but the
+  // default 60s is too tight for a slow afternoon at the API.
+  {document: "weeklyScores/{season}", secrets: [GROUPME_TOKEN, ANTHROPIC_API_KEY], retry: false, timeoutSeconds: 300},
   async (event) => {
     const season = Number(event.params.season);
     const cfg = (await db.doc("config/league").get()).data() ?? {};
@@ -1039,14 +1045,22 @@ exports.onWeeklyScoresWritten = onDocumentWritten(
       afterWeeks: event.data?.after?.data()?.weeks,
     });
     if (!week) return;
-    if ((cfg.disabledAreas ?? []).includes("weeklyAgent")) {
-      console.log(`weeklyScores: week ${week} landed; DM + recap disabled via Admin → Areas`);
-      return;
-    }
 
     const rows = (await db.doc(`historyMatchups/${season}`).get()).data()?.rows ?? [];
     const games = gamesFromMatchupRows(rows, week);
     const standings = (await db.doc(`espnStandings/${season}`).get()).data()?.standings ?? [];
+
+    // The League Feed has its own switch (feedAgent) and publishes with no
+    // approval step — it runs whether or not the DM + GroupMe recap do.
+    if (games.length) {
+      await publishWeekFeed({season, week, games, standings, cfg})
+        .catch((e) => console.error("publishWeekFeed failed:", e.message));
+    }
+
+    if ((cfg.disabledAreas ?? []).includes("weeklyAgent")) {
+      console.log(`weeklyScores: week ${week} landed; DM + recap disabled via Admin → Areas`);
+      return;
+    }
     const weeksOnFile = Object.keys(event.data.after.data().weeks ?? {}).length;
 
     const msg = `📊 Weekly scores: week ${week} written (${weeksOnFile} weeks on file)` +
@@ -1079,6 +1093,77 @@ async function claudeDraft(prompt, model) {
   return (j.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim() || null;
 }
 
+// ── League Feed (functions/leagueFeed.js) ─────────────────────
+// Publishes straight to leagueFeed/{id}; website only, no approval. The
+// write → fact-check → rewrite loop and the template fallback live in
+// leagueFeed.writeVerified. Kill switch: 'feedAgent' in disabledAreas.
+const NOTES_MODEL = "claude-sonnet-5-5";
+const feedAgentOn = (cfg) => !(cfg?.disabledAreas ?? []).includes("feedAgent");
+
+async function publishFeedPost({id, type, season, week, title, facts, prompt, template, cfg}) {
+  const ref = db.doc(`leagueFeed/${id}`);
+  const existing = (await ref.get()).data();
+  // Never overwrite a post the commissioner edited or hid.
+  if (feed.isLocked(existing)) return {id, skipped: true};
+  const result = await feed.writeVerified({
+    draft: (p) => claudeDraft(p, cfg.notesModel ?? NOTES_MODEL),
+    prompt, facts, template,
+  });
+  const now = admin.firestore.Timestamp.now();
+  await ref.set({
+    ...feed.feedPost({type, season, week, title, facts, result, now}),
+    publishedAt: existing?.publishedAt ?? now,
+  });
+  return {id, writer: result.writer, attempts: result.attempts};
+}
+
+async function publishWeekFeed({season, week, games, standings, cfg}) {
+  if (!feedAgentOn(cfg)) return [];
+  const voice = cfg.notesVoice ?? "";
+  const ww = String(week).padStart(2, "0");
+  const playerRows = (await db.doc(`historyPlayerWeeks/${season}-${ww}`).get()).data()?.rows ?? [];
+
+  const jobs = games.map((game) => {
+    const facts = feed.gameFacts({season, week, game, playerRows, standings});
+    return publishFeedPost({
+      id: feed.feedId.game(season, week, game.home, game.away), type: "game", season, week,
+      title: `${facts.winner} ${facts.winnerPoints}, ${facts.loser} ${facts.loserPoints}`,
+      facts, prompt: feed.gamePrompt(facts, voice), template: feed.templateGame(facts), cfg,
+    });
+  });
+  const wf = feed.weekFacts({season, week, games, standings});
+  jobs.push(publishFeedPost({
+    id: feed.feedId.week(season, week), type: "week", season, week,
+    title: `Week ${week} in review`,
+    facts: wf, prompt: feed.weekPrompt(wf, voice), template: feed.templateWeek(wf), cfg,
+  }));
+  // One failed post must not sink the other six.
+  const settled = await Promise.allSettled(jobs);
+  const out = settled.map((s) => (s.status === "fulfilled" ? s.value : {error: s.reason?.message}));
+  console.log("leagueFeed week", week, JSON.stringify(out));
+  return out;
+}
+
+/** A trade just completed → a write-up. Never throws: news must not break a trade. */
+async function publishTradeFeed(tradeId, trade) {
+  try {
+    if (!tradeId || !feed.isFreshTrade(trade, Date.now())) return null;
+    const cfg = (await db.doc("config/league").get()).data() ?? {};
+    if (!feedAgentOn(cfg)) return null;
+    const season = trade.season ?? cfg.activeSeasonYear ?? new Date().getFullYear();
+    const standings = (await db.doc(`espnStandings/${season}`).get()).data()?.standings ?? [];
+    const facts = feed.tradeFacts({...trade, season}, standings);
+    return await publishFeedPost({
+      id: feed.feedId.trade(tradeId), type: "trade", season, week: null,
+      title: `Trade: ${facts.teamA} ↔ ${facts.teamB}`,
+      facts, prompt: feed.tradePrompt(facts, cfg.notesVoice ?? ""), template: feed.templateTrade(facts), cfg,
+    });
+  } catch (e) {
+    console.error("publishTradeFeed failed:", e.message);
+    return null;
+  }
+}
+
 async function draftRecapNote({season, week, games, standings, cfg}) {
   if ((cfg.disabledAreas ?? []).includes("notesAgent")) return;
   const ref = db.doc(`leagueNotes/recap-${season}-w${week}`);
@@ -1093,7 +1178,7 @@ async function draftRecapNote({season, week, games, standings, cfg}) {
   let writer = "claude";
   let writerError = null;
   try {
-    body = await claudeDraft(notes.recapPrompt(facts, cfg.notesVoice ?? ""), cfg.notesModel ?? "claude-sonnet-5-5");
+    body = await claudeDraft(notes.recapPrompt(facts, cfg.notesVoice ?? ""), cfg.notesModel ?? NOTES_MODEL);
   } catch (e) {
     writerError = e.message;
   }
@@ -1446,7 +1531,7 @@ exports.pollEspnGmail = onSchedule(
 // Firestore. This machine has no Java, so the Firestore emulator can't run
 // either. functions/pipeline.test.js injects a fake Firestore and drives
 // these directly. Production never touches this export.
-exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets};
+exports.__test__ = {processEspnTrade, executeTradeAssets, handleTradeWrite, reverseTradeAssets, publishWeekFeed, publishTradeFeed};
 
 // League-state export consumed by the Agent Control Center on the NAS
 // (job `iffl-snapshot`). Shared-secret auth; see leagueState.js.

@@ -657,6 +657,31 @@ export function setNoteStatus(id, status) {
   return updateDoc(doc(db, 'leagueNotes', id), { status, updatedAt: Timestamp.now() })
 }
 
+// ── League Feed — auto-published recaps and trade write-ups ────
+// Written by Cloud Functions (functions/leagueFeed.js) with no approval
+// step. Two equality filters and a client-side sort, on purpose: that needs
+// no composite index, and a season is ~130 posts. The `hidden == false`
+// filter is REQUIRED for members — firestore.rules refuses the query
+// without it. The commissioner's listener drops it to see pulled posts.
+export function listenToLeagueFeed(season, callback, onError, { includeHidden = false } = {}) {
+  const filters = [where('season', '==', Number(season))]
+  if (!includeHidden) filters.push(where('hidden', '==', false))
+  return onSnapshot(
+    query(collection(db, 'leagueFeed'), ...filters),
+    (snap) => callback(snapToDocs(snap)),
+    (err) => { console.error('listenToLeagueFeed failed:', err); onError?.(err) },
+  )
+}
+
+/** Commissioner only: fix the words, or pull / restore a post. */
+export function updateFeedPost(id, { title, body, hidden }) {
+  const patch = { editedAt: Timestamp.now() }
+  if (title != null) patch.title = String(title)
+  if (body != null) patch.body = String(body)
+  if (hidden != null) patch.hidden = !!hidden
+  return updateDoc(doc(db, 'leagueFeed', id), patch)
+}
+
 /** 'off' | 'commissioner' | 'all' — who can see the live scoreboard. */
 export function setLiveScoresMode(mode) {
   return updateDoc(doc(db, COL.config, 'league'), { liveScores: mode })

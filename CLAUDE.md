@@ -55,6 +55,30 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
   `web/scripts/export-trades.mjs` (same 11 columns as `trades-2022-2024.csv`),
   right after the scrape, and pushed with the history CSV. Only `completed` /
   `historical` trades — never proposals, declines or notes; this repo is public.
+- **The League Feed DOES publish itself** (Nov 21, 2026) — the opposite of
+  league notes, on purpose, and website-only. `functions/leagueFeed.js`
+  writes `leagueFeed/{id}` the moment a week's scores land (one post per
+  game + a week-in-review, from `onWeeklyScoresWritten`) or a trade
+  completes (`onTradeWrite`). What replaces the approval is a loop:
+  Claude writes → `factCheck` → on a flagged number it rewrites with the
+  flags fed back (2 writes max) → still flagged, or Claude down, and the
+  **template** publishes instead. The template is built only from the facts,
+  so the worst case is a dull post, never an invented number.
+  - Ids are fixed (`game-2026-w11-bill-v-jared`, `week-2026-w11`,
+    `trade-<tradeId>`), so a re-run replaces. **A post the commissioner
+    edited or pulled is never overwritten** (`isLocked`).
+  - Only a trade completed in the last 7 days is news (`isFreshTrade`) —
+    without that, a backfill recorded as `completed` floods the feed.
+    Proposals and declines never post; this repo and its data are public-facing.
+  - Two switches in Admin → Areas: `feed` hides the Dashboard section,
+    `feedAgent` stops new posts being written. Edit / pull single posts in
+    **Admin → Notes → League Feed**. (Admin → **Feed** is something else:
+    Jason's roster export.)
+  - Members' query MUST filter `hidden == false` or the rules refuse it
+    (`fs.listenToLeagueFeed`). Two equality filters, sorted in the browser —
+    no composite index needed.
+  - Not built yet: record alerts, milestone posts, and cap figures in trade
+    write-ups.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

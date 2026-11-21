@@ -20,7 +20,7 @@
 const {recapFacts, templateRecap, factCheck} = require("./leagueNotes");
 
 const MAX_ATTEMPTS = 2;
-const TYPES = ["game", "week", "trade"];
+const TYPES = ["game", "week", "trade", "record", "milestone"];
 // A trade older than this is a backfill or an import, not news.
 const TRADE_NEWS_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -34,6 +34,8 @@ const feedId = {
   game: (season, week, a, b) => `game-${season}-w${week}-${[slug(a), slug(b)].sort().join("-v-")}`,
   week: (season, week) => `week-${season}-w${week}`,
   trade: (tradeId) => `trade-${tradeId}`,
+  record: (cardId, season, week) => `record-${cardId}-${season}-w${week}`,
+  milestone: (name, date, kind) => `milestone-${slug(name)}-${date}${kind === "reminder" ? "-reminder" : ""}`,
 };
 
 function playerLines(rows, team) {
@@ -106,6 +108,77 @@ function isFreshTrade(trade, nowMs) {
   return Number.isFinite(ms) && nowMs - ms >= 0 && nowMs - ms <= TRADE_NEWS_WINDOW_MS;
 }
 
+/** A league record that just fell (recordWatch.brokenRecords). */
+function recordFacts({card, previous}) {
+  return {
+    record: card.label, kind: card.tone === "low" ? "a record nobody wants" : "a record to brag about",
+    holder: card.team, mark: card.value, game: card.detail, season: card.season, week: card.week,
+    previous: previous ? {holder: previous.team, mark: previous.value, season: previous.season, week: previous.week} : null,
+  };
+}
+
+function templateRecord(f) {
+  const prev = f.previous
+    ? ` The old mark: ${f.previous.holder}, ${f.previous.mark} (${f.previous.season}, week ${f.previous.week}).` : "";
+  return `New league record — ${f.record}: ${f.holder}, ${f.mark}, ${f.game}.${prev}`;
+}
+
+// ── Calendar milestones ──────────────────────────────────────
+// functions/calendar.json is GENERATED from web/src/data/staticData.js
+// (web/scripts/generate-functions-calendar.mjs); a web test fails when the
+// two drift. The calendar is the model — this file never holds a date.
+const PHASE_LABEL = {
+  preseason: "Pre-season", regular: "Regular season", playoffs: "Playoffs",
+  dead: "Dead period — rosters frozen", offseason: "Off-season",
+};
+const REMINDER_DAYS = 2;
+const dayDiff = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5);
+
+/** Central-time calendar date + hour for an instant — Cloud Functions run in UTC. */
+function centralNow(nowMs) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(nowMs)).map((p) => [p.type, p.value]));
+  return {date: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour)};
+}
+
+/**
+ * What the calendar says is worth a post right now: everything dated TODAY,
+ * plus a heads-up REMINDER_DAYS before anything with a clock time (those
+ * are the deadlines). Nothing before 7am Central — nobody wants a midnight
+ * post. A calendar that can't be read yields nothing, never a guess.
+ */
+function milestonesDue(calendar, nowMs) {
+  const {date: today, hour} = centralNow(nowMs);
+  if (hour < 7 || !Array.isArray(calendar)) return [];
+  const valid = calendar.filter((m) => m?.name && /^\d{4}-\d{2}-\d{2}$/.test(m.date ?? ""))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const out = [];
+  for (const m of valid) {
+    const days = dayDiff(today, m.date);
+    const kind = days === 0 ? "today" : days === REMINDER_DAYS && m.time ? "reminder" : null;
+    if (!kind) continue;
+    const next = valid.find((x) => x.date > m.date);
+    out.push({
+      kind, name: m.name, icon: m.icon ?? "", date: m.date, time: m.time ?? null,
+      opensPhase: m.phase ? PHASE_LABEL[m.phase] ?? null : null,
+      tentative: !!m.tentative, daysAway: days,
+      next: next ? {name: next.name, date: next.date, daysAfter: dayDiff(m.date, next.date)} : null,
+    });
+  }
+  return out;
+}
+
+function templateMilestone(f) {
+  const at = f.time ? ` at ${f.time}` : "";
+  const head = f.kind === "reminder"
+    ? `${f.daysAway} days to go: ${f.name}, ${f.date}${at}.`
+    : `Today: ${f.name}${at}.`;
+  const phase = f.kind === "today" && f.opensPhase ? ` ${f.opensPhase} starts now.` : "";
+  const next = f.next ? ` Next on the calendar: ${f.next.name}, ${f.next.date}.` : "";
+  return head + phase + next;
+}
+
 const HARD_RULES =
   "HARD RULES: use ONLY the facts below. Every number you print must appear in the facts exactly. " +
   "Do not invent stats, injuries, players, quotes or history. Team names are the owners' names — use them as given.";
@@ -132,6 +205,17 @@ const weekPrompt = (f, voice = "") => prompt(
 const tradePrompt = (f, voice = "") => prompt(
   "You write a short write-up of a completed trade in IFFL, a dynasty keeper fantasy football league of 12 friends.",
   "2–4 sentences, under 500 characters. Say who got what, then give a light verdict on who it suits — as opinion, with no invented stats.",
+  f, voice);
+
+const recordPrompt = (f, voice = "") => prompt(
+  "A league record just fell in IFFL, a dynasty keeper fantasy football league of 12 friends. Write the announcement.",
+  "2–3 sentences, under 400 characters. Name the record, the new holder and the mark; mention the old mark if the facts give one.",
+  f, voice);
+
+const milestonePrompt = (f, voice = "") => prompt(
+  "You write a short calendar notice for IFFL, a dynasty keeper fantasy football league of 12 friends.",
+  "1–3 sentences, under 350 characters. State what it is and exactly when (use the date and time as given). " +
+  "If kind is 'reminder' it is a heads-up, not today. Do not explain league rules that are not in the facts.",
   f, voice);
 
 /**
@@ -178,6 +262,8 @@ module.exports = {
   MAX_ATTEMPTS, TYPES, TRADE_NEWS_WINDOW_MS,
   feedId, gameFacts, templateGame, tradeFacts, templateTrade, isFreshTrade,
   gamePrompt, weekPrompt, tradePrompt, writeVerified, feedPost, isLocked,
+  recordFacts, templateRecord, recordPrompt,
+  PHASE_LABEL, REMINDER_DAYS, centralNow, milestonesDue, templateMilestone, milestonePrompt,
   // re-exported so index.js builds the week post from one module
   weekFacts: recapFacts, templateWeek: templateRecap,
 };

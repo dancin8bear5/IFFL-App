@@ -10,6 +10,8 @@ const TYPE_META = {
   week:  { glyph: '🗞️', label: 'Week in review' },
   game:  { glyph: '🏈', label: 'Game recap' },
   trade: { glyph: '🤝', label: 'Trade' },
+  record: { glyph: '🏆', label: 'League record' },
+  milestone: { glyph: '🗓️', label: 'Calendar' },
 }
 
 /** Glyph + the small line above a post's title. Unknown types still render. */

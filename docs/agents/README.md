@@ -17,7 +17,7 @@ Build specs for the seven agents in Todoist → Fantasy (`IFFL` label). Build th
 - **#1 Deploy + verify** — built. Runs on demand only (`gh workflow run deploy.yml --ref main`); merging to `main` just runs tests. The auto-merge, Claude fixer and Telegram report were retired.
 - **#2 Weekly scores** — built, but not as first specced: the Mac's Tuesday scrape (`ops/espn-weekly.sh`) is the one writer. The Cloud Function pollers are retired.
 - **#3 League notes** — built for the weekly recap only. Trade, record, deadline and phase notes are not built.
-- **League Feed** — built Nov 21, 2026 (`functions/leagueFeed.js`). Game recaps, the week-in-review and trade write-ups publish to the website with no approval; a write → fact-check → rewrite loop with a template fallback stands in for it. Record alerts and milestone posts are next.
+- **League Feed** — built Nov 21, 2026 (`functions/leagueFeed.js`). Game recaps, the week-in-review and trade write-ups publish to the website with no approval; a write → fact-check → rewrite loop with a template fallback stands in for it. Record alerts (`functions/recordWatch.js`) and calendar notices post the same way.
 - **#4 Waiver targets, #5 Start/sit** — built. They run from launchd on the Mac out of `iffl-analytics-agent` and report to Telegram.
 - **#6 Design review, #7 Reels** — specs only.
 

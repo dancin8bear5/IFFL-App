@@ -39,6 +39,7 @@
 import { readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { weekRegret } from '../src/services/lineupOptimizer.js'
+import recordWatch from '../../functions/recordWatch.js'
 
 const PROJECT = 'iffl-auth'
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`
@@ -558,34 +559,11 @@ for (const season of [...draftSeasons].sort()) {
 
   const gameNote = (g, val) => `${g.team} ${val} (${g.season})`
 
-  const { held: hi, note: hiN } = bestWithFormerNote(games, (g) => g.pts, (g) => gameNote(g, `${fmt(g.pts)} pts`))
-  rec('auto-highest-single-game', { scope: 'game', label: 'Highest Single-Game Score', tone: 'high', team: hi.team, player: null, value: `${fmt(hi.pts)} pts`, detail: vs(hi) + hiN, season: hi.season, week: hi.week, order: 1 })
-
-  const { held: lo, note: loN } = bestWithFormerNote(games, (g) => -g.pts, (g) => gameNote(g, `${fmt(g.pts)} pts`))
-  rec('auto-lowest-single-game', { scope: 'game', label: 'Lowest Single-Game Score', tone: 'low', team: lo.team, player: null, value: `${fmt(lo.pts)} pts`, detail: vs(lo) + loN, season: lo.season, week: lo.week, order: 2 })
-
-  // Margin records derive win/loss from the SCORES, not ESPN's Winner flag.
-  // Seven playoff-week rows in the export carry Winner=W on the lower score
-  // (bracket bookkeeping), and a "closest win" card computed from those comes
-  // out with a negative margin. A record about scoring has to agree with the
-  // scoreboard. Streaks and the rivalry grid still use ESPN's official verdict,
-  // since that is what the standings were built from.
-  const wins = games.filter((g) => g.pts > g.opp)
-  const { held: blow, note: blowN } = bestWithFormerNote(wins, (g) => g.pts - g.opp, (g) => gameNote(g, `+${fmt(g.pts - g.opp)}`))
-  rec('auto-biggest-blowout', { scope: 'game', label: 'Biggest Blowout', tone: 'high', team: blow.team, player: null, value: `+${fmt(blow.pts - blow.opp)}`, detail: vs(blow) + blowN, season: blow.season, week: blow.week, order: 3 })
-
-  const { held: close, note: closeN } = bestWithFormerNote(wins, (g) => -(g.pts - g.opp), (g) => gameNote(g, `+${fmt(g.pts - g.opp)}`))
-  rec('auto-closest-margin', { scope: 'game', label: 'Closest Margin', tone: 'high', team: close.team, player: null, value: `+${fmt(close.pts - close.opp)}`, detail: vs(close) + closeN, season: close.season, week: close.week, order: 4 })
-
-  const { held: combo, note: comboN } = bestWithFormerNote(games, (g) => g.pts + g.opp, (g) => gameNote(g, `${fmt(g.pts + g.opp)} pts`))
-  rec('auto-most-combined', { scope: 'game', label: 'Most Combined Points', tone: 'high', team: combo.team, player: null, value: `${fmt(combo.pts + combo.opp)} pts`, detail: vs(combo) + comboN, season: combo.season, week: combo.week, order: 5 })
-
-  const losses = games.filter((g) => g.pts < g.opp)
-  const { held: hiLoss, note: hiLossN } = bestWithFormerNote(losses, (g) => g.pts, (g) => gameNote(g, `${fmt(g.pts)} pts`))
-  rec('auto-highest-score-loss', { scope: 'game', label: 'Highest Score in a Loss', tone: 'low', team: hiLoss.team, player: null, value: `${fmt(hiLoss.pts)} pts`, detail: vs(hiLoss) + hiLossN, season: hiLoss.season, week: hiLoss.week, order: 6 })
-
-  const { held: loWin, note: loWinN } = bestWithFormerNote(wins, (g) => -g.pts, (g) => gameNote(g, `${fmt(g.pts)} pts`))
-  rec('auto-lowest-score-win', { scope: 'game', label: 'Lowest Score in a Win', tone: 'high', team: loWin.team, player: null, value: `${fmt(loWin.pts)} pts`, detail: vs(loWin) + loWinN, season: loWin.season, week: loWin.week, order: 7 })
+  // The seven single-game cards come from functions/recordWatch.js — the
+  // SAME function the weekly trigger runs when a new week lands, so the
+  // Trophy Room and the Tuesday record alert cannot disagree about what a
+  // record is. (Scores decide win/loss there, not ESPN's Winner flag.)
+  for (const { id, ...card } of recordWatch.gameRecordCards(games, activeOwners)) rec(id, card)
 
   // Player records
   const started = playerWeeks

@@ -37,6 +37,8 @@ beforeEach(async () => {
     }
     await setDoc(doc(db, 'leagueNotes/draft1'), { status: 'draft', body: 'secret' })
     await setDoc(doc(db, 'leagueNotes/sent1'), { status: 'sent', body: 'hello league' })
+    await setDoc(doc(db, 'leagueFeed/shown1'), { type: 'game', season: 2026, hidden: false, title: 't', body: 'b' })
+    await setDoc(doc(db, 'leagueFeed/pulled1'), { type: 'game', season: 2026, hidden: true, title: 't', body: 'b' })
   })
 })
 
@@ -81,6 +83,20 @@ test('a sent note cannot be edited by anyone', () =>
   assertFails(updateDoc(doc(as(COMMISH), 'leagueNotes/sent1'), { status: 'draft' })))
 test('clients cannot create notes', () =>
   assertFails(setDoc(doc(as(COMMISH), 'leagueNotes/new1'), { status: 'draft', body: 'x' })))
+
+// ── League Feed: auto-published, so the rules are the only gate ──
+test('member reads a published feed post', () => assertSucceeds(getDoc(doc(as(MEMBER), 'leagueFeed/shown1'))))
+test('member cannot read a post the commissioner pulled', () => assertFails(getDoc(doc(as(MEMBER), 'leagueFeed/pulled1'))))
+test('outsider cannot read the feed', () => assertFails(getDoc(doc(as(OUTSIDER), 'leagueFeed/shown1'))))
+test('commissioner reads a pulled post', () => assertSucceeds(getDoc(doc(as(COMMISH), 'leagueFeed/pulled1'))))
+test('commissioner can pull and edit a post', () =>
+  assertSucceeds(updateDoc(doc(as(COMMISH), 'leagueFeed/shown1'), { hidden: true, body: 'fixed', editedAt: new Date() })))
+test('commissioner cannot rewrite the facts behind a post', () =>
+  assertFails(updateDoc(doc(as(COMMISH), 'leagueFeed/pulled1'), { facts: { winner: 'Jared' } })))
+test('member cannot edit or hide a post', () =>
+  assertFails(updateDoc(doc(as(MEMBER), 'leagueFeed/pulled1'), { body: 'lol' })))
+test('no client creates a feed post — functions only', () =>
+  assertFails(setDoc(doc(as(COMMISH), 'leagueFeed/new1'), { type: 'game', hidden: false, body: 'x' })))
 
 // ── Deploy agent's smoke account: reads everything a member reads, writes nothing ──
 for (const path of ['espnStandings/2026', 'weeklyScores/2026', 'leagueHistory/2025', 'leagueNotes/sent1']) {

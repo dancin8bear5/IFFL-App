@@ -11,6 +11,7 @@ import { DASHBOARD_SECTIONS } from '../services/dashboardSections'
 import { resolveLayout, toStored, moveSection, setColumn } from '../services/dashboardLayout'
 import { dropStates, normalizeReleased } from '../services/rankingsRelease'
 import { PosBadge, DetailOverlay, ChipScroller, TeamAvatar, LoadingList } from '../components/shared'
+import { feedMeta, sortFeed } from '../services/leagueFeed'
 import { useIsDesktop } from '../hooks/useBreakpoint'
 import * as fs from '../services/firestoreService'
 import { parseKeeperCSV, diffKeeperImport } from '../services/keeperImport'
@@ -224,7 +225,7 @@ export default function AdminView() {
       {section === 'Trade Signals' && <TradeSignalsSection />}
       {section === 'Feed' && <FeedSection />}
       {section === 'Messages' && <MessagesSection />}
-      {section === 'Notes' && <NotesSection />}
+      {section === 'Notes' && <><NotesSection /><FeedAdminSection /></>}
       {section === 'Parlay' && <ParlaySection />}
       {section === 'Standings' && <StandingsSection />}
       {section === 'Teams' && <TeamsSection />}
@@ -1133,6 +1134,7 @@ const APP_AREAS = [
     { key: 'ledger',   label: 'Transaction Log', glyph: '🧾' },
     { key: 'history',  label: 'Trophy Room & history tiles', glyph: '🏆' },
     { key: 'messages', label: 'League messages', glyph: '💬' },
+    { key: 'feed',     label: 'League Feed (recaps + trades)', glyph: '📰' },
     { key: 'odds',     label: 'Preseason odds board', glyph: '🎰' },
     { key: 'scoring',  label: 'In-season scoring charts', glyph: '📈' },
     { key: 'playoffs', label: 'Playoff bracket', glyph: '🏆' },
@@ -1142,6 +1144,9 @@ const APP_AREAS = [
     // commissioner DM + recap draft only — the scores themselves come from the Mac's scrape.
     { key: 'weeklyAgent', label: 'Weekly scores DM + recap draft', glyph: '📊' },
     { key: 'notesAgent',  label: 'League notes drafting (recap)', glyph: '📝' },
+    // Server-side: stops NEW posts being written. Posts already published stay up —
+    // hide the section with 'feed' above, or pull single posts in Admin → Notes.
+    { key: 'feedAgent',   label: 'League Feed auto-publishing', glyph: '📰' },
   ]},
 ]
 
@@ -2726,6 +2731,82 @@ function NotesSection() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {notes.map((n) => <NoteCard key={n.id} note={n} />)}
+    </div>
+  )
+}
+
+// ── League Feed — published without approval, so this is the AFTER gate ──
+// Posts go live the moment they are written. Here the commissioner fixes
+// the words or pulls one. Either action marks the post edited, and the
+// functions never overwrite an edited or pulled post on a re-run.
+function FeedAdminSection() {
+  const { isPreview, activeSeason } = useApp()
+  const [posts, setPosts] = useState(null)
+  const [err, setErr] = useState(null)
+  useEffect(() => {
+    if (isPreview) { import('../data/previewData').then((d) => setPosts(d.previewFeed ?? [])); return }
+    return fs.listenToLeagueFeed(activeSeason, setPosts, (e) => setErr(e.message), { includeHidden: true })
+  }, [isPreview, activeSeason])
+  const sorted = useMemo(() => sortFeed(posts), [posts])
+
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>League Feed</div>
+      <div style={{ fontSize: 12, color: 'var(--iff-subtext)', margin: '4px 0 10px', lineHeight: 1.5 }}>
+        Recaps and trade write-ups publish to the website by themselves. Edit the words or pull a post here.
+      </div>
+      {err && <div className="iff-card" style={{ padding: 14, color: '#EF4444' }}>Couldn’t load the feed: {err}</div>}
+      {!err && !posts && <LoadingList count={3} />}
+      {!err && posts && sorted.length === 0 && (
+        <div className="iff-card" style={{ padding: 16, fontSize: 13, color: 'var(--iff-subtext)' }}>
+          Nothing published yet this season. The first posts appear when Tuesday’s scores land or a trade completes.
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {sorted.map((p) => <FeedAdminCard key={p.id} post={p} readOnly={isPreview} />)}
+      </div>
+    </div>
+  )
+}
+
+function FeedAdminCard({ post, readOnly }) {
+  const [open, setOpen] = useState(false)
+  const [body, setBody] = useState(post.body ?? '')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const { kicker } = feedMeta(post)
+
+  async function act(patch, ok) {
+    if (readOnly) { setMsg('Preview — nothing saved'); return }
+    setBusy(true); setMsg(null)
+    try { await fs.updateFeedPost(post.id, patch); setMsg(ok) } catch (e) { setMsg(`⚠️ ${e.message}`) } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="iff-card" style={{ padding: 12, opacity: post.hidden ? 0.6 : 1 }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13.5, fontWeight: 800, flex: '1 1 200px', minWidth: 0, overflowWrap: 'anywhere' }}>{post.title}</span>
+        <span style={{ fontSize: 10.5, color: 'var(--iff-subtext)' }}>
+          {kicker} · {post.writer === 'template' ? 'plain version' : 'Claude'}{post.attempts > 1 ? ` · ${post.attempts} tries` : ''}
+        </span>
+        {post.hidden && <span style={{ fontSize: 9.5, fontWeight: 800, color: '#EF4444' }}>PULLED</span>}
+      </div>
+      {open ? (
+        <textarea rows={6} value={body} disabled={busy} onChange={(e) => setBody(e.target.value)}
+          style={{ width: '100%', marginTop: 8, resize: 'vertical', fontSize: 13, lineHeight: 1.5 }} aria-label="Post text" />
+      ) : (
+        <div style={{ fontSize: 12.5, lineHeight: 1.5, marginTop: 6, whiteSpace: 'pre-wrap', color: 'var(--iff-subtext)' }}>{post.body}</div>
+      )}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+        {msg && <span style={{ fontSize: 11.5, color: 'var(--iff-subtext)', marginRight: 'auto' }}>{msg}</span>}
+        {open
+          ? <button disabled={busy || !body.trim()} onClick={() => act({ body }, 'Saved').then(() => setOpen(false))}>Save</button>
+          : <button disabled={busy} onClick={() => { setBody(post.body ?? ''); setOpen(true) }}>Edit</button>}
+        <button disabled={busy} style={{ color: post.hidden ? undefined : '#EF4444' }}
+          onClick={() => act({ hidden: !post.hidden }, post.hidden ? 'Back on the site' : 'Pulled from the site')}>
+          {post.hidden ? 'Restore' : 'Pull'}
+        </button>
+      </div>
     </div>
   )
 }

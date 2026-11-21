@@ -14,7 +14,7 @@
 // ── The fields ───────────────────────────────────────────────
 // `key`      matches the node key in DashboardView. Several keys are ALSO
 //            Admin → Areas kill-switch keys (rules, parlay, ledger, history,
-//            messages, odds, scoring, playoffs) — same namespace on purpose.
+//            messages, odds, scoring, playoffs, feed) — same namespace on purpose.
 // `label`    what the commissioner sees in Admin → Layout.
 // `rail`     the DEFAULT column: true = the desktop right-hand rail.
 // `railSafe` whether the section CAN live in the rail at all. The rail is a
@@ -61,6 +61,10 @@ export const DASHBOARD_SECTIONS = [
   // Gated on weeks PLAYED as well as phase — nothing playoff-shaped shows
   // before PLAYOFF_PREVIEW_WEEK. See services/playoffs.js.
   { key: 'playoffs',  label: 'Playoff bracket',        glyph: '🏆', phases: ['regular', 'playoffs'], lead: ['playoffs'] },
+  // Recaps and trade write-ups, written and published by Cloud Functions
+  // the moment scores or a trade land (functions/leagueFeed.js). Every
+  // phase: trades happen all year.
+  { key: 'feed',      label: 'League Feed',            glyph: '📰' },
   { key: 'tda',       label: 'Team TDA',               glyph: '💰' },
   { key: 'messages',  label: 'League messages',        glyph: '💬' },
   // The two long reads of the preseason, side by side at the top of the rail.

@@ -117,12 +117,28 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
     fails), so the watchdog reads staleness (8 days).
   - It cannot see `pollEspnStandings` itself dying — the deploy check and
     the fixer on the Mac cover that.
-- **The Tuesday job answers each failure differently** (`ops/espn-weekly.sh`):
-  gcloud login checked first (fails in seconds, names its fix); a stall
-  retries in 10 minutes; "not final" waits 3h up to three times; a
-  logged-out ESPN session stops and notifies with the exact `--login`
-  command. `ops/weekly-backup.sh` now notifies on failure — it used to fail
-  silently.
+- **The Tuesday job is a graph** (Nov 21, 2026) — `ops/graph/tuesday.mjs`
+  on the 150-line runner in `ops/graph/runner.mjs`; `ops/espn-weekly.sh` is
+  only the launchd wrapper now.
+  `preflight → scrape → (trades | scores-check | feed-check) → commit → digest`.
+  - Nodes declare what they NEED, so independent steps run side by side and
+    a failed branch blocks only what depends on it.
+  - **Only `preflight` and `scrape` can fail the run.** Everything after is
+    `optional`: once the scrape is in, the scores are safe.
+  - The scrape's failures get different answers (`scrapeRetry`): a stall
+    retries in 10 minutes, "not final" waits 3h up to three times, a
+    logged-out ESPN session stops and names the `--login` command.
+  - State is saved to `out/runs/tuesday-<key>.json` after every wave; a
+    re-run after a failure RESUMES. `--fresh` ignores it. `preflight` and
+    `digest` are `always`, so they re-run on resume.
+  - `--plan` prints the steps and runs nothing. `--dry-run` is the
+    scraper's own flag; the write-side nodes skip under it.
+  - `feed-check` only LOOKS: the posts are written by Cloud Functions when
+    `weeklyScores` lands. A node's return value is written to `out/runs/`,
+    so `preflight` returns `'ok'`, never the token.
+  - No LangGraph or SDK: the estate has no framework, and the app's style
+    is one declared object per thing. A second graph is one more file.
+  `ops/weekly-backup.sh` notifies on failure — it used to fail silently.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

@@ -76,3 +76,23 @@ test('an includeTeam filter drops a team entirely from the leaderboard', () => {
   assert.equal(result.leaderboard.find((t) => t.team === 'M. Zurek')?.spend, 44)
   assert.equal(result.bestPick.player, 'Another Keeper')
 })
+
+test('a rookie-draft pick is not a keeper in his rookie season — but is one the year after', () => {
+  // ESPN flags 2020+ rookie picks exactly like keepers. Without the rookie
+  // classes, a $1 rookie becomes the best "keeper" in league history.
+  const rows = [
+    [2020, 'Jared', 'Justin Jefferson', 'WR', 'Min', 1, 180, 1], // rookie pick, flagged as keeper
+    [2020, 'Jared', 'Real Keeper', 'RB', 'Dal', 20, 10, 1],
+    [2021, 'Jared', 'Justin Jefferson', 'WR', 'Min', 6, 12, 1], // now genuinely kept
+  ]
+  const seasons = [
+    { season: 2020, rows: [{ player: 'Justin Jefferson', points: 288.2 }, { player: 'Real Keeper', points: 100 }] },
+    { season: 2021, rows: [{ player: 'Justin Jefferson', points: 330 }] },
+  ]
+  const rookieClasses = { 2020: [{ name: 'justin jefferson ' }, { name: null }] }
+
+  assert.equal(bestKeeperPick(keeperPicks(rows, seasons)).price, 1, 'the bug, when no classes are passed')
+  const picks = keeperPicks(rows, seasons, () => true, rookieClasses)
+  assert.deepEqual(picks.map((p) => [p.season, p.player]), [[2020, 'Real Keeper'], [2021, 'Justin Jefferson']])
+  assert.equal(keeperValue(rows, seasons, () => true, rookieClasses).bestPick.season, 2021)
+})

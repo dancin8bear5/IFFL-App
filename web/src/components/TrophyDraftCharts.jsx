@@ -13,6 +13,7 @@ import { useApp } from '../context/AppContext'
 import { teamByName, isActiveTeam } from '../data/staticData'
 import { scoringEras, positionSpendShare, draftROI, SPEND_POSITIONS } from '../services/draftAnalytics'
 import { keeperValue } from '../services/keeperValue'
+import { rookieDraftHistory } from '../data/rookieDraftHistory'
 import { auctionHistory } from '../data/auctionHistory'
 import * as fs from '../services/firestoreService'
 
@@ -104,7 +105,9 @@ export default function TrophyDraftCharts({ showFormer }) {
     return () => { cancelled = true }
   }, [])
   const keepers = useMemo(
-    () => keeperValue(auctionHistory, playerSeasons, include),
+    // Rookie classes go in so that summer's rookie picks — which ESPN flags
+    // like keepers from 2020 — are not scored as keeper decisions.
+    () => keeperValue(auctionHistory, playerSeasons, include, rookieDraftHistory),
     [playerSeasons, include],
   )
 

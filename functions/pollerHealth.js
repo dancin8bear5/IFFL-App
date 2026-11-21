@@ -45,6 +45,26 @@ function checks(season, paused = LIVE_SCORES_PAUSED) {
   ];
 }
 
+/**
+ * What the hourly WATCHDOG looks at: everything the deploy checks, plus
+ * jobs that have no business failing a deploy but that somebody should
+ * hear about — the Mac's backup above all, which used to miss Sundays in
+ * complete silence. Kept out of checks() on purpose: check-health.js fails
+ * the deploy on any red, and a stale backup must not block a hotfix.
+ */
+function watchdogChecks(season, paused = LIVE_SCORES_PAUSED) {
+  return [
+    ...checks(season, paused),
+    {name: "League feed sync", path: "config/ifflFeed", maxAgeMin: 30},
+    {
+      name: "Firestore backup", path: "config/backupHealth",
+      // Weekly (Sunday 09:00) + a day of slack for a Mac that was asleep.
+      maxAgeMin: 8 * 24 * 60,
+      optional: true, // written by backup-firestore.mjs; absent until its first run after this shipped
+    },
+  ];
+}
+
 function toMs(v) {
   if (v == null) return null;
   if (typeof v.toMillis === "function") return v.toMillis();
@@ -60,8 +80,8 @@ function toMs(v) {
  * @param {number} season
  * @returns {{name, path, ok, skipped, reason}[]}
  */
-function evaluate(docs, now, season, paused = LIVE_SCORES_PAUSED) {
-  return checks(season, paused).map((c) => {
+function evaluate(docs, now, season, paused = LIVE_SCORES_PAUSED, list = checks(season, paused)) {
+  return list.map((c) => {
     const base = {name: c.name, path: c.path};
     if (c.when && !c.when(now)) {
       return {...base, ok: true, skipped: true, reason: c.skipReason ?? "outside its window"};
@@ -81,4 +101,4 @@ function evaluate(docs, now, season, paused = LIVE_SCORES_PAUSED) {
   });
 }
 
-module.exports = {checks, evaluate, toMs};
+module.exports = {checks, watchdogChecks, evaluate, toMs};

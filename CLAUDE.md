@@ -95,6 +95,28 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
     calendar post — a stale calendar goes quiet rather than guessing.
   - Not built yet: cap figures in trade write-ups; "playoffs set" and
     "champion crowned" posts (they need bracket data, not the calendar).
+- **The watchdog** (Nov 21, 2026) — `functions/watchdog.js`, run at the end
+  of the hourly `pollEspnStandings` (no Scheduler job of its own). It
+  evaluates `pollerHealth.watchdogChecks()` and DMs the commissioner only
+  when a job BREAKS, RECOVERS, or has been down another 24h; state lives in
+  `config/watchdog`. A watchdog that repeats hourly gets muted, which is the
+  silent failure it replaced.
+  - `watchdogChecks` = the deploy's `checks()` **plus** the league feed sync,
+    failed league notes and the backup. Those extras are deliberately NOT in
+    `checks()`: `check-health.js` fails a deploy on any red, and a stale
+    backup must not block a hotfix.
+  - The backup's heartbeat is `config/backupHealth`, stamped by
+    `backup-firestore.mjs` only after a VERIFIED snapshot. Failures can't
+    write it (an expired gcloud login is one of the two ways that job
+    fails), so the watchdog reads staleness (8 days).
+  - It cannot see `pollEspnStandings` itself dying — the deploy check and
+    the fixer on the Mac cover that.
+- **The Tuesday job answers each failure differently** (`ops/espn-weekly.sh`):
+  gcloud login checked first (fails in seconds, names its fix); a stall
+  retries in 10 minutes; "not final" waits 3h up to three times; a
+  logged-out ESPN session stops and notifies with the exact `--login`
+  command. `ops/weekly-backup.sh` now notifies on failure — it used to fail
+  silently.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

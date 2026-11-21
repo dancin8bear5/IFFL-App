@@ -12,6 +12,8 @@ mkdir -p "$(dirname "$LOG")"
 # launchd runs with a minimal PATH; node lives under nvm here.
 export PATH="$HOME/.nvm/versions/node/v22.23.4/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 
+notify() { /usr/bin/osascript -e "display notification \"$1\" with title \"IFFL backup\"" >/dev/null 2>&1 || true; }
+
 echo "=== $(date '+%Y-%m-%d %H:%M:%S') starting ===" >> "$LOG"
 
 cd "$PROJECT_DIR/web" || { echo "cannot cd to $PROJECT_DIR/web" >> "$LOG"; exit 1; }
@@ -25,7 +27,16 @@ else
   # running is worse than one known to be broken.
   code=$?
   echo "=== $(date '+%Y-%m-%d %H:%M:%S') FAILED (exit $code) ===" >> "$LOG"
-  [ "$code" = "2" ] && echo "    NAS not mounted — reconnect smb://192.168.1.124 in Finder" >> "$LOG"
+  # This job used to fail in complete silence — three Sundays went by with
+  # no snapshot and nothing said. Say so on screen now; the hourly watchdog
+  # (functions/watchdog.js) also DMs when config/backupHealth goes stale,
+  # which covers the Mac being off altogether.
+  if [ "$code" = "2" ]; then
+    echo "    NAS not mounted — reconnect smb://192.168.1.124 in Finder" >> "$LOG"
+    notify "FAILED: NAS not mounted — reconnect smb://192.168.1.124, then re-run"
+  else
+    notify "FAILED (exit $code) — likely gcloud login expired. See out/weekly-backup.log"
+  fi
   exit 1
 fi
 

@@ -1061,20 +1061,28 @@ calls `fs.setTradeSignalStatus`.
 **GroupMe-sourced trades still never auto-apply**, which is the whole
 point. GroupMe is free-text human chat, and real league history includes a
 fake-out negotiation (numbers, a "YES," then "I BACKED OUT") that a keyword
-scanner would have applied to live rosters. Trigger phrase is "official"
-(as in "make it official"); the 🚨 emoji alone is NOT a trigger, because
-real history shows it used for pure banter.
+scanner would have applied to live rosters. Because nothing auto-applies,
+the net is deliberately WIDE (corrected Nov 21, 2026 — this note used to
+describe an "official"-only trigger the code never had): `classifyTradeSignal`
+flags a message on the 🚨 emoji, a trade keyword, a pick token, an "X gets
+Y" phrase naming a real team, or "for"/"+" beside a team. A bare 🚨 also
+pulls in the same sender's follow-ups within 180 seconds. Banter that trips
+it costs one dismissal in the queue; a missed trade costs more.
 
-Team names resolve through `TEAM_ALIASES` in `functions/groupmeParser.js` —
-extend it as nicknames appear. **An ambiguous "Zurek" is deliberately left
+Team names resolve through `TEAMS` and `OWNER_FIRST_NAME` in
+`functions/groupmeParser.js` — extend those as nicknames appear. **An ambiguous "Zurek" is deliberately left
 unresolved here**, which is the opposite of the trade-workbook converter,
 where the commissioner has ruled that a bare Zurek is Matt. Different
 because this scans unconfirmed live chat and that reads a finished record.
 
-**Cadence is load-bearing:** pollGroupMeTrades (10 min) MUST lead
-pollEspnGmail (15 min). `functions/tradeReconcile.js` Rule 4 holds an ESPN
-trade that has no corroborating GroupMe signal, so the signal has to land
-first. Don't retune either in isolation.
+**Cadence still matters, for a narrower reason** (corrected Nov 21, 2026):
+pollGroupMeTrades (10 min) should lead pollEspnGmail (15 min).
+`processEspnTrade` in `functions/index.js` no longer holds an ESPN trade
+for a MISSING GroupMe signal, or for picks — a clean email applies, and a
+pick becomes its own review item. It holds only when the two sources
+DISAGREE on teams (`teamMismatch` / `extraTeams`), and that can only be
+caught if the signal landed first. `tradeReconcile.js` still computes all
+four rules; the caller acts on two. Don't retune either poller in isolation.
 
 ### The league feed (config/ifflFeed) — Jason's export
 `exports.pollIfflFeed` (every 5 minutes) fetches `meta.json`, and only when

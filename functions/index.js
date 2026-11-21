@@ -1093,7 +1093,7 @@ async function draftRecapNote({season, week, games, standings, cfg}) {
   let writer = "claude";
   let writerError = null;
   try {
-    body = await claudeDraft(notes.recapPrompt(facts, cfg.notesVoice ?? ""), cfg.notesModel ?? "claude-sonnet-4-5");
+    body = await claudeDraft(notes.recapPrompt(facts, cfg.notesVoice ?? ""), cfg.notesModel ?? "claude-sonnet-5-5");
   } catch (e) {
     writerError = e.message;
   }
@@ -1189,13 +1189,11 @@ exports.pollIfflFeed = onSchedule(
 
 exports.pollGroupMeTrades = onSchedule(
   {
-    // MUST lead pollEspnGmail (every 15 min). tradeReconcile Rule 4 holds an
-    // ESPN trade that has no corroborating GroupMe signal, and the signal
-    // only exists once this poller has captured it. At the old 60-minute
-    // cadence the ESPN poller routinely ran first, so a trade the league HAD
-    // announced in chat still got held for review — the corroboration simply
-    // had not been written yet. Ten minutes keeps the signal ahead of the
-    // ESPN scan in the ordinary case.
+    // Should lead pollEspnGmail (every 15 min). processEspnTrade no longer
+    // holds a trade for a MISSING GroupMe signal, but it still holds one
+    // when the signal names different teams than the ESPN email — and that
+    // disagreement can only be caught if the signal was captured first. Ten
+    // minutes keeps the signal ahead of the ESPN scan in the ordinary case.
     schedule: "every 10 minutes",
     timeZone: "America/Chicago",
     secrets: [GROUPME_TOKEN],

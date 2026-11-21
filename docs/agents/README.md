@@ -12,15 +12,17 @@ Build specs for the seven agents in Todoist → Fantasy (`IFFL` label). Build th
 | 6 | Design + usability review | GitHub Actions + Claude API | Jared (Todoist tickets) | [06-design-review-agent.md](06-design-review-agent.md) |
 | 7 | Reels (watch + request, human-approved) | Web app + Cloud Functions + Mac renderer | League, after approval | [07-reels-agent.md](07-reels-agent.md) |
 
-## Status — Sep 25, 2026
+## Status — Nov 21, 2026
 
-#1–#5 are built and unit-tested. #6 isn't started. Go-live needs these one-time steps:
+- **#1 Deploy + verify** — built. Runs on demand only (`gh workflow run deploy.yml --ref main`); merging to `main` just runs tests. The auto-merge, Claude fixer and Telegram report were retired.
+- **#2 Weekly scores** — built, but not as first specced: the Mac's Tuesday scrape (`ops/espn-weekly.sh`) is the one writer. The Cloud Function pollers are retired.
+- **#3 League notes** — built for the weekly recap only. Trade, record, deadline and phase notes are not built.
+- **#4 Waiver targets, #5 Start/sit** — built. They run from launchd on the Mac out of `iffl-analytics-agent` and report to Telegram.
+- **#6 Design review, #7 Reels** — specs only.
 
-1. **Service account:** create `iffl-deployer` with these roles: Firebase Admin, Cloud Functions Admin, Cloud Run Admin, Service Account User, Secret Manager Viewer, Cloud Scheduler Admin, Artifact Registry Administrator. Store its JSON key as the GitHub secret `FIREBASE_SA`.
-2. **More GitHub secrets:** `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_APP_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (optional: `TELEGRAM_THREAD_ID`).
-3. **Anthropic key:** `firebase functions:secrets:set ANTHROPIC_API_KEY`. It must exist before the first deploy that includes agent #3.
-4. **Ship it:** open a PR from `claude/insanity-league-ios-app-g73Jo` into `main` (main is branch-protected), then merge.
-5. **Mac:** `launchctl load ~/Library/LaunchAgents/com.iffl.start-sit.plist` after copying it from the analytics folder. Optionally add `TODOIST_API_TOKEN` to secrets.env so the fade/watch tags sync live.
+Next: the roadmap agreed Nov 21, 2026 — a self-posting League Feed (recaps, trades, records, milestones), retry-and-watch loops, the Tuesday job as a flowchart, then scouts and a builder that propose and build new features.
+
+Secrets the built agents need: `FIREBASE_SA`, `VITE_FIREBASE_API_KEY` and `VITE_FIREBASE_APP_ID` in GitHub; `ANTHROPIC_API_KEY` in Firebase Secret Manager for #3.
 
 ## Rules every agent follows
 

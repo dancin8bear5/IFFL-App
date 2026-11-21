@@ -224,7 +224,7 @@ export default function PowerRankingsView({ embedded = false, edition = null }) 
     <div className="pr-page">
       <div className={embedded ? 'pr-embed' : 'pr-wrap'}>
         <header className="mast">
-          <div className="eyebrow">Insanity League · {data.edition}</div>
+          <div className="eyebrow">IFFL · {data.edition}</div>
           <h1 style={embedded ? { fontSize: 'clamp(24px,4.5vw,32px)', margin: '4px 0 8px' } : undefined}>
             The Taylor Made Power Rankings
           </h1>

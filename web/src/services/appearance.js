@@ -8,7 +8,7 @@ import { teamByName } from '../data/staticData.js'
 // Era themes — each reskins the whole app to a decade (or to Soldier Field).
 // '90s' keeps the original data-retro CSS; the rest use data-era blocks.
 export const UI_THEMES = [
-  { key: 'default', label: 'Modern',   glyph: '🏟️', blurb: 'The standard Insanity League look' },
+  { key: 'default', label: 'Modern',   glyph: '🏟️', blurb: 'The standard IFFL look' },
   { key: '50s',     label: '1950s',    glyph: '🍒', blurb: 'Chrome diner — cream, cherry red & teal' },
   { key: '60s',     label: '1960s',    glyph: '☮️', blurb: 'Groovy — mustard, burnt orange & flower power' },
   { key: '70s',     label: '1970s',    glyph: '🥑', blurb: 'Avocado kitchen — olive green, harvest gold & shag' },

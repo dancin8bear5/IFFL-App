@@ -46,6 +46,31 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
 | 4 | Waiver targets | Mac launchd, analytics repo | `iffl-analytics-agent/waiver_scout.py` |
 | 5 | Start/sit | Mac launchd, analytics repo | `iffl-analytics-agent/start_sit.py` |
 
+- **launchd does not decide when the score job runs — `ops/graph/due.mjs`
+  does** (Nov 25, 2026). Week 11 was skipped for a reason that is launchd's
+  nature: the Mac was shut down at 08:50, ten minutes before the slot, and
+  launchd never makes up a run missed while POWERED OFF (only while asleep).
+  It also keeps the time zone the Mac BOOTED in, so "08:00" had fired at
+  06:00, 08:00 and 10:00 Central across three weeks of travel.
+  - The plist now only knocks: every 5 minutes, at :59 of every hour, and at
+    login, with `--scheduled`. `due.mjs` answers from the America/Chicago
+    clock: a week is owed from **Monday 11:59pm Central** until it is done.
+    On at 11:59pm → runs at 11:59pm. Off or asleep → runs at the first knock
+    after it is back; two missed Mondays run as `--weeks 11-12`.
+  - Memory is `out/espn-weekly-state.json` (`lastDoneWeek`), written by the
+    wrapper after a good run. Missing or unreadable → it RUNS the due week;
+    a re-scrape replaces rows, a skipped week is the failure.
+  - A failed scheduled run waits an hour, six tries per week, then stops
+    (each failure already notifies). `out/espn-weekly.lock` keeps a second
+    knock from starting a second scrape during a 30-minute wait.
+  - A knock with nothing owed writes NOTHING to the log — the fixer's
+    watcher reads that log, and 288 lines a day would bury a failure.
+  - It still cannot run on a Mac that is off. `pmset` wakes it at 5:55am
+    daily, so the worst case for a Mac asleep on Monday night is Tuesday
+    just after 5:55am. `IFFL_NOW=<iso> node ops/graph/due.mjs` asks what
+    would be owed at another moment.
+  - The "11:30pm" and "plist is `Weekday 1, 23:30`" in the next bullet are
+    superseded by this one; the 6pm rollover and the 30-minute waits stand.
 - **The score job runs MONDAY NIGHT at 11:30pm** (Nov 25, 2026), not Tuesday
   morning. Names did not move: the graph is still `tuesday.mjs`, and "the
   Tuesday job/scrape" below means this job. Three things moved with the

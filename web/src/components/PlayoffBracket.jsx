@@ -126,7 +126,12 @@ export default function PlayoffBracket() {
         </div>
       ))}
 
-      <SeedList seeds={seeds} userTeam={userTeam} />
+      {/* The "Seeds" list that closed this section was REMOVED (Nov 25,
+          2026) at the commissioner's request: it was the Standings block
+          at the top of the Dashboard over again — same twelve teams, same
+          records, same order. Each matchup still carries its two seed
+          numbers, which is where a seed means something. Git has the
+          SeedList component if it is ever wanted back. */}
     </div>
   )
 }
@@ -177,32 +182,6 @@ function Side({ team, userTeam, bonus, advanced }) {
       <span style={{ fontSize: 11, color: 'var(--iff-subtext)', width: 44, textAlign: 'right', flexShrink: 0 }}>
         {rec(team)}
       </span>
-    </div>
-  )
-}
-
-function SeedList({ seeds, userTeam }) {
-  return (
-    <div className="iff-card" style={{ padding: '14px 16px 12px' }}>
-      <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.2 }}>Seeds</div>
-      <div style={{ fontSize: 10.5, color: 'var(--iff-subtext)', marginTop: 2, marginBottom: 10 }}>
-        Record first, total points break ties
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {seeds.map((s) => (
-          <div key={s.teamName} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 15, fontSize: 10, color: 'var(--iff-subtext)', flexShrink: 0 }}>{s.seed}</span>
-            <TeamAvatar name={s.teamName} size={20} />
-            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: s.teamName === userTeam ? 800 : 600 }}>
-              <TeamLink name={s.teamName} />
-            </span>
-            <span style={{ fontSize: 11.5, fontWeight: 700, width: 48, textAlign: 'right' }}>{rec(s)}</span>
-            <span style={{ fontSize: 10.5, color: 'var(--iff-subtext)', width: 56, textAlign: 'right' }}>
-              {Math.round(s.pointsFor)} pts
-            </span>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

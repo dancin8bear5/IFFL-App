@@ -475,7 +475,13 @@ poller keeps writing `espnLiveScores/{season}` that nothing currently
 renders. Pause the function if that bothers you; restoring the section is
 re-adding the two lines.
 
-**NOTHING PLAYOFF-SHAPED BEFORE WEEK 10.** `PLAYOFF_PREVIEW_WEEK = 10` in
+> **Tightened Nov 25, 2026: nothing playoff-shaped until the regular season
+> is OVER.** `PLAYOFF_PREVIEW_WEEK` is now `REGULAR_SEASON_WEEKS` (14), not
+> 10 — the section opens when the last regular-season week has been scraped
+> and stays through the playoffs. Everything below about HOW it is gated
+> still holds; only the number moved. Admin is still exempt.
+
+**NOTHING PLAYOFF-SHAPED BEFORE WEEK 10** (now week 14 — see above). `PLAYOFF_PREVIEW_WEEK` in
 `staticData.js`, enforced by `playoffPreviewOpen(weeklyScores)` in
 `services/playoffs.js` (tested), which gates the whole Playoffs section —
 seeds, the opponent draft, the on-the-clock banner and the quarterfinals

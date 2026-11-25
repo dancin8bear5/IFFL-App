@@ -459,7 +459,8 @@ export default function DashboardView({ setTab }) {
   )
 
   // Nothing about the playoffs — seeds, the opponent draft, the bracket —
-  // until PLAYOFF_PREVIEW_WEEK weeks have actually been played.
+  // until the regular season is over (PLAYOFF_PREVIEW_WEEK ===
+  // REGULAR_SEASON_WEEKS since Nov 25, 2026; it was week 10 before).
   //
   // The gate used to be "records exist", which was a fair proxy while the
   // commissioner entered records by hand late in the season. The weekly

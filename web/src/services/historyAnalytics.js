@@ -164,3 +164,61 @@ export function clutchFactor(docs) {
     }))
     .sort((a, b) => b.delta - a.delta)
 }
+
+/**
+ * Stretch run: second-half regular-season PPG minus first-half, split at the
+ * era's midpoint week (ceil(regularWeeks/2) — the same 13/14-week cut as
+ * clutchFactor, so a 13-week season splits 7/6 and a 14-week season 7/7).
+ * Unlike clutchFactor, this needs no postseason appearance, so a team that
+ * fades hard enough to miss the bracket still shows up.
+ *
+ * @returns {
+ *   seasons: [{ season, team, firstPPG, secondPPG, delta, firstGames, secondGames }] (delta asc),
+ *   career:  [{ team, firstPPG, secondPPG, delta, seasons }] (delta asc),
+ * }
+ */
+export function stretchRun(docs) {
+  const seasonRows = []
+  const career = new Map()
+
+  for (const doc of docs ?? []) {
+    const season = Number(doc.season)
+    const regCut = regularWeeks(season)
+    const mid = Math.ceil(regCut / 2)
+    const acc = new Map()
+
+    for (const r of doc.rows ?? []) {
+      if (!(Number(r.week) <= regCut) || !isScore(r.points)) continue
+      const t = acc.get(r.team) ?? { team: r.team, first: 0, firstGames: 0, second: 0, secondGames: 0 }
+      if (Number(r.week) <= mid) { t.first += Number(r.points); t.firstGames += 1 }
+      else { t.second += Number(r.points); t.secondGames += 1 }
+      acc.set(r.team, t)
+    }
+
+    for (const t of acc.values()) {
+      if (t.firstGames === 0 || t.secondGames === 0) continue // malformed/single-half season
+      const firstPPG = t.first / t.firstGames
+      const secondPPG = t.second / t.secondGames
+      seasonRows.push({ season, team: t.team, firstPPG, secondPPG, delta: secondPPG - firstPPG, firstGames: t.firstGames, secondGames: t.secondGames })
+
+      const c = career.get(t.team) ?? { team: t.team, first: 0, firstGames: 0, second: 0, secondGames: 0, seasons: 0 }
+      c.first += t.first
+      c.firstGames += t.firstGames
+      c.second += t.second
+      c.secondGames += t.secondGames
+      c.seasons += 1
+      career.set(t.team, c)
+    }
+  }
+
+  return {
+    seasons: seasonRows.sort((a, b) => a.delta - b.delta),
+    career: [...career.values()]
+      .map((c) => {
+        const firstPPG = c.first / c.firstGames
+        const secondPPG = c.second / c.secondGames
+        return { team: c.team, firstPPG, secondPPG, delta: secondPPG - firstPPG, seasons: c.seasons }
+      })
+      .sort((a, b) => a.delta - b.delta),
+  }
+}

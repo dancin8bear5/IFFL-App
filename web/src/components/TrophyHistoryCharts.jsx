@@ -1,11 +1,12 @@
 // TrophyHistoryCharts — Trophy Room sections computed from the imported ESPN
 // game history (historyMatchups, 2008–2025): the rivalry grid, schedule luck,
-// and the clutch factor. Lives beside TrophyAnalytics, which covers the
-// standings-derived distributions; everything here needs game-level data.
+// the clutch factor, and the stretch run. Lives beside TrophyAnalytics, which
+// covers the standings-derived distributions; everything here needs
+// game-level data.
 import { useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import { fantasyTeams, teamByName, isActiveTeam } from '../data/staticData'
-import { headToHead, allPlayLuck, clutchFactor } from '../services/historyAnalytics'
+import { headToHead, allPlayLuck, clutchFactor, stretchRun } from '../services/historyAnalytics'
 
 const Label = ({ children }) => <div className="troom-section-label">{children}</div>
 
@@ -72,6 +73,7 @@ export default function TrophyHistoryCharts({ showFormer }) {
   const h2h = useMemo(() => headToHead(historyMatchups, activeNames), [historyMatchups, activeNames])
   const luck = useMemo(() => allPlayLuck(historyMatchups), [historyMatchups])
   const clutch = useMemo(() => clutchFactor(historyMatchups), [historyMatchups])
+  const stretch = useMemo(() => stretchRun(historyMatchups), [historyMatchups])
 
   // Former members can hold luck/clutch career rows; the room-wide toggle governs.
   const luckCareer = useMemo(
@@ -85,6 +87,14 @@ export default function TrophyHistoryCharts({ showFormer }) {
   const luckSeasons = useMemo(
     () => luck.seasons.filter((r) => showFormer || isActiveTeam(r.team)),
     [luck.seasons, showFormer],
+  )
+  const stretchCareer = useMemo(
+    () => stretch.career.filter((r) => showFormer || isActiveTeam(r.team)),
+    [stretch.career, showFormer],
+  )
+  const stretchSeasons = useMemo(
+    () => stretch.seasons.filter((r) => showFormer || isActiveTeam(r.team)),
+    [stretch.seasons, showFormer],
   )
 
   if (historyMatchups.length === 0) return null
@@ -110,9 +120,12 @@ export default function TrophyHistoryCharts({ showFormer }) {
 
   const luckMax = Math.max(0.1, ...luckCareer.map((r) => Math.abs(r.luck)))
   const clutchMax = Math.max(0.1, ...clutchRows.map((r) => Math.abs(r.delta)))
+  const stretchMax = Math.max(0.1, ...stretchCareer.map((r) => Math.abs(r.delta)))
   const signed = (n, digits = 1) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(digits)}`
   const unluckiest = luckSeasons[0]
   const luckiest = luckSeasons[luckSeasons.length - 1]
+  const biggestFade = stretchSeasons[0]
+  const biggestSurge = stretchSeasons[stretchSeasons.length - 1]
 
   return (
     <>
@@ -248,6 +261,43 @@ export default function TrophyHistoryCharts({ showFormer }) {
               <span>shows up in December</span>
             </div>
           </div>
+        </section>
+      )}
+
+      {/* ── Stretch run ── */}
+      {stretchCareer.length > 0 && (
+        <section>
+          <Label>STRETCH RUN</Label>
+          <Caption>
+            Second-half regular-season points per game minus first-half, split at the
+            midpoint week — the fade (or surge) that happens before the playoffs even start,
+            not after. Unlike Clutch Factor this counts every team, playoff-bound or not.
+          </Caption>
+          <div className="iff-card" style={{ padding: '10px 12px' }}>
+            {[...stretchCareer].sort((a, b) => b.delta - a.delta).map((r) => (
+              <DivergingRow key={r.team} label={r.team} value={r.delta} maxAbs={stretchMax} format={(v) => signed(v)} />
+            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9.5, color: 'var(--iff-subtext)', padding: '4px 6px 0' }}>
+              <span>fades late</span>
+              <span>surges late</span>
+            </div>
+          </div>
+          {biggestFade && biggestSurge && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, marginTop: 10 }}>
+              <StatNote
+                label="BIGGEST FADE"
+                team={`${biggestFade.team} · ${biggestFade.season}`}
+                value={`${signed(biggestFade.delta)} PPG`}
+                note={`${biggestFade.firstPPG.toFixed(1)} → ${biggestFade.secondPPG.toFixed(1)}`}
+              />
+              <StatNote
+                label="BIGGEST SURGE"
+                team={`${biggestSurge.team} · ${biggestSurge.season}`}
+                value={`${signed(biggestSurge.delta)} PPG`}
+                note={`${biggestSurge.firstPPG.toFixed(1)} → ${biggestSurge.secondPPG.toFixed(1)}`}
+              />
+            </div>
+          )}
         </section>
       )}
     </>

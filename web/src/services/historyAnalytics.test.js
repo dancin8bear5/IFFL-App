@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { regularWeeks, headToHead, allPlayWeek, allPlayLuck, clutchFactor } from './historyAnalytics.js'
+import { regularWeeks, headToHead, allPlayWeek, allPlayLuck, clutchFactor, stretchRun } from './historyAnalytics.js'
 
 // One tiny two-season history. Each game appears twice (once per side), the
 // way historyMatchups stores it. 2019-era regular season cut is week 13;
@@ -116,4 +116,66 @@ test('clutchFactor drops teams with no postseason games', () => {
     { season: 2024, rows: [...game(1, 'Jared', 'Bill', 100, 90)] },
   ])
   assert.equal(rows.length, 0)
+})
+
+// 2019 regular season is 13 weeks, so the midpoint split is weeks 1-7 / 8-13
+// (ceil(13/2) = 7). Jared fades, Bill surges; week 14 is playoffs and must be
+// ignored by the split entirely.
+const STRETCH_2019 = {
+  season: 2019,
+  rows: [
+    ...Array.from({ length: 7 }, (_, i) => game(i + 1, 'Jared', 'Bill', 100, 90)).flat(),
+    ...Array.from({ length: 6 }, (_, i) => game(i + 8, 'Jared', 'Bill', 80, 110)).flat(),
+    ...game(14, 'Jared', 'Bill', 999, 999), // postseason — must not leak into either half
+  ],
+}
+
+test('stretchRun splits at the era midpoint and finds fade vs surge', () => {
+  const { seasons } = stretchRun([STRETCH_2019])
+  const jared = seasons.find((r) => r.team === 'Jared' && r.season === 2019)
+  const bill = seasons.find((r) => r.team === 'Bill' && r.season === 2019)
+
+  assert.equal(jared.firstGames, 7)
+  assert.equal(jared.secondGames, 6)
+  assert.ok(Math.abs(jared.firstPPG - 100) < 1e-9)
+  assert.ok(Math.abs(jared.secondPPG - 80) < 1e-9)
+  assert.ok(Math.abs(jared.delta - (-20)) < 1e-9)
+
+  assert.ok(Math.abs(bill.firstPPG - 90) < 1e-9)
+  assert.ok(Math.abs(bill.secondPPG - 110) < 1e-9)
+  assert.ok(Math.abs(bill.delta - 20) < 1e-9)
+
+  // Sorted biggest fade first
+  assert.equal(seasons[0].team, 'Jared')
+  assert.equal(seasons[seasons.length - 1].team, 'Bill')
+})
+
+test('stretchRun career aggregates across seasons', () => {
+  // A second, 14-week-era season (2021+) for Jared only, same shape of fade.
+  const STRETCH_2024 = {
+    season: 2024,
+    rows: [
+      ...Array.from({ length: 7 }, (_, i) => game(i + 1, 'Jared', 'Bill', 100, 90)).flat(),
+      ...Array.from({ length: 7 }, (_, i) => game(i + 8, 'Jared', 'Bill', 80, 60)).flat(),
+    ],
+  }
+  const { career } = stretchRun([STRETCH_2019, STRETCH_2024])
+  const jared = career.find((c) => c.team === 'Jared')
+  // firstGames: 7 + 7 = 14, first points: 700 + 700 = 1400 → firstPPG 100
+  // secondGames: 6 + 7 = 13, second points: 480 + 560 = 1040 → secondPPG 80
+  assert.equal(jared.seasons, 2)
+  assert.ok(Math.abs(jared.firstPPG - 100) < 1e-9)
+  assert.ok(Math.abs(jared.secondPPG - (1040 / 13)) < 1e-9)
+  assert.ok(Math.abs(jared.delta - (1040 / 13 - 100)) < 1e-9)
+})
+
+test('stretchRun excludes a season with no games on one side of the split (no NaN/Infinity)', () => {
+  // Only weeks 1-2 played — nothing past the week-7 midpoint.
+  const onlyFirstHalf = {
+    season: 2019,
+    rows: [...game(1, 'Jared', 'Bill', 100, 90), ...game(2, 'Jared', 'Bill', 95, 85)],
+  }
+  const { seasons, career } = stretchRun([onlyFirstHalf])
+  assert.equal(seasons.length, 0)
+  assert.equal(career.length, 0)
 })

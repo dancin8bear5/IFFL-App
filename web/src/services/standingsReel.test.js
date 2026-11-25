@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseRecord, weekNumbers, buildReel, liveGameFor, beats, rowAt, barAt, currentWeekIndex } from './standingsReel.js'
+import { parseRecord, weekNumbers, buildReel, liveGameFor, beats, rowAt, barAt, currentWeekIndex, PLAYOFF_SPOTS } from './standingsReel.js'
+import { PLAYOFF_TEAMS } from '../data/staticData.js'
 
 // Real shape, three teams: A 2-1, B 2-1, C 1-2 after three weeks.
 const standings = [
@@ -90,4 +91,12 @@ test('timeline: rows go kickoff → standings, bars grow, week index advances', 
   assert.ok(Math.abs(barAt(r, 'A', end).value - 330) < 1e-6)
   const mid = beats(0.3, 3)
   assert.ok(currentWeekIndex(mid) >= 1 && currentWeekIndex(mid) <= 2)
+})
+
+// Eight teams make the playoffs; the line on the card is that cutoff. It
+// read 6 for two months because this file kept its own copy of the number.
+test('the cut is the playoff field: between 8th and 9th of twelve', () => {
+  const twelve = Array.from({ length: 12 }, (_, i) => ({ teamName: `T${i + 1}`, place: i + 1, record: '1-0', pointsFor: 100 - i }))
+  assert.equal(PLAYOFF_SPOTS, PLAYOFF_TEAMS)
+  assert.equal(buildReel(twelve, {}).cutPlace, 8)
 })

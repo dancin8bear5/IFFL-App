@@ -76,6 +76,18 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
   - Only a trade completed in the last 7 days is news (`isFreshTrade`) —
     without that, a backfill recorded as `completed` floods the feed.
     Proposals and declines never post; this repo and its data are public-facing.
+  - **A trade write-up covers the WHOLE trade, in 50 words** (Nov 25, 2026).
+    The first two posts each left out a 2027 second-rounder: Jason's feed
+    created the trade with the players and filled the pick in on its next
+    poll, five minutes later, and `handleTradeWrite` ignored any write that
+    didn't change `status`. Now a completed trade whose assets change is
+    rewritten (`tradeChanged`; no second DM). `tradeFacts` lists players and
+    picks separately per side, and `tradeCheck` rejects a draft over 50 words
+    or one that leaves an asset out — rewrite, three tries, then the template.
+    An ESPN-email trade the chat tied to a pick is created `picksPending` and
+    posts NOTHING until a pick is on it or the commissioner dismisses the
+    pick item (`tradeIsWhole`). Setting `feedRefresh` on a trade doc forces
+    a rewrite by hand.
   - Two switches in Admin → Areas: `feed` hides the Dashboard section,
     `feedAgent` stops new posts being written. Edit / pull single posts in
     **Admin → Notes → League Feed**. (Admin → **Feed** is something else:
@@ -462,6 +474,10 @@ phone's scroller has no row to fill, so there it keeps a fixed 208px.
 of `dashboardSections.js` and one out of the `NODES` map, both left as
 comments. `parlayCard`, `ParlayView`, Admin → Parlay and the `parlay` kill
 switch are all still wired; restoring it is re-adding those two lines.
+
+**The line on the Standings card is the playoff cutoff — between 8th and
+9th** (Nov 25, 2026). It sat under 6th because `standingsReel.js` kept its
+own `PLAYOFF_SPOTS = 6`; it now reads `PLAYOFF_TEAMS` from `staticData.js`.
 
 ### Dashboard cleanup + the playoff gate (Sep 29, 2026)
 **The League Calendar leads the Dashboard.** It is the one block useful in

@@ -1050,6 +1050,17 @@ a { color: inherit; text-decoration: none; }
 }
 .alltime-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
 
+/* Shared by Players' and Rosters' column-sort buttons, desktop table
+   headers and the mobile sort toggles alike: same padding/negative-margin
+   trick as .team-link above, so a one-word label like "Pos" or "Yrs"
+   still gets a real tap target without widening the header row (Nov 25,
+   2026). */
+.th-sort {
+  display: inline-block;
+  padding: 11px 8px;
+  margin: -11px -8px;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    90s MODE — Saved by the Bell. Toggle in Settings → Appearance.
    Applied via <html data-retro="1">. Full cheese.
@@ -1625,11 +1636,19 @@ a { color: inherit; text-decoration: none; }
 /* Team names link to that team's roster. Underline only on hover/focus:
    these sit inside dense rows where a permanent underline on every team
    name would be visual noise, but the row still has to advertise that
-   it's clickable when you go looking. */
+   it's clickable when you go looking.
+
+   The name itself is often shorter than a comfortable tap target, so the
+   padding/negative-margin pair below grows the invisible hit box to a
+   real phone-sized target without moving the visible text or the row
+   around it: padding pushes the box out, the equal negative margin pulls
+   the surrounding layout back to exactly where it was (Nov 25, 2026). */
 .team-link {
   text-decoration: none;
   color: inherit;
   border-radius: 3px;
+  padding: 11px 8px;
+  margin: -11px -8px;
 }
 .team-link:hover,
 .team-link:focus-visible {

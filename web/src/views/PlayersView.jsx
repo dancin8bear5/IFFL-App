@@ -248,16 +248,16 @@ export default function PlayersView({ setTab }) {
               <thead>
                 <tr>
                   <th style={{ textAlign: 'right' }} title="Rank among all owned players by current price">
-                    <button onClick={() => clickSort('rank', true)}>#{arrow('rank')}</button>
+                    <button className="th-sort" onClick={() => clickSort('rank', true)}>#{arrow('rank')}</button>
                   </th>
-                  <th style={{ textAlign: 'left' }}><button onClick={() => clickSort('pos', true)}>Pos{arrow('pos')}</button></th>
-                  <th style={{ textAlign: 'left' }}><button onClick={() => clickSort('name', true)}>Player{arrow('name')}</button></th>
-                  <th style={{ textAlign: 'left' }}><button onClick={() => clickSort('team', true)}>Team{arrow('team')}</button></th>
+                  <th style={{ textAlign: 'left' }}><button className="th-sort" onClick={() => clickSort('pos', true)}>Pos{arrow('pos')}</button></th>
+                  <th style={{ textAlign: 'left' }}><button className="th-sort" onClick={() => clickSort('name', true)}>Player{arrow('name')}</button></th>
+                  <th style={{ textAlign: 'left' }}><button className="th-sort" onClick={() => clickSort('team', true)}>Team{arrow('team')}</button></th>
                   <th style={{ textAlign: 'left' }}>NFL</th>
-                  <th style={{ textAlign: 'right' }}><button onClick={() => clickSort('yrs', true)}>Yrs{arrow('yrs')}</button></th>
+                  <th style={{ textAlign: 'right' }}><button className="th-sort" onClick={() => clickSort('yrs', true)}>Yrs{arrow('yrs')}</button></th>
                   {seasons.map((yr, i) => (
                     <th key={yr} style={{ textAlign: 'right' }}>
-                      <button onClick={() => clickSort(`p${i}`)}>'{String(yr).slice(2)}{arrow(`p${i}`)}</button>
+                      <button className="th-sort" onClick={() => clickSort(`p${i}`)}>'{String(yr).slice(2)}{arrow(`p${i}`)}</button>
                     </th>
                   ))}
                   <th style={{ textAlign: 'center' }}>★</th>
@@ -338,11 +338,11 @@ export default function PlayersView({ setTab }) {
       <div style={{ padding: '8px 14px 0', fontSize: 10.5, color: 'var(--iff-subtext)' }}>
         <span className="tnum">{rows.length}</span> of <span className="tnum">{allDisplayAssets.length}</span> assets
         {' · '}
-        <button onClick={() => clickSort('p0')} style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--iff-gold)' }}>
+        <button className="th-sort" onClick={() => clickSort('p0')} style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--iff-gold)' }}>
           price {sort.key === 'p0' && !sort.desc ? '↑' : '↓'}
         </button>
         {' · '}
-        <button onClick={() => clickSort('name', true)} style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--iff-gold)' }}>
+        <button className="th-sort" onClick={() => clickSort('name', true)} style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--iff-gold)' }}>
           name {sort.key === 'name' && sort.desc ? '↓' : '↑'}
         </button>
       </div>

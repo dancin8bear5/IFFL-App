@@ -203,7 +203,7 @@ export default function HistoryView() {
   // ── chrome ────────────────────────────────────────────────
   const tabs = (
     <ChipScroller>
-      <div ref={chipRow} style={{ display: 'flex', gap: 6, width: 'max-content', paddingBottom: 2 }}>
+      <div ref={chipRow} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 2 }}>
         {CATEGORIES.map((c) => {
           const on = c.key === category.key
           return (
@@ -333,10 +333,33 @@ export default function HistoryView() {
 
   const table = (
     <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
-      {/* Wide tables scroll inside their own box so the page never
-          scrolls sideways on a phone. */}
-      <div style={{ overflowX: 'auto' }}>
-        <table className="hist-table">
+      {/* No sideways scrolling (Nov 25, 2026). When the table's own box is
+          narrow, each row becomes a card with its column names inline — see
+          .stack-table in theme.css. The header row is where sorting lives,
+          so the narrow layout gets a Sort control in its place. */}
+      <div className="stack-wrap">
+        <div className="stack-only" style={{ gap: 8, alignItems: 'center', padding: '9px 12px', borderBottom: '1px solid var(--iff-divider)' }}>
+          <label style={{ fontSize: 11.5, color: 'var(--iff-subtext)', display: 'flex', gap: 6, alignItems: 'center', flex: 1, minWidth: 0 }}>
+            Sort
+            <select
+              value={sort?.key ?? ''}
+              onChange={(e) => (e.target.value ? setSort({ key: e.target.value, dir: sort?.dir ?? 'asc' }) : setSort(null))}
+              style={{ flex: 1, minWidth: 0, minHeight: 34 }}
+            >
+              <option value="">Default order</option>
+              {columns.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+            </select>
+          </label>
+          <button
+            disabled={!sort}
+            onClick={() => setSort((s) => (s ? { ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' } : s))}
+            aria-label={sort?.dir === 'desc' ? 'Sorted high to low — switch to low to high' : 'Sorted low to high — switch to high to low'}
+            style={{ minWidth: 40, minHeight: 34, borderRadius: 8, fontWeight: 800, background: 'var(--iff-elevated)', opacity: sort ? 1 : 0.4 }}
+          >
+            {sort?.dir === 'desc' ? '▼' : '▲'}
+          </button>
+        </div>
+        <table className="hist-table stack-table">
           <thead>
             <tr>
               {columns.map((c) => (
@@ -360,7 +383,7 @@ export default function HistoryView() {
                   const val = c.format ? c.format(raw, r) : raw
                   const isTeam = ['team', 'owner', 'to', 'from', 'opponent'].includes(c.key)
                   return (
-                    <td key={c.key} className={c.type === 'number' || c.type === 'season' ? 'tnum' : undefined}
+                    <td key={c.key} data-label={c.label} className={c.type === 'number' || c.type === 'season' ? 'tnum' : undefined}
                       style={{ textAlign: c.align === 'right' ? 'right' : 'left' }}>
                       {isTeam && raw && TEAM_NAMES.includes(raw) ? <TeamLink name={raw} /> : (val ?? '')}
                     </td>

@@ -32,7 +32,7 @@ export default function TransactionLedger({ onClose }) {
       <div style={{ padding: '12px 14px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
 
         <ChipScroller>
-          <div style={{ display: 'flex', gap: 8, width: 'max-content', paddingRight: 40 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {['All', ...fantasyTeams.map((t) => t.name)].map((name) => {
             const active = team === name
             return (

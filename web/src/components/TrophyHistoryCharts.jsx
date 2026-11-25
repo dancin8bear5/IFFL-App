@@ -125,19 +125,24 @@ export default function TrophyHistoryCharts({ showFormer }) {
             beats. Green means the row owns the column; red means they&apos;d rather not
             talk about it. Hover any cell for the series score.
           </Caption>
-          <div className="iff-card" style={{ padding: '12px 12px 10px', overflowX: 'auto' }}>
-            <div style={{ minWidth: h2h.teams.length * 30 + 78 }}>
+          {/* Fits its box instead of scrolling sideways (Nov 25, 2026): the
+              cells share the row equally and the type scales with the card
+              (a cqw is one hundredth of the card's width), so twelve columns
+              are all on screen at any width. Fixed 28px cells needed 462px
+              and a phone has 339. */}
+          <div className="iff-card" style={{ padding: '12px 12px 10px', containerType: 'inline-size' }}>
+            <div>
               <div style={{ display: 'flex', gap: 2, marginBottom: 3 }}>
-                <span style={{ width: 66, flexShrink: 0 }} />
+                <span style={{ width: 'clamp(40px, 16cqw, 66px)', flexShrink: 0 }} />
                 {h2h.teams.map((t) => (
-                  <span key={t} style={{ width: 28, fontSize: 8, color: 'var(--iff-subtext)', textAlign: 'center', fontWeight: 800, textTransform: 'uppercase' }}>
+                  <span key={t} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', fontSize: 'clamp(5.5px, 2.1cqw, 8px)', color: 'var(--iff-subtext)', textAlign: 'center', fontWeight: 800, textTransform: 'uppercase' }}>
                     {teamByName[t]?.abbrev ?? t.slice(0, 4)}
                   </span>
                 ))}
               </div>
               {h2h.teams.map((row) => (
                 <div key={row} style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: 2 }}>
-                  <span style={{ width: 66, flexShrink: 0, fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ width: 'clamp(40px, 16cqw, 66px)', flexShrink: 0, fontSize: 'clamp(8.5px, 3cqw, 10.5px)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {row}
                   </span>
                   {h2h.teams.map((colTeam) => {
@@ -154,10 +159,10 @@ export default function TrophyHistoryCharts({ showFormer }) {
                         }
                         className="tnum"
                         style={{
-                          width: 28, height: 20, borderRadius: 3,
+                          flex: '1 1 0', minWidth: 0, height: 20, borderRadius: 3,
                           background: row === colTeam ? 'transparent' : pctColor(c?.pct ?? null),
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 8.5, fontWeight: 800,
+                          fontSize: 'clamp(6px, 2.3cqw, 8.5px)', fontWeight: 800, overflow: 'hidden', whiteSpace: 'nowrap',
                           color: c && Math.abs(c.pct - 0.5) > 0.28 ? '#0A0D1A' : 'rgba(255,255,255,0.75)',
                         }}
                       >

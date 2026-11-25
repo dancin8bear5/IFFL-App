@@ -117,7 +117,7 @@ export default function PlayersView({ setTab }) {
       />
 
       <ChipScroller>
-        <div style={{ display: 'flex', gap: 6, width: 'max-content' }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {POSITIONS.map((p) => (
             <button
               key={p}
@@ -243,7 +243,7 @@ export default function PlayersView({ setTab }) {
             <div>Try widening your filters.</div>
           </div>
         ) : (
-          <div className="iff-card" style={{ overflowX: 'auto' }}>
+          <div className="iff-card players-wrap" style={{ overflow: 'hidden' }}>
             <table className="alltime-table players-table">
               <thead>
                 <tr>

@@ -55,8 +55,13 @@ const OUT = process.env.IFFL_OUT_DIR || join(REPO, 'out')
 const PROFILE = process.env.ESPN_PROFILE_DIR || join(REPO, '.espn-chrome-profile')
 const LEAGUE = 331652
 const SEASON = 2026
-// Week 1's Monday night game was Sep 14, 2026, so week N is final by Tuesday Sep 15 + 7(N-1).
-const WEEK1_TUESDAY = Date.UTC(2026, 8, 15)
+// Week 1's Monday night game was Sep 14, 2026. The job runs MONDAY NIGHT
+// (since Nov 25, 2026; it was Tuesday 08:00), so week N becomes "the last
+// finished week" at 6pm Central on its Monday — before the run, and well
+// before the game ends. Whether the game is actually over is not decided
+// here: the scrape refuses a week with a starter still playing, and the
+// graph waits and retries.
+const WEEK1_ROLLOVER = Date.UTC(2026, 8, 14, 18)
 const PROJECT = 'iffl-auth'
 const FS_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/(default)/documents`
 
@@ -69,8 +74,8 @@ const log = (...a) => console.log(new Date().toISOString().slice(0, 19), ...a)
 // ── week selection ─────────────────────────────────────────────
 export function lastFinishedWeek(now = new Date()) {
   const ct = new Date(now.toLocaleString('en-US', { timeZone: 'America/Chicago' }))
-  const today = Date.UTC(ct.getFullYear(), ct.getMonth(), ct.getDate())
-  return Math.floor((today - WEEK1_TUESDAY) / 86400000 / 7) + 1
+  const wall = Date.UTC(ct.getFullYear(), ct.getMonth(), ct.getDate(), ct.getHours(), ct.getMinutes())
+  return Math.floor((wall - WEEK1_ROLLOVER) / 86400000 / 7) + 1
 }
 function weeksToRun() {
   if (opt('--week')) return [Number(opt('--week'))]

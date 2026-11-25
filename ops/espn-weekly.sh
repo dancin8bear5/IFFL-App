@@ -1,6 +1,7 @@
 #!/bin/bash
 # espn-weekly.sh — the ONE weekly ESPN job. Scheduled by
-# ops/com.iffl.espn-weekly.plist (Tuesdays 08:00).
+# ops/com.iffl.espn-weekly.plist (Monday nights 11:30pm; Tuesday 08:00 until
+# Nov 25, 2026 — the graph is still called "tuesday").
 #
 # This file is only the launchd wrapper now: PATH, log, and a last-ditch
 # notification. The job itself is a graph — ops/graph/tuesday.mjs — which

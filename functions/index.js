@@ -1145,10 +1145,14 @@ async function claudeDraft(prompt, model) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
-    body: JSON.stringify({model, max_tokens: 700, messages: [{role: "user", content: prompt}]}),
+    body: JSON.stringify({model, max_tokens: 2000, messages: [{role: "user", content: prompt}]}),
   });
   if (!res.ok) throw new Error(`Claude HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const j = await res.json();
+  // A reply cut off at the token limit is half a sentence, and it passes the
+  // number check: week 11's Ryan–Jason recap was published as "a 50.7-".
+  // Throwing sends writeVerified round again, then to the template.
+  if (j.stop_reason === "max_tokens") throw new Error("Claude reply cut off at the token limit");
   return (j.content ?? []).filter((c) => c.type === "text").map((c) => c.text).join("").trim() || null;
 }
 

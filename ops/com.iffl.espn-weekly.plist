@@ -8,20 +8,24 @@
     <array>
         <string>/bin/bash</string>
         <string>/Users/jaredtaylor/claude-agents/iffl-web-app/ops/espn-weekly.sh</string>
+        <string>--scheduled</string>
     </array>
-    <!-- Monday nights at 11:30pm, Mac local time (moved from Tuesday 08:00 on
-         Nov 25, 2026). If the game is still on, the job waits 30 minutes
-         and tries again, up to six times. If the Mac is asleep at 11:30pm,
-         launchd runs it on wake. RunAtLoad false so installing doesn't
-         fire a run. -->
+    <!-- launchd does NOT decide when the score job runs (Nov 25, 2026). It
+         only knocks: every 5 minutes, at :59 of every hour, and at login.
+         ops/graph/due.mjs answers — a week is owed from Monday 11:59pm
+         CENTRAL until it is done. That is what survives a Mac that was
+         powered off at the slot (launchd never makes that up; it skipped
+         week 11) and a Mac in another time zone (launchd keeps the zone it
+         booted in). A knock with nothing owed exits in under a second and
+         writes nothing. -->
     <key>StartCalendarInterval</key>
     <dict>
-        <key>Weekday</key><integer>1</integer>
-        <key>Hour</key><integer>23</integer>
-        <key>Minute</key><integer>30</integer>
+        <key>Minute</key><integer>59</integer>
     </dict>
+    <key>StartInterval</key>
+    <integer>300</integer>
     <key>RunAtLoad</key>
-    <false/>
+    <true/>
     <key>StandardOutPath</key>
     <string>/Users/jaredtaylor/claude-agents/iffl-web-app/out/espn-weekly.stdout.log</string>
     <key>StandardErrorPath</key>

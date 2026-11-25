@@ -61,18 +61,22 @@ export const DASHBOARD_SECTIONS = [
   // Gated on weeks PLAYED as well as phase — nothing playoff-shaped shows
   // before PLAYOFF_PREVIEW_WEEK. See services/playoffs.js.
   { key: 'playoffs',  label: 'Playoff bracket',        glyph: '🏆', phases: ['regular', 'playoffs'], lead: ['playoffs'] },
-  // Recaps and trade write-ups, written and published by Cloud Functions
-  // the moment scores or a trade land (functions/leagueFeed.js). Every
-  // phase: trades happen all year.
-  { key: 'feed',      label: 'League Feed',            glyph: '📰' },
   { key: 'tda',       label: 'Team TDA',               glyph: '💰' },
   { key: 'messages',  label: 'League messages',        glyph: '💬' },
-  // The two long reads of the preseason, side by side at the top of the rail.
+  // Recaps, trade write-ups, record alerts and calendar notices, written
+  // and published by Cloud Functions the moment their data lands
+  // (functions/leagueFeed.js). Every phase: trades happen all year. Leads
+  // the RAIL since Nov 25, 2026 — it is the one thing on the page that is
+  // new every week, and the rail is where the league's reading lives. Shows
+  // the last two weeks; older posts are on the archive page.
+  { key: 'feed',      label: 'League Feed',            glyph: '📰', rail: true, railSafe: true },
+  // The two long reads of the preseason. Each shows here for its first two
+  // weeks only, then moves to the archive (services/archive.js) — so in
+  // season these two entries usually render nothing.
   { key: 'rankings',  label: 'Power Rankings',         glyph: '📊', rail: true, railSafe: true },
   { key: 'odds',      label: 'Championship odds',      glyph: '🎰', rail: true, railSafe: true, phases: ['preseason', 'regular'] },
-  // Appears only once an edition has actually retired — see
-  // services/archive.js. Until then there is nothing to archive and the
-  // tile would be a link to an empty page.
+  // Appears once anything has been replaced or is more than two weeks old —
+  // see services/archive.js. Until then the tile would lead to an empty page.
   { key: 'archive',   label: 'Article archive',        glyph: '🗄️', rail: true, railSafe: true },
   { key: 'rules',     label: 'Rules & reminders',      glyph: '📜', rail: true, railSafe: true },
   { key: 'offers',    label: 'Incoming trade offers',  glyph: '✉️' },

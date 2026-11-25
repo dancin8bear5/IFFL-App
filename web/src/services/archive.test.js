@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   currentArticle, archivedArticles, hasArchive, archiveBySeason, releasedFor,
-  editionSlug, rankingsDeepLink,
+  editionSlug, rankingsDeepLink, dashboardArticle, isAged, toMs, ARCHIVE_AFTER_DAYS,
 } from './archive.js'
 import { DROP_KEYS } from './rankingsRelease.js'
 import { ARTICLES } from '../data/articles.js'
@@ -81,10 +81,65 @@ test('with no current edition named, nothing is treated as retired', () => {
 
 // ── the real index ───────────────────────────────────────────
 
-test('today the archive is empty — one edition of each kind, both current', () => {
-  assert.deepEqual(archivedArticles(ARTICLES), [])
+test('the 2026 preseason pieces: on the Dashboard in their first two weeks, in the archive after', () => {
   assert.equal(currentArticle(ARTICLES, 'rankings').id, '2026_preseason')
   assert.equal(currentArticle(ARTICLES, 'odds').id, '2026')
+  // Ten days after the rankings came out: still front-page; the odds (a month older) are not.
+  const early = new Date('2026-09-11T12:00:00')
+  assert.equal(dashboardArticle(ARTICLES, 'rankings', early).id, '2026_preseason')
+  assert.equal(dashboardArticle(ARTICLES, 'odds', early), null)
+  // Week 12: both are archive material.
+  const late = new Date('2026-11-25T12:00:00')
+  assert.equal(dashboardArticle(ARTICLES, 'rankings', late), null)
+  assert.deepEqual(archivedArticles(ARTICLES, late).map((a) => a.kind).sort(), ['odds', 'rankings'])
+  assert.equal(hasArchive(ARTICLES, late), true)
+})
+
+// ── the two-week rule ────────────────────────────────────────
+
+const D = 24 * 60 * 60 * 1000
+const NOW = Date.parse('2026-11-25T12:00:00Z')
+const dated = (kind, id, season, daysAgo) => ({ kind, id, season, publishedAt: new Date(NOW - daysAgo * D).toISOString() })
+
+test('isAged: strictly more than two weeks, whatever shape the date arrives in', () => {
+  assert.equal(ARCHIVE_AFTER_DAYS, 14)
+  assert.equal(isAged(new Date(NOW - 13 * D), NOW), false)
+  assert.equal(isAged(new Date(NOW - 14 * D), NOW), false, 'exactly 14 days is still current')
+  assert.equal(isAged(new Date(NOW - 14 * D - 1), NOW), true)
+  assert.equal(isAged({ toMillis: () => NOW - 30 * D }, NOW), true)  // Firestore Timestamp
+  assert.equal(isAged(NOW - 30 * D, NOW), true)
+  assert.equal(isAged('2026-09-01', NOW), true)
+})
+
+test('isAged: a date that cannot be read is NOT aged — a typo must not pull the newest piece', () => {
+  for (const bad of [null, undefined, '', 'September 2026?', NaN, {}]) assert.equal(isAged(bad, NOW), false)
+  assert.equal(toMs('nonsense'), null)
+})
+
+test('a fresh edition is on the Dashboard; the same edition two weeks on is in the archive', () => {
+  const fresh = [dated('rankings', 'r27', 2027, 3), dated('odds', 'o27', 2027, 20)]
+  assert.equal(dashboardArticle(fresh, 'rankings', NOW).id, 'r27')
+  assert.equal(dashboardArticle(fresh, 'odds', NOW), null)
+  assert.deepEqual(archivedArticles(fresh, NOW).map((a) => a.id), ['o27'])
+})
+
+test('replaced AND aged both land in the archive, and nothing is listed twice', () => {
+  const list = [dated('rankings', 'r26', 2026, 400), dated('rankings', 'r27', 2027, 40), dated('odds', 'o27', 2027, 2)]
+  assert.deepEqual(archivedArticles(list, NOW).map((a) => a.id), ['r27', 'r26'])
+  assert.equal(archiveBySeason(list, NOW).length, 2)
+})
+
+test('the rule is not per kind: a kind nobody has built yet follows it too', () => {
+  const list = [dated('trueRecord', 'tr-w11', 2026, 1), dated('trueRecord', 'tr-w8', 2026, 22)]
+  assert.equal(dashboardArticle(list, 'trueRecord', NOW).id, 'tr-w11')
+  assert.deepEqual(archivedArticles(list, NOW).map((a) => a.id), ['tr-w8'])
+})
+
+test('AGE DOES NOT UNLOCK: an aged current edition keeps its release gate', () => {
+  // In the archive by age, but still the current edition → only what was released.
+  assert.equal(dashboardArticle(ARTICLES, 'rankings', NOW), null)
+  assert.deepEqual(releasedFor('2026_preseason', '2026_preseason', ['intro']), ['intro'])
+  assert.deepEqual(releasedFor('2026_preseason', '2026_preseason', 'garbage'), [])
 })
 
 test('the odds metadata in the index matches the edition modules', () => {
@@ -104,6 +159,8 @@ test('every article carries what the archive page needs to render a row', () => 
     for (const field of ['id', 'kind', 'season', 'date', 'title', 'blurb']) {
       assert.ok(a[field], `${a.kind} ${a.id} is missing ${field}`)
     }
+    // Without a readable date an article never ages out and sits on the Dashboard forever.
+    assert.notEqual(toMs(a.publishedAt), null, `${a.kind} ${a.id} needs a readable publishedAt`)
   }
 })
 

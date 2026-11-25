@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { feedMeta, sortFeed, visibleFeed } from './leagueFeed.js'
+import { feedMeta, sortFeed, visibleFeed, splitFeed } from './leagueFeed.js'
 
 const t = (n) => ({ toMillis: () => n })
 const posts = [
@@ -31,4 +31,18 @@ test('feedMeta labels each type and survives an unknown one', () => {
   assert.equal(feedMeta(posts[3]).kicker, 'Trade')
   assert.equal(feedMeta({ type: 'rumor' }).kicker, 'League news')
   assert.equal(feedMeta(undefined).glyph, '📰')
+})
+
+test('splitFeed: two weeks on the Dashboard, then the archive — hidden posts in neither', () => {
+  const now = Date.parse('2026-11-25T12:00:00Z'), D = 864e5
+  const at = (d) => ({ toMillis: () => now - d * D })
+  const out = splitFeed([
+    { id: 'new', type: 'trade', body: 'x', publishedAt: at(1) },
+    { id: 'edge', type: 'trade', body: 'x', publishedAt: at(14) },
+    { id: 'old', type: 'week', week: 9, season: 2026, body: 'x', publishedAt: at(15) },
+    { id: 'pulled', type: 'game', body: 'x', hidden: true, publishedAt: at(30) },
+    { id: 'just-written', type: 'game', body: 'x' }, // timestamp not landed yet
+  ], now)
+  assert.deepEqual(out.recent.map((p) => p.id).sort(), ['edge', 'just-written', 'new'])
+  assert.deepEqual(out.past.map((p) => p.id), ['old'])
 })

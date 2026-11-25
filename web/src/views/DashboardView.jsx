@@ -14,7 +14,7 @@ import { PHASE_META } from '../services/seasonPhase'
 import { ODDS_SEASON, ODDS_TITLE } from '../data/preseasonOdds'
 import { editionId as RANKINGS_EDITION_ID } from '../data/powerRankingsMeta'
 import { ARTICLES } from '../data/articles'
-import { hasArchive } from '../services/archive'
+import { hasArchive, dashboardArticle } from '../services/archive'
 import { releaseSummary } from '../services/rankingsRelease'
 import { DASHBOARD_SECTIONS } from '../services/dashboardSections'
 import { resolveLayout } from '../services/dashboardLayout'
@@ -887,7 +887,9 @@ export default function DashboardView({ setTab }) {
   // leading the main column. Renders only when something is actually
   // released; an empty masthead over four locked bars helps nobody, and the
   // sub-line says exactly how much is out.
-  const rankingsTile = areaEnabled('rankings') && rankingsSummary && (
+  // …and only for its first two weeks: after that it is on the archive
+  // page (services/archive.dashboardArticle), not at the top of the rail.
+  const rankingsTile = areaEnabled('rankings') && rankingsSummary && dashboardArticle(ARTICLES, 'rankings') && (
     <HistoryTile
       glyph="📊"
       title={RANKINGS_TITLE}
@@ -900,7 +902,9 @@ export default function DashboardView({ setTab }) {
   // instead of the group chat. Also a long read, so also a rail tile that
   // opens in the standard overlay. Retires itself once the season rolls
   // past the one it was written for, rather than showing 2026's odds in 2027.
-  const oddsLive = areaEnabled('odds') && activeSeason === ODDS_SEASON
+  // Same two-week rule as the rankings — in week 12 the preseason odds are
+  // archive material, and they stay one tap away from the Archive tile.
+  const oddsLive = areaEnabled('odds') && activeSeason === ODDS_SEASON && !!dashboardArticle(ARTICLES, 'odds')
   const oddsTile = oddsLive && (
     <HistoryTile
       glyph="🎰"
@@ -910,15 +914,15 @@ export default function DashboardView({ setTab }) {
     />
   )
 
-  // The archive, which holds itself back until there is something in it:
-  // one edition of each kind means both are current, both are on this page,
-  // and a tile leading to an empty list would be a worse answer than no
-  // tile. Tab index 10 — see TABS in TabLayout.
+  // The archive: everything replaced or more than two weeks old — rankings,
+  // odds and League Feed posts. It holds itself back until there is
+  // something in it, since a tile leading to an empty list is a worse
+  // answer than no tile. Tab index 10 — see TABS in TabLayout.
   const archiveTile = hasArchive(ARTICLES) && (
     <HistoryTile
       glyph="🗄️"
       title="The Archive"
-      sub="Past rankings and odds"
+      sub="Rankings, odds and past recaps"
       onClick={() => setTab(10)}
     />
   )
@@ -952,7 +956,7 @@ export default function DashboardView({ setTab }) {
     tda: tdaStrip,
     messages: messagesSection,
     // Self-publishing recaps + trade write-ups. Renders nothing when empty.
-    feed: areaEnabled('feed') && <LeagueFeed />,
+    feed: areaEnabled('feed') && <LeagueFeed onOpenArchive={() => setTab(10)} />,
     rankings: rankingsTile,
     odds: oddsTile,
     archive: archiveTile,

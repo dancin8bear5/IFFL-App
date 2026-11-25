@@ -46,10 +46,24 @@ export function sortFeed(posts) {
  */
 export function splitFeed(posts, now = Date.now()) {
   const all = visibleFeed(posts)
-  return {
-    recent: all.filter((p) => !isAged(p.publishedAt, now)),
-    past: all.filter((p) => isAged(p.publishedAt, now)),
-  }
+  const stale = staleWeekPosts(all)
+  const past = (p) => stale.has(p) || isAged(p.publishedAt, now)
+  return { recent: all.filter((p) => !past(p)), past: all.filter(past) }
+}
+
+/**
+ * Matchup write-ups are only news for ONE week (commissioner, Nov 25, 2026):
+ * the rail carries the most recent week's game recaps and week-in-review,
+ * and the moment a newer week's land, the older ones go to the archive —
+ * however young they are. Decided by season + week, never by date, so a
+ * backfilled or re-run week can't push its way into the rail.
+ */
+const weekKey = (p) => Number(p.season) * 100 + Number(p.week)
+const isWeekPost = (p) => (p.type === 'game' || p.type === 'week') && Number.isFinite(weekKey(p)) && p.week != null
+function staleWeekPosts(all) {
+  const weekly = all.filter(isWeekPost)
+  const latest = Math.max(...weekly.map(weekKey))
+  return new Set(weekly.filter((p) => weekKey(p) < latest))
 }
 
 /** What members see: nothing hidden, nothing empty. */

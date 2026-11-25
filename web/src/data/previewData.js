@@ -571,6 +571,13 @@ export const previewFeed = [
   { id: 'game-2026-w3-abad-v-ryan', type: 'game', season: 2026, week: 3, hidden: false, writer: 'template', attempts: 2,
     title: 'Ryan 101, Abad 100.1', publishedAt: new Date(Date.now() - 2 * 3600e3),
     body: 'Ryan 101, Abad 100.1. Margin: 0.9.' },
+  // More than two weeks old → the archive page, not the Dashboard rail.
+  { id: 'week-2026-w1', type: 'week', season: 2026, week: 1, hidden: false, writer: 'claude', attempts: 1,
+    title: 'Week 1 in review', publishedAt: new Date(Date.now() - 20 * 864e5),
+    body: 'Opening week: Foley put up the high score and Wayne the low. Nothing is decided, everyone is already mad.' },
+  { id: 'game-2026-w1-foley-v-wayne', type: 'game', season: 2026, week: 1, hidden: false, writer: 'claude', attempts: 1,
+    title: 'Foley 120, Wayne 88', publishedAt: new Date(Date.now() - 20 * 864e5),
+    body: 'Foley by 32. Wayne is building for the future, starting immediately.' },
   { id: 'trade-demo', type: 'trade', season: 2026, week: null, hidden: false, writer: 'claude', attempts: 1,
     title: 'Trade: Foley ↔ Wayne', publishedAt: new Date(Date.now() - 26 * 3600e3),
     body: 'Foley gets the running back he has needed since August; Wayne gets a 2027 first and the right to say he is building for the future.' },

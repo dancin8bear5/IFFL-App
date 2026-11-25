@@ -632,6 +632,31 @@ and **nothing in the app or Admin writes it** — it means editing the
 document by hand in the console.
 
 ### The archive — `#archive` (Sep 18, 2026)
+> **TWO WEEKS, THEN THE ARCHIVE (Nov 25, 2026).** The rule below ("the
+> newest edition of each kind stays on the Dashboard") left the PRESEASON
+> rankings and odds leading the rail in week 12. There are now two ways off
+> the Dashboard: a newer edition replaced it, OR it is more than
+> `ARCHIVE_AFTER_DAYS` (14) old. One number in `services/archive.js` for
+> every kind — rankings, odds, League Feed posts, and any kind added later
+> (true records would follow it by being listed in `data/articles.js`).
+> - `dashboardArticle(articles, kind)` is what the Dashboard tiles ask;
+>   `archivedArticles` is replaced + aged. Each article carries an ISO
+>   `publishedAt`, and a test fails if one is missing — an article with no
+>   readable date never ages out. Strings must be ISO: `Date.parse` reads
+>   "September 2026?" as a real date.
+> - **AGE DOES NOT UNLOCK.** `releasedFor` still opens an edition in full
+>   only when it has been REPLACED. An edition in the archive because it is
+>   two weeks old is still the current edition and keeps its release gate —
+>   otherwise the embargo would expire fourteen days after the first drop.
+> - **The League Feed leads the RAIL** and shows its last two weeks
+>   (`leagueFeed.splitFeed`); older posts are a section on the archive page.
+>   Cards clamp to four lines and open on a tap, because seven full recaps
+>   would push everything else out of a 270px column. Its grid is
+>   `auto-fit`, so it is one column in the rail and on a phone and only
+>   grows if Admin → Layout moves it somewhere wider.
+> - So the archive is no longer empty, its tile shows, and "it ships empty"
+>   below is history.
+
 **The Dashboard shows the NEWEST edition of each kind; everything older is
 archive.** No date to set, no switch to forget. `web/src/data/articles.js`
 is the index — one entry per edition, metadata only, no prose — and

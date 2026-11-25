@@ -4,6 +4,8 @@
 // moment a week's scores or a trade lands; this file only decides how the
 // browser lists them. Pure, so the order is tested rather than eyeballed.
 
+import { isAged } from './archive.js'
+
 const ms = (v) => (v == null ? 0 : typeof v.toMillis === 'function' ? v.toMillis() : +new Date(v) || 0)
 
 const TYPE_META = {
@@ -34,6 +36,20 @@ export function sortFeed(posts) {
     }
     return ms(b.publishedAt) - ms(a.publishedAt) || String(a.id).localeCompare(String(b.id))
   })
+}
+
+/**
+ * The feed splits at two weeks, like every other thing the league publishes
+ * (ARCHIVE_AFTER_DAYS in services/archive.js): `recent` is the Dashboard
+ * rail, `past` is the archive page. A post with no readable date counts as
+ * recent — it was just written and its timestamp hasn't landed yet.
+ */
+export function splitFeed(posts, now = Date.now()) {
+  const all = visibleFeed(posts)
+  return {
+    recent: all.filter((p) => !isAged(p.publishedAt, now)),
+    past: all.filter((p) => isAged(p.publishedAt, now)),
+  }
 }
 
 /** What members see: nothing hidden, nothing empty. */

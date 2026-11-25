@@ -180,6 +180,7 @@ test('C1 — a pick in GroupMe no longer holds the trade, but is not lost', asyn
   assert.equal(todo.status, 'needs_review')
   assert.equal(todo.kind, 'unattached_pick')
   assert.equal(todo.attachToTradeId, db.dump('trades')[0].id, 'must point at the trade it belongs to')
+  assert.equal(db.dump('trades')[0].picksPending, true, 'the write-up waits for the pick')
   assert.equal(todo.groupmePicks.length, 1)
 })
 
@@ -703,6 +704,32 @@ test('F3 — the feedAgent switch silences the feed; a proposal never posts', as
   const on = loadPipeline(baseSeed())
   await on.pipeline.handleTradeWrite(evt(null, { ...completedNow(on.Timestamp), status: 'proposed' }, 'tr10'))
   assert.equal(on.db.get('leagueFeed', 'trade-tr10'), null)
+})
+
+test('F3b — a pick that reaches a completed trade later rewrites the post, with no second DM', async () => {
+  // Nov 24, 2026: the feed created the trade with the players, and filled in
+  // the 2027 second-rounder five minutes later. The post never mentioned it.
+  const { db, pipeline, sent, Timestamp } = loadPipeline(baseSeed())
+  const first = completedNow(Timestamp)
+  await pipeline.handleTradeWrite(evt(null, first, 'tr11'))
+  assert.doesNotMatch(db.get('leagueFeed', 'trade-tr11').body, /2027/)
+  const dms = sent.groupme.length
+
+  const filled = { ...first, assetsFromProposer: [...first.assetsFromProposer, { assetType: 'draftPick', assetId: 'd1', displayName: '2027 R2 (Jared)' }] }
+  await pipeline.handleTradeWrite(evt(first, filled, 'tr11'))
+  assert.match(db.get('leagueFeed', 'trade-tr11').body, /Bill gets Puka Nacua, 2027 R2 \(Jared\)/)
+  assert.equal(sent.groupme.length, dms, 'a rewrite is not news to DM about')
+})
+
+test('F3c — a trade waiting on a pick posts nothing until the pick is on it', async () => {
+  const { db, pipeline, Timestamp } = loadPipeline(baseSeed())
+  const held = completedNow(Timestamp, { picksPending: true })
+  await pipeline.handleTradeWrite(evt(null, held, 'tr12'))
+  assert.equal(db.get('leagueFeed', 'trade-tr12'), null)
+
+  const cleared = { ...held, picksPending: false }
+  await pipeline.handleTradeWrite(evt(held, cleared, 'tr12'))
+  assert.ok(db.get('leagueFeed', 'trade-tr12'), 'dismissing the pick item releases the write-up')
 })
 
 test('F4 — a week publishes one post per game plus the review, and spares an edited post', async () => {

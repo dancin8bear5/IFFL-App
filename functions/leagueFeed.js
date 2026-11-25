@@ -81,22 +81,86 @@ function templateGame(f) {
   return lines.join("\n");
 }
 
-/** A completed trade, reduced to what a write-up may say. */
+// A pick is whatever the trade says is one; the name test is for refs that
+// predate assetType (ESPN-era docs carry only a displayName).
+const isPick = (a) => a?.assetType === "draftPick" ||
+  /\b20\d\d\b.*\b(R\d|1st|2nd|3rd|round|pick)\b/i.test(a?.displayName ?? "");
+const hasPick = (trade) =>
+  [...(trade?.assetsFromProposer ?? []), ...(trade?.assetsFromReceiver ?? [])].some(isPick);
+
+/**
+ * A completed trade, reduced to what a write-up may say — the WHOLE trade:
+ * players and draft picks, both directions. The first two posts (Nov 24,
+ * 2026) each left out a 2027 second-rounder, because the pick reached the
+ * trade five minutes after the players did.
+ */
 function tradeFacts(trade, standings = []) {
-  const names = (refs) => (refs ?? []).map((a) => a.displayName).filter(Boolean);
+  const side = (refs) => {
+    const named = (refs ?? []).filter((a) => a?.displayName);
+    return {
+      players: named.filter((a) => !isPick(a)).map((a) => a.displayName),
+      picks: named.filter(isPick).map((a) => a.displayName),
+    };
+  };
   const rec = (t) => standings.find((s) => s.teamName === t)?.record ?? null;
   const a = trade.proposingTeamName;
   const b = trade.receivingTeamName;
   return {
     season: trade.season ?? null,
-    teamA: a, teamARecord: rec(a), teamAGets: names(trade.assetsFromReceiver),
-    teamB: b, teamBRecord: rec(b), teamBGets: names(trade.assetsFromProposer),
+    teamA: a, teamARecord: rec(a), teamAGets: side(trade.assetsFromReceiver),
+    teamB: b, teamBRecord: rec(b), teamBGets: side(trade.assetsFromProposer),
   };
 }
 
+const allAssets = (g) => [...(g?.players ?? []), ...(g?.picks ?? [])];
+
 function templateTrade(f) {
-  const list = (xs) => (xs.length ? xs.join(", ") : "nothing");
+  const list = (g) => (allAssets(g).length ? allAssets(g).join(", ") : "nothing");
   return `${f.teamA} gets ${list(f.teamAGets)}.\n${f.teamB} gets ${list(f.teamBGets)}.`;
+}
+
+/**
+ * Is the full trade known yet? An ESPN email never carries a pick, so when
+ * the group chat mentioned one the import marks the trade `picksPending`.
+ * The write-up waits until a pick is on the trade or the commissioner
+ * clears the flag (dismissing the review item does).
+ */
+const tradeIsWhole = (trade) => trade?.picksPending !== true || hasPick(trade);
+
+/** Did what moved change? The signal to rewrite a post already published. */
+function tradeChanged(before, after) {
+  const key = (t) => JSON.stringify(["assetsFromProposer", "assetsFromReceiver"]
+    .map((k) => (t?.[k] ?? []).map((a) => `${a?.assetType ?? ""}:${a?.displayName ?? ""}`).sort()));
+  return key(before) !== key(after) || tradeIsWhole(before) !== tradeIsWhole(after) ||
+    (after?.feedRefresh ?? null) !== (before?.feedRefresh ?? null);
+}
+
+const TRADE_MAX_WORDS = 50;
+const wordCount = (s) => (String(s ?? "").trim().match(/\S+/g) ?? []).length;
+
+/**
+ * What a trade write-up must also pass, beyond the number check: 50 words,
+ * and every asset named. A player counts as named by any distinctive word
+ * of his name; a pick by its year.
+ */
+function tradeCheck(body, f) {
+  const text = String(body ?? "").toLowerCase();
+  const flags = [];
+  const n = wordCount(body);
+  if (n > TRADE_MAX_WORDS) flags.push(`${n} words — the limit is ${TRADE_MAX_WORDS}`);
+  for (const g of [f.teamAGets, f.teamBGets]) {
+    for (const p of g?.players ?? []) {
+      const words = p.toLowerCase().split(/\s+/).filter((w) => w.replace(/[^a-z]/g, "").length >= 4);
+      if (words.length && !words.some((w) => text.includes(w))) flags.push(`left out ${p}`);
+    }
+    for (const p of g?.picks ?? []) {
+      const year = p.match(/\b20\d\d\b/)?.[0];
+      if (!/\bpick|\bround|\b1st|\b2nd|\b3rd|\bfirst|\bsecond|\bthird/.test(text) || (year && !text.includes(year))) {
+        flags.push(`left out the draft pick ${p}`);
+      }
+    }
+  }
+  return flags;
 }
 
 /** News, or a backfill? Only a trade completed inside the window is a post. */
@@ -204,7 +268,9 @@ const weekPrompt = (f, voice = "") => prompt(
 
 const tradePrompt = (f, voice = "") => prompt(
   "You write a short write-up of a completed trade in IFFL, a dynasty keeper fantasy football league of 12 friends.",
-  "2–4 sentences, under 500 characters. Say who got what, then give a light verdict on who it suits — as opinion, with no invented stats.",
+  `${TRADE_MAX_WORDS} words at most — aim for 40, and use as few as do the job. ` +
+  "Cover the WHOLE trade: name every player and every draft pick each side gets (the facts list both). " +
+  "Then say what it does for each team — as opinion, with no invented stats. No filler, no sign-off.",
   f, voice);
 
 const recordPrompt = (f, voice = "") => prompt(
@@ -222,9 +288,10 @@ const milestonePrompt = (f, voice = "") => prompt(
  * The loop. `draft(prompt)` returns text, null (no writer available), or
  * throws. Returns what to publish and how it got there.
  *
- * Guarantee: the returned body passes factCheck, OR it is the template.
+ * Guarantee: the returned body passes factCheck (and `check`, when a type
+ * has one), OR it is the template.
  */
-async function writeVerified({draft, prompt: basePrompt, facts, template, maxAttempts = MAX_ATTEMPTS}) {
+async function writeVerified({draft, prompt: basePrompt, facts, template, maxAttempts = MAX_ATTEMPTS, check = null}) {
   const tries = [];
   let p = basePrompt;
   for (let i = 1; i <= maxAttempts; i++) {
@@ -237,10 +304,13 @@ async function writeVerified({draft, prompt: basePrompt, facts, template, maxAtt
     }
     if (!body) { tries.push({attempt: i, error: "no writer"}); break; }
     const flags = factCheck(body, facts);
-    tries.push({attempt: i, flags});
-    if (!flags.length) return {body, writer: "claude", attempts: i, tries};
-    p = `${basePrompt}\n\nYour previous draft printed numbers that are NOT in the facts: ${flags.join(", ")}. ` +
-      "Rewrite it without them. Use only numbers from the facts.";
+    // `check` is a type's own rules (a trade: 50 words, every asset named).
+    const problems = check ? check(body, facts) : [];
+    tries.push({attempt: i, flags, ...(problems.length ? {problems} : {})});
+    if (!flags.length && !problems.length) return {body, writer: "claude", attempts: i, tries};
+    p = basePrompt + "\n\nYour previous draft was rejected. Rewrite it." +
+      (flags.length ? ` It printed numbers that are NOT in the facts: ${flags.join(", ")}. Use only numbers from the facts.` : "") +
+      (problems.length ? ` Also fix: ${problems.join("; ")}.` : "");
   }
   return {body: template, writer: "template", attempts: tries.length, tries};
 }
@@ -261,6 +331,7 @@ const isLocked = (existing) => !!existing && (existing.hidden === true || existi
 module.exports = {
   MAX_ATTEMPTS, TYPES, TRADE_NEWS_WINDOW_MS,
   feedId, gameFacts, templateGame, tradeFacts, templateTrade, isFreshTrade,
+  tradeIsWhole, tradeChanged, tradeCheck, hasPick, TRADE_MAX_WORDS, TRADE_ATTEMPTS: 3,
   gamePrompt, weekPrompt, tradePrompt, writeVerified, feedPost, isLocked,
   recordFacts, templateRecord, recordPrompt,
   PHASE_LABEL, REMINDER_DAYS, centralNow, milestonesDue, templateMilestone, milestonePrompt,

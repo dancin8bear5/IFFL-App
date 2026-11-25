@@ -2372,7 +2372,7 @@ function EspnIngestQueue({ onFixManually }) {
     setBusyId(id)
     try {
       if (isPreview) setItems((prev) => prev.filter((i) => i.id !== id))
-      else await fs.dismissTradeIngest(id)
+      else await fs.dismissTradeIngest(id, items.find((i) => i.id === id)?.attachToTradeId ?? null)
       setItems((prev) => prev.filter((i) => i.id !== id))
     } catch (e) {
       alert(`Failed: ${e.message}`)

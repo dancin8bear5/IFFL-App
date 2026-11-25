@@ -48,14 +48,63 @@ test("every template passes its own fact check — the fallback can never be fla
   assert.deepEqual(factCheck(feed.templateWeek(w), w), []);
 });
 
-test("tradeFacts: each side GETS what the other sent", () => {
+test("tradeFacts: each side GETS what the other sent — players and picks", () => {
   const t = feed.tradeFacts({
     proposingTeamName: "Jared", receivingTeamName: "Bill",
-    assetsFromProposer: [{displayName: "Puka Nacua"}], assetsFromReceiver: [{displayName: "Jalen Hurts"}],
+    assetsFromProposer: [{assetType: "player", displayName: "Puka Nacua"}, {assetType: "draftPick", displayName: "2027 R2 (Jared)"}],
+    assetsFromReceiver: [{displayName: "Jalen Hurts"}, {displayName: "2027 1st (Bill)"}],
   });
-  assert.deepEqual(t.teamAGets, ["Jalen Hurts"]);
-  assert.deepEqual(t.teamBGets, ["Puka Nacua"]);
-  assert.ok(feed.templateTrade({...t, teamBGets: []}).includes("Bill gets nothing"));
+  assert.deepEqual(t.teamAGets, {players: ["Jalen Hurts"], picks: ["2027 1st (Bill)"]});
+  assert.deepEqual(t.teamBGets, {players: ["Puka Nacua"], picks: ["2027 R2 (Jared)"]});
+  assert.match(feed.templateTrade(t), /Bill gets Puka Nacua, 2027 R2 \(Jared\)/);
+  assert.ok(feed.templateTrade({...t, teamBGets: {players: [], picks: []}}).includes("Bill gets nothing"));
+});
+
+// The Nov 24, 2026 posts: the pick reached the trade five minutes after the
+// players, and the write-up never heard about it.
+test("tradeChanged: a pick added to a completed trade is a reason to rewrite", () => {
+  const before = {status: "completed", assetsFromProposer: [{assetType: "player", displayName: "Kyler Murray"}], assetsFromReceiver: []};
+  const after = {...before, assetsFromProposer: [...before.assetsFromProposer, {assetType: "draftPick", displayName: "2027 R2 (Abad)"}]};
+  assert.equal(feed.tradeChanged(before, after), true);
+  assert.equal(feed.tradeChanged(before, {...before, notes: "edited"}), false);
+  assert.equal(feed.tradeChanged(before, {...before, feedRefresh: 1}), true);
+  assert.equal(feed.tradeChanged({...before, picksPending: true}, {...before, picksPending: false}), true);
+});
+
+test("tradeIsWhole: a pick the chat mentioned holds the write-up until it lands", () => {
+  const t = {assetsFromProposer: [{assetType: "player", displayName: "Dak Prescott"}], assetsFromReceiver: []};
+  assert.equal(feed.tradeIsWhole(t), true);
+  assert.equal(feed.tradeIsWhole({...t, picksPending: true}), false);
+  assert.equal(feed.tradeIsWhole({...t, picksPending: false}), true);
+  assert.equal(feed.tradeIsWhole({...t, picksPending: true, assetsFromReceiver: [{assetType: "draftPick", displayName: "2027 R2 (Bill)"}]}), true);
+});
+
+test("tradeCheck: 50 words, every player and pick named", () => {
+  const f = feed.tradeFacts({
+    proposingTeamName: "Abad", receivingTeamName: "Jason",
+    assetsFromProposer: [{assetType: "player", displayName: "Kyler Murray"}, {assetType: "draftPick", displayName: "2027 R2 (Abad)"}],
+    assetsFromReceiver: [{assetType: "player", displayName: "George Pickens"}],
+  });
+  const good = "Jason lands Kyler Murray and Abad's 2027 second-round pick; Abad gets George Pickens. Jason buys a quarterback for the stretch, Abad a receiver to keep.";
+  assert.deepEqual(feed.tradeCheck(good, f), []);
+  assert.match(feed.tradeCheck("Jason lands Murray; Abad gets Pickens.", f).join(), /left out the draft pick/);
+  assert.match(feed.tradeCheck("Jason lands Murray and a 2027 second-round pick.", f).join(), /left out George Pickens/);
+  assert.match(feed.tradeCheck(good + " word".repeat(40), f).join(), /limit is 50/);
+});
+
+test("writeVerified: a draft that fails the type's own check is rewritten, then templated", async () => {
+  const facts = {x: 1};
+  const check = (body) => (body.includes("pick") ? [] : ["left out the draft pick"]);
+  const prompts = [];
+  const twice = await feed.writeVerified({
+    draft: async (p) => { prompts.push(p); return prompts.length === 1 ? "no mention" : "with the pick"; },
+    prompt: "base", facts, template: "T", check, maxAttempts: 3,
+  });
+  assert.equal(twice.body, "with the pick");
+  assert.equal(twice.attempts, 2);
+  assert.match(prompts[1], /left out the draft pick/);
+  const never = await feed.writeVerified({draft: async () => "no mention", prompt: "base", facts, template: "T", check});
+  assert.equal(never.writer, "template");
 });
 
 test("isFreshTrade: only a completed trade inside the news window", () => {

@@ -1346,8 +1346,16 @@ export function resetPlayoffs(season) {
   )
 }
 
-export function dismissTradeIngest(id) {
-  return updateDoc(doc(db, 'tradeIngests', id), { status: 'ignored', resolvedAt: Timestamp.now() })
+/**
+ * `attachToTradeId` is set on an "unattached pick" item. Dismissing one says
+ * "there was no pick" — which is also what releases that trade's League Feed
+ * write-up, held until the whole trade is known.
+ */
+export async function dismissTradeIngest(id, attachToTradeId = null) {
+  await updateDoc(doc(db, 'tradeIngests', id), { status: 'ignored', resolvedAt: Timestamp.now() })
+  if (attachToTradeId) {
+    await updateDoc(doc(db, COL.trades, attachToTradeId), { picksPending: false }).catch(() => {})
+  }
 }
 
 // ── Rules — proposals + voting (Firestore: "rules") ───────────

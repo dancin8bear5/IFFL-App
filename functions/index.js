@@ -368,8 +368,15 @@ async function handleTradeWrite(event) {
     return null;
   }
 
-  // No status change — nothing to notify
-  if (before.status === after.status) return null;
+  // No status change — nothing to notify. But a completed trade whose assets
+  // changed (a pick filled in by the next feed poll, or attached in Admin)
+  // gets its write-up rewritten: the post must describe the whole trade.
+  if (before.status === after.status) {
+    if (after.status === "completed" && feed.tradeChanged(before, after)) {
+      await publishTradeFeed(event.params?.tradeId, after);
+    }
+    return null;
+  }
 
   switch (after.status) {
     case "accepted":
@@ -652,6 +659,9 @@ async function processEspnTrade({sourceId, tradeDate, rawText, moves, sourceLabe
       season,
       status: "completed",
       source: sourceLabel,
+      // The chat mentioned a pick ESPN can't show us. Written in the SAME
+      // transaction, so the write-up's trigger can never run before it.
+      ...(recon.flags.picks && recon.picks.length > 0 ? {picksPending: true} : {}),
       date: when,
       completedAt: admin.firestore.Timestamp.now(),
     });
@@ -1149,7 +1159,7 @@ async function claudeDraft(prompt, model) {
 const NOTES_MODEL = "claude-sonnet-5-5";
 const feedAgentOn = (cfg) => !(cfg?.disabledAreas ?? []).includes("feedAgent");
 
-async function publishFeedPost({id, type, season, week, title, facts, prompt, template, cfg, once = false}) {
+async function publishFeedPost({id, type, season, week, title, facts, prompt, template, cfg, once = false, check = null, maxAttempts}) {
   const ref = db.doc(`leagueFeed/${id}`);
   const existing = (await ref.get()).data();
   // Never overwrite a post the commissioner edited or hid.
@@ -1159,7 +1169,7 @@ async function publishFeedPost({id, type, season, week, title, facts, prompt, te
   if (once && existing) return {id, skipped: true};
   const result = await feed.writeVerified({
     draft: (p) => claudeDraft(p, cfg.notesModel ?? NOTES_MODEL),
-    prompt, facts, template,
+    prompt, facts, template, check, ...(maxAttempts ? {maxAttempts} : {}),
   });
   const now = admin.firestore.Timestamp.now();
   await ref.set({
@@ -1244,6 +1254,8 @@ async function publishMilestones(cfg, nowMs = Date.now()) {
 async function publishTradeFeed(tradeId, trade) {
   try {
     if (!tradeId || !feed.isFreshTrade(trade, Date.now())) return null;
+    // The whole trade or nothing: a pick the chat mentioned is not on it yet.
+    if (!feed.tradeIsWhole(trade)) return {id: feed.feedId.trade(tradeId), held: "picksPending"};
     const cfg = (await db.doc("config/league").get()).data() ?? {};
     if (!feedAgentOn(cfg)) return null;
     const season = trade.season ?? cfg.activeSeasonYear ?? new Date().getFullYear();
@@ -1253,6 +1265,7 @@ async function publishTradeFeed(tradeId, trade) {
       id: feed.feedId.trade(tradeId), type: "trade", season, week: null,
       title: `Trade: ${facts.teamA} ↔ ${facts.teamB}`,
       facts, prompt: feed.tradePrompt(facts, cfg.notesVoice ?? ""), template: feed.templateTrade(facts), cfg,
+      check: feed.tradeCheck, maxAttempts: feed.TRADE_ATTEMPTS,
     });
   } catch (e) {
     console.error("publishTradeFeed failed:", e.message);

@@ -15,7 +15,12 @@
 // week-by-week W-L can't be rebuilt honestly. Records appear only at the
 // standings beat, from ESPN.
 
-export const PLAYOFF_SPOTS = 6
+import { PLAYOFF_TEAMS } from '../data/staticData.js'
+
+// The line on the Standings card is the playoff cutoff: eight teams make the
+// playoffs, so it sits between 8th and 9th. It read 6 until Nov 25, 2026 —
+// a second copy of a number staticData already owned.
+export const PLAYOFF_SPOTS = PLAYOFF_TEAMS
 
 /** "3-0" | "3-0-1" → { wins, losses, ties } (bad input → zeros). */
 export function parseRecord(rec) {

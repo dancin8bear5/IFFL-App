@@ -148,12 +148,12 @@ function RostersDesktop({ setTab }) {
 
           <div className="iff-card" style={{ overflow: 'hidden' }}>
             <div className={`roster-thead ${allMode ? 'with-team' : ''}`}>
-              <button onClick={() => clickSort('pos')}>Pos{arrow('pos')}</button>
-              <button onClick={() => clickSort('name')} style={{ textAlign: 'left' }}>Player{arrow('name')}</button>
-              {allMode && <button onClick={() => clickSort('team')} style={{ textAlign: 'left' }}>Team{arrow('team')}</button>}
+              <button className="th-sort" onClick={() => clickSort('pos')}>Pos{arrow('pos')}</button>
+              <button className="th-sort" onClick={() => clickSort('name')} style={{ textAlign: 'left' }}>Player{arrow('name')}</button>
+              {allMode && <button className="th-sort" onClick={() => clickSort('team')} style={{ textAlign: 'left' }}>Team{arrow('team')}</button>}
               <span>Yrs</span>
               {seasons.map((yr, i) => (
-                <button key={yr} onClick={() => clickSort(`p${i}`)} style={{ textAlign: 'right' }}>
+                <button key={yr} className="th-sort" onClick={() => clickSort(`p${i}`)} style={{ textAlign: 'right' }}>
                   '{String(yr).slice(2)}{arrow(`p${i}`)}
                 </button>
               ))}
@@ -361,12 +361,18 @@ function RostersMobile({ setTab }) {
                 {p}
               </button>
             ))}
-            <button
-              onClick={() => setPriceDesc((v) => !v)}
-              style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--iff-gold)', whiteSpace: 'nowrap' }}
-            >
-              Price {priceDesc ? '↓' : '↑'}
-            </button>
+            {/* marginLeft:auto lives on the wrapper, not the button itself — .th-sort's
+                own margin is the negative offset that pairs with its padding, and the
+                two auto-margins would otherwise fight over the same property. */}
+            <span style={{ marginLeft: 'auto' }}>
+              <button
+                className="th-sort"
+                onClick={() => setPriceDesc((v) => !v)}
+                style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-gold)', whiteSpace: 'nowrap' }}
+              >
+                Price {priceDesc ? '↓' : '↑'}
+              </button>
+            </span>
           </div>
         </div>
       )}

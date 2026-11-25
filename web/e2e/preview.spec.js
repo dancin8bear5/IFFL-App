@@ -53,6 +53,45 @@ test('phone width has no horizontal scroll', async ({ page }) => {
   expect(overflow).toBeLessThanOrEqual(1)
 })
 
+// Team-name links and column-sort buttons are the main way to follow a row
+// on phone — a bare <a> or <button> with no padding is often under 14px
+// tall, so a tap lands on the row above or below instead (Nov 25, 2026).
+async function tapTargetBoxes(page, selector) {
+  const boxes = []
+  for (const el of await page.locator(selector).all()) {
+    if (!(await el.isVisible())) continue
+    const box = await el.boundingBox()
+    if (box) boxes.push(box)
+  }
+  return boxes
+}
+
+function expectRealTapTargets(boxes) {
+  expect(boxes.length).toBeGreaterThan(0)
+  for (const box of boxes) {
+    expect(box.height).toBeGreaterThanOrEqual(32)
+    expect(box.width).toBeGreaterThanOrEqual(32)
+  }
+}
+
+test('phone tap targets: team links and sort buttons are at least 32px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+
+  await page.goto('/?preview=1#history')
+  await expect(page.getByText(/League History/i).first()).toBeVisible({ timeout: 15_000 })
+  expectRealTapTargets(await tapTargetBoxes(page, '.team-link'))
+
+  await page.goto('/?preview=1#players')
+  await expect(page.getByText('Players', { exact: true }).first()).toBeVisible({ timeout: 15_000 })
+  expectRealTapTargets(await tapTargetBoxes(page, '.th-sort'))
+
+  await page.goto('/?preview=1#rosters')
+  await expect(page.getByText('Rosters', { exact: true }).first()).toBeVisible({ timeout: 15_000 })
+  // The sort toggle only shows in All Assets mode — By Team has no columns to sort.
+  await page.getByText('All Assets', { exact: true }).first().click()
+  expectRealTapTargets(await tapTargetBoxes(page, '.th-sort'))
+})
+
 test('Admin → Notes renders the approval queue', async ({ page }) => {
   const errors = watchErrors(page)
   await page.setViewportSize({ width: 1280, height: 900 })

@@ -25,11 +25,11 @@ test('scrape failures are told apart by what the scraper printed', () => {
   for (const k of ['loggedOut', 'notFinal', 'stall']) assert.ok(SCRAPE_FIX[k])
 })
 
-test('retry policy: logged-out stops; not-final waits 3h three times; a stall gets one more go', () => {
+test('retry policy: logged-out stops; not-final waits 30 min six times; a stall gets one more go', () => {
   const kind = (k) => Object.assign(new Error(k), { kind: k })
   assert.equal(scrapeRetry()(kind('loggedOut')), null)
   const nf = scrapeRetry()
-  assert.deepEqual([1, 2, 3, 4].map(() => nf(kind('notFinal'))), [10800000, 10800000, 10800000, null])
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(() => nf(kind('notFinal'))), [...Array(6).fill(1800000), null])
   const st = scrapeRetry()
   assert.deepEqual([st(kind('stall')), st(kind('stall'))], [600000, null])
   // A stall after two waits still gets its own retry — the counts are separate.
@@ -42,4 +42,17 @@ test('parseScrapeWeek reads the season and week(s) from the scraper log line', (
   assert.deepEqual(parseScrapeWeek('2026-11-17T16:00:03 season 2026 week(s) 10\n...'), { season: 2026, weeks: [10] })
   assert.deepEqual(parseScrapeWeek('season 2026 week(s) 1,2,3 (dry run)'), { season: 2026, weeks: [1, 2, 3] })
   assert.deepEqual(parseScrapeWeek('nothing useful'), { season: null, weeks: [] })
+})
+
+// The job moved to Monday night (Nov 25, 2026). Week N must already be "the
+// last finished week" when it runs at 11:30pm on N's Monday — the old
+// Tuesday rollover would have pulled week N-1 again.
+test('lastFinishedWeek rolls over Monday 6pm Central, before the Monday-night run', async () => {
+  const { lastFinishedWeek } = await import('../../web/scripts/scrape-espn-week.mjs')
+  const wk = (iso) => lastFinishedWeek(new Date(iso))
+  assert.equal(wk('2026-11-30T23:00:00Z'), 11)   // Mon 5pm CT, week 12's Monday
+  assert.equal(wk('2026-12-01T05:30:00Z'), 12)   // Mon 11:30pm CT — the run
+  assert.equal(wk('2026-12-01T14:00:00Z'), 12)   // Tue 8am CT — a catch-up after sleep
+  assert.equal(wk('2026-12-07T20:00:00Z'), 12)   // the following Monday afternoon
+  assert.equal(wk('2026-09-15T04:30:00Z'), 1)    // week 1's Monday night
 })

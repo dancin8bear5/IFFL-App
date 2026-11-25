@@ -9,14 +9,16 @@
         <string>/bin/bash</string>
         <string>/Users/jaredtaylor/claude-agents/iffl-web-app/ops/espn-weekly.sh</string>
     </array>
-    <!-- Tuesdays at 08:00 local (CT). Monday night is final by then. If the Mac
-         is asleep at 08:00, launchd runs it on wake. RunAtLoad false so
-         installing doesn't fire a run. -->
+    <!-- Monday nights at 11:30pm, Mac local time (moved from Tuesday 08:00 on
+         Nov 25, 2026). If the game is still on, the job waits 30 minutes
+         and tries again, up to six times. If the Mac is asleep at 11:30pm,
+         launchd runs it on wake. RunAtLoad false so installing doesn't
+         fire a run. -->
     <key>StartCalendarInterval</key>
     <dict>
-        <key>Weekday</key><integer>2</integer>
-        <key>Hour</key><integer>8</integer>
-        <key>Minute</key><integer>0</integer>
+        <key>Weekday</key><integer>1</integer>
+        <key>Hour</key><integer>23</integer>
+        <key>Minute</key><integer>30</integer>
     </dict>
     <key>RunAtLoad</key>
     <false/>

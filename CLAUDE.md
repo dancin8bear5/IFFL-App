@@ -41,11 +41,23 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
 | # | Agent | Where | Key files |
 |---|---|---|---|
 | 1 | Deploy + verify | GitHub Actions on `main` | `.github/workflows/deploy.yml`, `web/e2e/`, `tests/rules/`, `functions/pollerHealth.js` |
-| 2 | Weekly scores | **Mac launchd Tue 08:00** `ops/espn-weekly.sh` (the one ESPN job) + `onWeeklyScoresWritten` for the DM/recap | `web/scripts/scrape-espn-week.mjs`, `web/scripts/export-trades.mjs`, `functions/weeklyRecap.js` |
+| 2 | Weekly scores | **Mac launchd Mon 11:30pm** (Tue 08:00 until Nov 25, 2026) `ops/espn-weekly.sh` (the one ESPN job) + `onWeeklyScoresWritten` for the DM/recap | `web/scripts/scrape-espn-week.mjs`, `web/scripts/export-trades.mjs`, `functions/weeklyRecap.js` |
 | 3 | League notes | `sendLeagueNotes` every 5 min + Admin → Notes | `functions/leagueNotes.js` |
 | 4 | Waiver targets | Mac launchd, analytics repo | `iffl-analytics-agent/waiver_scout.py` |
 | 5 | Start/sit | Mac launchd, analytics repo | `iffl-analytics-agent/start_sit.py` |
 
+- **The score job runs MONDAY NIGHT at 11:30pm** (Nov 25, 2026), not Tuesday
+  morning. Names did not move: the graph is still `tuesday.mjs`, and "the
+  Tuesday job/scrape" below means this job. Three things moved with the
+  clock: `lastFinishedWeek` rolls over at 6pm Central on Monday (it assumed
+  a Tuesday run and would have pulled the week before); "not final" now
+  waits 30 minutes up to six times instead of 3 hours three times; and the
+  plist is `Weekday 1, 23:30` in the MAC'S local time, wherever it is.
+  Recaps post minutes after the scrape, so they now land Monday night.
+- **A Claude reply cut off at the token limit is rejected** (`claudeDraft`
+  throws on `stop_reason: max_tokens`). Week 11's first run published a
+  recap ending "a 50.7-"; it passed the number check because it had no
+  wrong numbers.
 - **Weekly scores have ONE writer: the Mac's Tuesday scrape** (Nov 2026). The
   `pollWeeklyScores`/`pollWeeklyForce` Cloud Functions are retired — they fetched
   the same team totals the scrape already validates against ESPN's scoreboard.

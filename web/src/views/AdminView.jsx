@@ -2724,7 +2724,7 @@ function NotesSection() {
   if (notes.length === 0) {
     return (
       <div className="iff-card" style={{ padding: 16, fontSize: 13, color: 'var(--iff-subtext)', lineHeight: 1.5 }}>
-        No drafts waiting. The recap is drafted every Tuesday after weekly scores land; you’ll get a GroupMe DM when one is ready.
+        No drafts waiting. The recap is drafted every Monday night after weekly scores land; you’ll get a GroupMe DM when one is ready.
       </div>
     )
   }
@@ -2759,7 +2759,7 @@ function FeedAdminSection() {
       {!err && !posts && <LoadingList count={3} />}
       {!err && posts && sorted.length === 0 && (
         <div className="iff-card" style={{ padding: 16, fontSize: 13, color: 'var(--iff-subtext)' }}>
-          Nothing published yet this season. The first posts appear when Tuesday’s scores land or a trade completes.
+          Nothing published yet this season. The first posts appear when Monday night’s scores land or a trade completes.
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

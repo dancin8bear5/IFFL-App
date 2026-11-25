@@ -75,7 +75,7 @@ export function classifyScrapeFailure(output) {
 }
 export const SCRAPE_FIX = {
   loggedOut: 'ESPN sign-in expired — run: cd ~/claude-agents/iffl-web-app/web && node scripts/scrape-espn-week.mjs --login',
-  notFinal: 'the week still was not final after three 3-hour waits',
+  notFinal: 'the week still was not final after six 30-minute waits',
   stall: 'ESPN pages failed to load twice — see out/espn-weekly.log',
 }
 /** waitMs before the next try, or null to stop. Counts each kind separately. */
@@ -85,7 +85,8 @@ export function scrapeRetry() {
     const kind = err.kind ?? 'stall'
     if (kind === 'loggedOut') return null
     seen[kind]++
-    if (kind === 'notFinal') return seen.notFinal <= 3 ? 180 * MIN : null
+    // Monday night: the game may still be on. Half an hour at a time, for 3 hours.
+    if (kind === 'notFinal') return seen.notFinal <= 6 ? 30 * MIN : null
     return seen.stall <= 1 ? 10 * MIN : null
   }
 }

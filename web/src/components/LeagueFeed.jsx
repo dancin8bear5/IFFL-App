@@ -15,6 +15,8 @@
 // Only the last TWO WEEKS show here (services/leagueFeed.splitFeed, the same
 // ARCHIVE_AFTER_DAYS every other published thing uses). Older posts are on
 // the archive page, and the link to them appears only when there are some.
+// Matchup write-ups are stricter: only the LATEST week's show, and an older
+// week's go to the archive the moment a newer week's land.
 import { useEffect, useMemo, useState } from 'react'
 import { useApp } from '../context/AppContext'
 import * as fs from '../services/firestoreService'

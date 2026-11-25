@@ -676,6 +676,11 @@ document by hand in the console.
 >   would push everything else out of a 270px column. Its grid is
 >   `auto-fit`, so it is one column in the rail and on a phone and only
 >   grows if Admin → Layout moves it somewhere wider.
+> - **Matchup write-ups last ONE week** (Nov 25, 2026). The rail shows only
+>   the latest week's game recaps and week-in-review; when a newer week's
+>   land, the older ones go to the archive however young they are
+>   (`staleWeekPosts`, by season + week, never by date — so a backfilled
+>   week can't reach the rail). Trades, records and notices keep two weeks.
 > - So the archive is no longer empty, its tile shows, and "it ships empty"
 >   below is history.
 

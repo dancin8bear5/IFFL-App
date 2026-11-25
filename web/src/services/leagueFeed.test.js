@@ -46,3 +46,27 @@ test('splitFeed: two weeks on the Dashboard, then the archive — hidden posts i
   assert.deepEqual(out.recent.map((p) => p.id).sort(), ['edge', 'just-written', 'new'])
   assert.deepEqual(out.past.map((p) => p.id), ['old'])
 })
+
+test('splitFeed: only the latest week\'s matchup write-ups stay in the rail', () => {
+  const now = Date.parse('2026-11-25T12:00:00Z'), D = 864e5
+  const at = (d) => ({ toMillis: () => now - d * D })
+  const out = splitFeed([
+    { id: 'g12', type: 'game', season: 2026, week: 12, title: 'a', body: 'x', publishedAt: at(0) },
+    { id: 'w12', type: 'week', season: 2026, week: 12, title: 'b', body: 'x', publishedAt: at(0) },
+    { id: 'g11', type: 'game', season: 2026, week: 11, title: 'c', body: 'x', publishedAt: at(7) },
+    { id: 'w11', type: 'week', season: 2026, week: 11, title: 'd', body: 'x', publishedAt: at(7) },
+    { id: 'backfill-w3', type: 'game', season: 2026, week: 3, title: 'e', body: 'x', publishedAt: at(0) },
+    { id: 'trade', type: 'trade', season: 2026, week: null, title: 'f', body: 'x', publishedAt: at(9) },
+    { id: 'notice', type: 'milestone', season: 2026, week: null, title: 'g', body: 'x', publishedAt: at(2) },
+  ], now)
+  assert.deepEqual(out.recent.map((p) => p.id).sort(), ['g12', 'notice', 'trade', 'w12'])
+  assert.deepEqual(out.past.map((p) => p.id).sort(), ['backfill-w3', 'g11', 'w11'])
+})
+
+test('splitFeed: a new season\'s week 1 retires last season\'s week 17', () => {
+  const out = splitFeed([
+    { id: 'old', type: 'game', season: 2026, week: 17, title: 'a', body: 'x' },
+    { id: 'new', type: 'game', season: 2027, week: 1, title: 'b', body: 'x' },
+  ])
+  assert.deepEqual(out.recent.map((p) => p.id), ['new'])
+})

@@ -11,6 +11,7 @@ import { useApp } from '../context/AppContext'
 import { AUCTION_BUDGET, ROSTER_CAP, ROSTER_SIZE, fantasyTeams } from '../data/staticData'
 import * as fs from '../services/firestoreService'
 import { projectPrices } from '../services/contracts'
+import { keeperBudgetBar } from '../services/keeperBudgetBar'
 
 const DEV_PREVIEW =
   import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')
@@ -308,6 +309,7 @@ export default function KeeperBuilder() {
         {YEARS.map((yr) => {
           const t = totals[yr]
           const over = t.left < 0
+          const bar = keeperBudgetBar(t.cost, { budget: AUCTION_BUDGET, cap: ROSTER_CAP })
           return (
             <div key={yr} className="iff-card" style={{ padding: '12px 10px', textAlign: 'center', border: over ? '1.5px solid rgba(239,68,68,0.6)' : '1px solid transparent' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--iff-subtext)' }}>{activeSeason + yr}</div>
@@ -319,6 +321,16 @@ export default function KeeperBuilder() {
                 ${t.left} left
               </div>
               <div style={{ fontSize: 9.5, color: 'var(--iff-subtext)' }}>of ${AUCTION_BUDGET} auction</div>
+              {/* fill = cost's share of the $300 cap ceiling, tick = the $200 budget */}
+              <div style={{ position: 'relative', height: 6, background: 'var(--iff-elevated)', borderRadius: 3, marginTop: 6 }}>
+                <div
+                  style={{
+                    position: 'absolute', inset: '0 auto 0 0', width: `${Math.max(bar.fillPct, t.cost > 0 ? 2 : 0)}%`,
+                    background: over ? '#EF4444' : 'var(--iff-gold)', borderRadius: 3, transition: 'width 0.3s',
+                  }}
+                />
+                <div style={{ position: 'absolute', top: -2, bottom: -2, left: `${bar.tickPct}%`, width: 2, background: 'var(--iff-subtext)', opacity: 0.7, borderRadius: 1 }} />
+              </div>
               <div className="tnum" style={{ fontSize: 11, marginTop: 5, color: t.count > ROSTER_SIZE ? '#EF4444' : 'var(--iff-subtext)' }}>
                 {t.count}/{ROSTER_SIZE} spots
               </div>

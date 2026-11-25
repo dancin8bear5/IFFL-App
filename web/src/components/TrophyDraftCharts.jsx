@@ -202,7 +202,7 @@ export default function TrophyDraftCharts({ showFormer }) {
             Every auction dollar the league has spent, split by position. One column per
             draft — the bands show what the room believed a position was worth that year.
           </Caption>
-          <div className="iff-card" style={{ padding: '12px 12px 10px', overflowX: 'auto' }}>
+          <div className="iff-card" style={{ padding: '12px 12px 10px', containerType: 'inline-size' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
               {[...SPEND_POSITIONS, 'Other'].map((pos) => (
                 <span key={pos} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 9.5, color: 'var(--iff-subtext)', fontWeight: 700 }}>
@@ -213,9 +213,11 @@ export default function TrophyDraftCharts({ showFormer }) {
             </div>
             {/* Columns cap their width so a short history (or the preview
                 fixture's five drafts) doesn't render as giant slabs. */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, minWidth: spend.length * 26 }}>
+            {/* …and no minimum, so eighteen drafts narrow to fit a phone
+                rather than scrolling sideways (Nov 25, 2026). */}
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'clamp(1px, 0.8cqw, 3px)' }}>
               {spend.map((s) => (
-                <div key={s.season} style={{ flex: 1, minWidth: 22, maxWidth: 54 }}>
+                <div key={s.season} style={{ flex: '1 1 0', minWidth: 0, maxWidth: 54 }}>
                   <div style={{ height: 128, display: 'flex', flexDirection: 'column', borderRadius: 3, overflow: 'hidden' }}>
                     {[...SPEND_POSITIONS, 'Other'].map((pos) => {
                       const share = s.shares[pos] ?? 0
@@ -229,7 +231,7 @@ export default function TrophyDraftCharts({ showFormer }) {
                       )
                     })}
                   </div>
-                  <div className="tnum" style={{ fontSize: 8.5, color: 'var(--iff-subtext)', textAlign: 'center', fontWeight: 700, marginTop: 3 }}>
+                  <div className="tnum" style={{ fontSize: 'clamp(6px, 2.3cqw, 8.5px)', color: 'var(--iff-subtext)', textAlign: 'center', fontWeight: 700, marginTop: 3, overflow: 'hidden' }}>
                     {String(s.season).slice(2)}
                   </div>
                 </div>

@@ -146,7 +146,7 @@ function RostersDesktop({ setTab }) {
             ))}
           </div>
 
-          <div className="iff-card" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+          <div className="iff-card" style={{ overflow: 'hidden' }}>
             <div className={`roster-thead ${allMode ? 'with-team' : ''}`}>
               <button onClick={() => clickSort('pos')}>Pos{arrow('pos')}</button>
               <button onClick={() => clickSort('name')} style={{ textAlign: 'left' }}>Player{arrow('name')}</button>
@@ -311,7 +311,7 @@ function RostersMobile({ setTab }) {
       {mode === 'By Team' ? (
         <div style={{ padding: '0 14px 10px', borderBottom: '1px solid var(--iff-divider)' }}>
           <ChipScroller>
-            <div style={{ display: 'flex', gap: 8, width: 'max-content' }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {fantasyTeams.map((t) => {
                 const active = t.name === selectedTeam
                 return (
@@ -343,7 +343,7 @@ function RostersMobile({ setTab }) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             {POSITIONS.map((p) => (
               <button
                 key={p}

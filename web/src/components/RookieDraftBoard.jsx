@@ -59,7 +59,7 @@ export default function RookieDraftBoard({
       {/* Season switcher + the shape of the class in one line */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         {seasons.length > 1 && (
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {seasons.map((y) => (
               <button
                 key={y}

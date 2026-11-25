@@ -202,7 +202,9 @@ export default function TrophyAnalytics({ showFormer }) {
             weren&apos;t in the league that year. Read the rows for a career and the columns for
             a season.
           </Caption>
-          <div className="iff-card" style={{ padding: '12px 12px 10px', overflowX: 'auto' }}>
+          {/* Fits its box — no sideways scroll (Nov 25, 2026). Cells share the
+              row and the type scales with the card; see the rivalry grid. */}
+          <div className="iff-card" style={{ padding: '12px 12px 10px', containerType: 'inline-size' }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 9 }}>
               <span style={{ fontSize: 10.5, color: 'var(--iff-subtext)', fontWeight: 600 }}>1st</span>
               <span style={{ display: 'flex', gap: 2 }}>
@@ -214,13 +216,13 @@ export default function TrophyAnalytics({ showFormer }) {
                 {grid.maxPlace}th
               </span>
             </div>
-            <div style={{ minWidth: grid.seasons.length * 22 + 90 }}>
+            <div>
               {grid.rows.map((r) => (
                 <div key={r.team} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                  <span style={{ width: 66, flexShrink: 0, fontSize: 10.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <span style={{ width: 'clamp(40px, 16cqw, 66px)', flexShrink: 0, fontSize: 'clamp(8.5px, 3cqw, 10.5px)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {r.team}
                   </span>
-                  <span style={{ display: 'flex', gap: 2 }}>
+                  <span style={{ display: 'flex', gap: 2, flex: 1, minWidth: 0 }}>
                     {grid.seasons.map((s) => {
                       const p = r.places.get(s)
                       return (
@@ -228,10 +230,10 @@ export default function TrophyAnalytics({ showFormer }) {
                           key={s}
                           title={p ? `${r.team} — ${s}: finished ${p}` : `${r.team} — not in the league in ${s}`}
                           style={{
-                            width: 18, height: 16, borderRadius: 3,
+                            flex: '1 1 0', minWidth: 0, height: 16, borderRadius: 3,
                             background: placeColor(p, grid.maxPlace),
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 8.5, fontWeight: 800,
+                            fontSize: 'clamp(6px, 2.3cqw, 8.5px)', fontWeight: 800, overflow: 'hidden',
                             // Ink on the bright end of the ramp has to go dark
                             // to stay legible; the dim end keeps light ink.
                             color: p != null && p <= 2 ? '#0A0D1A' : 'rgba(255,255,255,0.72)',
@@ -245,10 +247,10 @@ export default function TrophyAnalytics({ showFormer }) {
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                <span style={{ width: 66, flexShrink: 0 }} />
-                <span style={{ display: 'flex', gap: 2 }}>
+                <span style={{ width: 'clamp(40px, 16cqw, 66px)', flexShrink: 0 }} />
+                <span style={{ display: 'flex', gap: 2, flex: 1, minWidth: 0 }}>
                   {grid.seasons.map((s) => (
-                    <span key={s} style={{ width: 18, fontSize: 8.5, color: 'var(--iff-subtext)', textAlign: 'center', fontWeight: 700 }}>
+                    <span key={s} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', fontSize: 'clamp(6px, 2.3cqw, 8.5px)', color: 'var(--iff-subtext)', textAlign: 'center', fontWeight: 700 }}>
                       {String(s).slice(2)}
                     </span>
                   ))}

@@ -535,21 +535,15 @@ export default function DashboardView({ setTab }) {
     upcoming.length > 0 && (
       <div>
         <SectionHeader title="League Calendar" />
-        {isDesktop ? (
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 10 }}>
-            {upcoming.map((m) => (
-              <MilestoneCard key={m.name} milestone={m} fill />
-            ))}
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
-            <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
-              {upcoming.map((m) => (
-                <MilestoneCard key={m.name} milestone={m} />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* One auto-fit grid at every width (Nov 25, 2026). The phone used to
+            get a sideways scroller, which hid every date after the second
+            behind a swipe nobody knew to make. Tiles now share the row and
+            wrap: as many as fit at 160px, never one cut off at the edge. */}
+        <div style={{ display: 'grid', gap: isDesktop ? 12 : 8, marginTop: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(min(160px, 100%), 1fr))' }}>
+          {upcoming.map((m) => (
+            <MilestoneCard key={m.name} milestone={m} fill />
+          ))}
+        </div>
       </div>
     )
   )
@@ -598,12 +592,14 @@ export default function DashboardView({ setTab }) {
           ))}
         </div>
       ) : (
-        <div style={{ overflowX: 'auto', margin: '0 -14px', padding: '0 14px' }}>
-          <div style={{ display: 'flex', gap: 8, width: 'max-content', padding: '2px 2px 6px' }}>
-            {tdaRows.map((r) => (
-              <TdaTile key={r.team.name} row={r} mine={r.team.name === userTeam} onClick={openTeam} />
-            ))}
-          </div>
+        // Phone: three FIXED columns, so twelve teams are four even rows and
+        // all of them are on screen — the sideways scroller this replaced
+        // (Nov 25, 2026) showed three and a half and hid the rest. Fixed for
+        // the same reason desktop is: equal tiles keep the comparison fair.
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+          {tdaRows.map((r) => (
+            <TdaTile key={r.team.name} row={r} mine={r.team.name === userTeam} onClick={openTeam} fill />
+          ))}
         </div>
       )}
     </div>
@@ -841,28 +837,19 @@ export default function DashboardView({ setTab }) {
     </div>
   )
 
+  // One stacked column at every width — the phone's sideways carousel went
+  // with the others (Nov 25, 2026): a message you have to swipe to find is a
+  // message most of the league never reads.
   const messagesSection = areaEnabled('messages') && messages.length > 0 && (
     <div>
       <SectionHeader title="League Messages" />
-      {isDesktop ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-          {messages.map((m) => (
-            <div key={m.id} className="iff-card" style={{ padding: 14, fontSize: 13, lineHeight: 1.5 }}>
-              {m.content}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div style={{ overflowX: 'auto', margin: '10px -14px 0', padding: '0 14px' }}>
-          <div style={{ display: 'flex', gap: 12, width: 'max-content', padding: '2px 2px 6px' }}>
-            {messages.map((m) => (
-              <div key={m.id} className="iff-card" style={{ padding: 14, width: 260, fontSize: 13, lineHeight: 1.5 }}>
-                {m.content}
-              </div>
-            ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+        {messages.map((m) => (
+          <div key={m.id} className="iff-card" style={{ padding: 14, fontSize: 13, lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+            {m.content}
           </div>
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   )
 
@@ -1214,7 +1201,7 @@ function MilestoneCard({ milestone, fill = false }) {
         // minWidth stops four-plus dates squeezing to unreadable slivers —
         // past that they wrap to a second row, which is why the container
         // still says flexWrap.
-        ...(fill ? { flex: '1 1 0', minWidth: 168 } : { width: 208, flexShrink: 0 }),
+        ...(fill ? { minWidth: 0 } : { width: 208, flexShrink: 0 }),
       }}
     >
       <div style={{ padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>

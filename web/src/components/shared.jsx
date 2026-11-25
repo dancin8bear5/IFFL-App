@@ -5,63 +5,14 @@ import { AppContext } from '../context/AppContext'
 import { resolveAvatar } from '../services/avatars'
 
 /**
- * Horizontally scrollable chip row with an arrow affordance when content
- * overflows — so off-screen chips are discoverable. Arrow scrolls onward;
- * it hides at the end of the row.
+ * A row of chips that WRAPS. It was a sideways scroller with an arrow until
+ * Nov 25, 2026 — but a filter you have to scroll to find is a filter most
+ * people never use, and on a phone the arrow covered the last visible chip.
+ * Every chip is now on screen; the row just takes a second line when it
+ * needs one. The name is kept so the call sites didn't have to change.
  */
 export function ChipScroller({ children }) {
-  const scrollRef = useRef(null)
-  const [canScroll, setCanScroll] = useState(false)
-
-  const update = () => {
-    const el = scrollRef.current
-    if (!el) return
-    setCanScroll(el.scrollWidth - el.clientWidth - el.scrollLeft > 8)
-  }
-
-  useEffect(() => {
-    update()
-    const el = scrollRef.current
-    if (!el) return
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  return (
-    <div style={{ position: 'relative' }}>
-      <div
-        ref={scrollRef}
-        onScroll={update}
-        style={{ overflowX: 'auto', scrollbarWidth: 'none', scrollBehavior: 'smooth' }}
-      >
-        {children}
-      </div>
-      {canScroll && (
-        <button
-          aria-label="Scroll for more"
-          onClick={() => scrollRef.current?.scrollBy({ left: 220 })}
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: 56,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            paddingRight: 4,
-            background: 'linear-gradient(90deg, transparent, var(--iff-bg) 70%)',
-            color: 'var(--iff-accent)',
-            fontSize: 18,
-            fontWeight: 700,
-          }}
-        >
-          ›
-        </button>
-      )}
-    </div>
-  )
+  return <div className="chip-wrap">{children}</div>
 }
 
 export function SectionHeader({ title, actionLabel, onAction }) {

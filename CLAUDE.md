@@ -1083,6 +1083,34 @@ M. Zurek = known 2008 champion). The full mapping prints when the script runs.
 - Active development branch: `claude/insanity-league-ios-app-g73Jo`.
 
 ## Design system (`web/src/styles/theme.css`)
+**Nothing scrolls sideways (Nov 25, 2026 — commissioner's ruling).** A box
+that scrolls horizontally hides whatever is past its edge and says nothing
+about it. Every row of things now FITS its box instead:
+- **Card rows and chip rows wrap.** The phone carousels on the Dashboard
+  (calendar, Team TDA, messages) are grids; `ChipScroller` keeps its name
+  but wraps; Trophy Room banners wrap.
+- **Tables become cards when narrow.** Wrap in `.stack-wrap`, add
+  `.stack-table` and a `data-label` per `<td>`; under 700px of ITS OWN
+  width (a container query, not a media query) each row is a card with the
+  column names inline. A table that sorts by clicking headers must offer a
+  `.stack-only` sort control in their place — History does.
+- **Grids of fixed cells flex.** The rivalry grid, the season heat grid and
+  the auction-spend chart share their row equally and scale their type with
+  `cqw`, so twelve or nineteen columns fit a phone. The cost is small type
+  (about 7px in the rivalry grid at 375px).
+- **Desktop tables tighten.** Rosters and Players narrow their gutters and
+  let a name take two lines when their pane is squeezed. `.alltime-table`'s
+  `min-width: 860px` is what used to force the scroll; Players overrides it.
+- **Three boxes still scroll, because the preview can't show them:** the
+  POD awards table (`PodView`), and the Power Rankings table and Grade
+  Sheet (`.tablewrap`). They need real data and a signed-in session to
+  check, and the POD table's column widths are load-bearing for the
+  spoiler bars. Fix them with eyes on them, not blind.
+- **How to check:** in the preview, at 375 / 820 / 900 / 1280px, look for
+  any element whose `scrollWidth` exceeds its `clientWidth` with
+  `overflow-x: auto|scroll`. Don't add `overflowX: 'auto'` to make a
+  layout problem go away.
+
 Color tokens (hex → use): `beltBg #0A0D1A` (screens), `beltSurface #141827` (cards), `beltElevated #1E2235` (modals), `beltAccent #E63946` (CTAs/active), `beltGold #F4A261` (prices), `beltText #FFFFFF`, `beltSubtext #9EA8B8`.
 
 ## Hard-won lessons (read before touching these areas)

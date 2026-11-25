@@ -661,8 +661,24 @@ a { color: inherit; text-decoration: none; }
   .roster-thead.with-team, .roster-trow.with-team {
     grid-template-columns: 40px minmax(185px, 1fr) 84px 40px 58px 58px 58px 32px;
   }
-  /* if the pane gets squeezed, the table scrolls sideways instead of wrapping names */
-  .roster-table-pane .iff-card { overflow-x: auto; }
+  /* When the pane is squeezed (a 1280px window gives it ~380px between the
+     team list and the detail card) the columns TIGHTEN and a long name takes
+     a second line. It used to scroll sideways instead, which hid the last
+     price columns — the ones people open this table for (Nov 25, 2026). */
+  .roster-table-pane { container-type: inline-size; min-width: 0; }
+  @container (max-width: 560px) {
+    .roster-thead, .roster-trow {
+      grid-template-columns: 32px minmax(0, 1fr) 26px repeat(3, minmax(34px, 50px)) 22px;
+      gap: 6px;
+      padding: 8px 10px;
+    }
+    .roster-thead.with-team, .roster-trow.with-team {
+      grid-template-columns: 32px minmax(0, 1fr) minmax(0, 64px) 26px repeat(3, minmax(34px, 50px)) 22px;
+    }
+    .roster-thead > *, .roster-trow > * { min-width: 0; }
+    .roster-trow > :nth-child(2) { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+    .roster-thead { font-size: 9px; letter-spacing: 0.03em; }
+  }
   .roster-thead {
     font-size: 10px;
     font-weight: 700;
@@ -799,10 +815,13 @@ a { color: inherit; text-decoration: none; }
 }
 .troom-banner-row {
   display: flex;
+  /* Wraps instead of scrolling sideways (Nov 25, 2026): every banner is on
+     screen, a second row hangs under the first. The rafter arrows below only
+     render when the strip overflows, which it no longer can. */
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
-  overflow-x: auto;
   padding: 0 10px 14px;
-  scrollbar-width: none;
 }
 .troom-banner-row::-webkit-scrollbar { display: none; }
 /* Scroll arrows — only rendered when the strip overflows, and each hides at
@@ -1699,4 +1718,72 @@ a { color: inherit; text-decoration: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pod-spoiler { transition: none; }
+}
+
+/* ChipScroller (components/shared.jsx) — a chip row that wraps, never scrolls. */
+.chip-wrap > * { flex-wrap: wrap; }
+
+/* ── Tables that fit instead of scrolling sideways ─────────────
+   (Nov 25, 2026) A wide table on a phone used to sit in a box that scrolled
+   sideways, so half its columns were off screen and nothing said so.
+
+   Wrap a table in .stack-wrap, give it .stack-table and each <td> a
+   data-label, and when ITS OWN BOX is narrower than 700px every row becomes a
+   small card: the header row goes, and each value carries its column name
+   above it. Cells flow in as many columns as fit (auto-fit), so a phone gets
+   two or three per line and a tablet five or six.
+
+   A container query, not a media query: what matters is the room the table
+   has, not the size of the screen — the same table in a narrow desktop pane
+   needs the same treatment.
+
+   The header row is where sorting lives, so a page that sorts must offer a
+   .stack-only control in its place (History does). */
+.stack-wrap { container-type: inline-size; }
+.stack-only { display: none; }
+@container (max-width: 700px) {
+  .stack-only { display: flex; }
+  .stack-table, .stack-table tbody { display: block; width: 100%; min-width: 0 !important; }
+  .stack-table thead { display: none; }
+  .stack-table tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 8px 12px;
+    padding: 11px 12px;
+    border-top: 1px solid var(--iff-divider);
+  }
+  .stack-table tbody tr:first-child { border-top: 0; }
+  .stack-table td {
+    display: block;
+    min-width: 0;
+    width: auto !important;
+    padding: 0 !important;
+    border: 0 !important;
+    text-align: left !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+  .stack-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 1px;
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--iff-subtext);
+  }
+  /* The row's subject (first cell) gets the whole first line. */
+  .stack-table td.stack-lead { grid-column: 1 / -1; font-weight: 800; font-size: 13.5px; }
+  .stack-table td.stack-lead::before { content: none; }
+}
+
+/* The desktop Players table tightens to its box instead of scrolling sideways
+   (Nov 25, 2026): narrower gutters, and names and teams may take two lines. */
+.players-wrap { container-type: inline-size; }
+@container (max-width: 900px) {
+  .players-table { width: 100%; min-width: 0; table-layout: auto; }
+  .players-table th, .players-table td { padding-left: 5px; padding-right: 5px; font-size: 11.5px; }
+  .players-table td { white-space: normal; overflow-wrap: anywhere; }
+  .players-table td:nth-child(3) { min-width: 0 !important; }
 }

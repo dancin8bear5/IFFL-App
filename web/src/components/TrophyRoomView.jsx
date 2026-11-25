@@ -286,8 +286,10 @@ export default function TrophyRoomView({ onClose }) {
               <section>
                 <div className="troom-section-label">CHAMPIONSHIP &amp; TOP-3 DROUGHT</div>
                 <div className="iff-card" style={{ padding: 0, overflow: 'hidden' }}>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 480 }}>
+                  {/* Rows become cards when the box is narrow — no sideways
+                      scroll. See .stack-table in theme.css. */}
+                  <div className="stack-wrap">
+                    <table className="stack-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, minWidth: 480 }}>
                       <thead>
                         <tr style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--iff-subtext)', textTransform: 'uppercase', letterSpacing: 0.8, textAlign: 'left' }}>
                           <th style={{ padding: '10px 14px' }}>Owner</th>
@@ -300,18 +302,18 @@ export default function TrophyRoomView({ onClose }) {
                       <tbody>
                         {droughts.map((d, i) => (
                           <tr key={d.team} style={{ borderTop: i ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                            <td style={{ padding: '9px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                            <td className="stack-lead" style={{ padding: '9px 14px', fontWeight: 700, whiteSpace: 'nowrap' }}>
                               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                                 <TeamAvatar name={d.team} size={20} />
                                 {d.owner}
                               </span>
                             </td>
-                            <td className="tnum" style={{ padding: '9px 8px', color: 'var(--iff-subtext)' }}>{d.lastTitle ?? '—'}</td>
-                            <td style={{ padding: '9px 8px' }}>
+                            <td data-label="Last title" className="tnum" style={{ padding: '9px 8px', color: 'var(--iff-subtext)' }}>{d.lastTitle ?? '—'}</td>
+                            <td data-label="Title drought" style={{ padding: '9px 8px' }}>
                               <DroughtBadge drought={d.titleDrought} seasons={d.seasonsPlayed} activeLabel="active champ" />
                             </td>
-                            <td className="tnum" style={{ padding: '9px 8px', color: 'var(--iff-subtext)' }}>{d.lastTop3 ?? '—'}</td>
-                            <td style={{ padding: '9px 14px 9px 8px' }}>
+                            <td data-label="Last top-3" className="tnum" style={{ padding: '9px 8px', color: 'var(--iff-subtext)' }}>{d.lastTop3 ?? '—'}</td>
+                            <td data-label="Top-3 drought" style={{ padding: '9px 14px 9px 8px' }}>
                               <DroughtBadge drought={d.top3Drought} seasons={d.seasonsPlayed} />
                             </td>
                           </tr>

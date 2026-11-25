@@ -59,7 +59,7 @@ export const DASHBOARD_SECTIONS = [
   // line and its node in DashboardView:
   //   { key: 'live',    label: 'Live scoreboard',      glyph: '📡', phases: ['regular', 'playoffs'] },
   // Gated on weeks PLAYED as well as phase — nothing playoff-shaped shows
-  // before PLAYOFF_PREVIEW_WEEK. See services/playoffs.js.
+  // until every regular-season week is in. See services/playoffs.js.
   { key: 'playoffs',  label: 'Playoff bracket',        glyph: '🏆', phases: ['regular', 'playoffs'], lead: ['playoffs'] },
   { key: 'tda',       label: 'Team TDA',               glyph: '💰' },
   { key: 'messages',  label: 'League messages',        glyph: '💬' },

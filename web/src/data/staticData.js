@@ -111,10 +111,16 @@ export const SEEDING_BONUS_PER_WIN = 5 // pts per extra regular-season win
  * reshuffles every Sunday teaches the league to ignore it. Commissioner's
  * call (Sep 29, 2026): week 10 at the earliest.
  *
+ * TIGHTENED (Nov 25, 2026), also the commissioner's call: nothing until the
+ * regular season is OVER. The section opens once every regular-season week
+ * has been played, and not a week before — a bracket in week 12 is still a
+ * projection. Tied to REGULAR_SEASON_WEEKS rather than written as 14, so a
+ * change to the season's length moves this with it.
+ *
  * Admin is deliberately NOT gated by this — the commissioner sets seeds and
  * runs the opponent draft from there, and needs to see the math whenever.
  */
-export const PLAYOFF_PREVIEW_WEEK = 10
+export const PLAYOFF_PREVIEW_WEEK = REGULAR_SEASON_WEEKS
 
 // ── Keeper economics (§League Keepers) ────────────────────────
 // Escalation verified 231/231 against 2025 Keeper Master.csv:

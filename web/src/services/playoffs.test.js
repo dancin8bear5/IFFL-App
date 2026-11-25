@@ -209,14 +209,17 @@ test('weeksPlayed counts only weeks that carry scores', () => {
   assert.equal(weeksPlayed('nope'), 0)
 })
 
-test('the playoff preview stays shut until week 10', () => {
+test('the playoff section stays shut until the regular season is over', () => {
   const played = (n) => Object.fromEntries(
     Array.from({ length: n }, (_, i) => [i + 1, [{ teamName: 'A', points: 100 }]]),
   )
   assert.equal(playoffPreviewOpen(played(3)), false, 'week 3 — the bug this fixes')
-  assert.equal(playoffPreviewOpen(played(9)), false, 'week 9 is still too early')
-  assert.equal(playoffPreviewOpen(played(10)), true, 'week 10 opens it')
-  assert.equal(playoffPreviewOpen(played(14)), true, 'end of the regular season')
+  assert.equal(playoffPreviewOpen(played(10)), false, 'week 10 used to open it — no longer')
+  assert.equal(playoffPreviewOpen(played(13)), false, 'one week to go is still a projection')
+  assert.equal(playoffPreviewOpen(played(14)), true, 'the last regular-season week is in')
+  assert.equal(playoffPreviewOpen(played(16)), true, 'and it stays open through the playoffs')
+  // The explicit threshold still works for anything that wants an earlier look.
+  assert.equal(playoffPreviewOpen(played(10), 10), true)
 })
 
 test('an empty or malformed season never opens the preview', () => {

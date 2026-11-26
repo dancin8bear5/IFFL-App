@@ -20,6 +20,7 @@ Build specs for the seven agents in Todoist → Fantasy (`IFFL` label). Build th
 - **League Feed** — built Nov 21, 2026 (`functions/leagueFeed.js`). Game recaps, the week-in-review and trade write-ups publish to the website with no approval; a write → fact-check → rewrite loop with a template fallback stands in for it. Record alerts (`functions/recordWatch.js`) and calendar notices post the same way.
 - **#4 Waiver targets, #5 Start/sit** — built. They run from launchd on the Mac out of `iffl-analytics-agent` and report to Telegram.
 - **#8 Scouts + builder** — built Nov 21, 2026 ([08-scouts.md](08-scouts.md)). Three weekly scouts propose one change each, a builder writes it, a second model reviews it, and it arrives as a pull request. This covers most of what #6 was for.
+- **#9 The contractor** — built Nov 26, 2026 ([09-contractor.md](09-contractor.md)). You say what you want; a contractor hires an architect, trades, helpers and an inspector to build it, and it arrives as a pull request. Hand-run.
 - **#6 Design review, #7 Reels** — specs only.
 
 Next: the roadmap agreed Nov 21, 2026 — a self-posting League Feed (recaps, trades, records, milestones), retry-and-watch loops, the Tuesday job as a flowchart, then scouts and a builder that propose and build new features.

@@ -222,6 +222,27 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
     The feed's safety is a fact check against numbers computed by CODE. A
     scout's "finding" has numbers computed by Claude, so checking Claude
     against Claude proves nothing. Findings become tested code in a PR.
+- **The contractor — you ask, a crew builds** (Nov 26, 2026).
+  `node ops/graph/contractor.mjs build "what you want"`. The builder lab's
+  contractor (`~/claude-agents/agent-builder-lab`) pointed at this app; spec
+  in `docs/agents/09-contractor.md`. It hires an architect (who defines the
+  trades), the trades, a lead's own helpers, and an inspector on a different
+  model tier — and ends in a pull request labelled `contractor`.
+  **Nothing merges or deploys from there.**
+  - **It trusts no hire.** `ops/contractor/checks.mjs` judges the blueprint,
+    a lead's request for helpers, and every trade's diff against its ONE
+    area (`web`, `functions`, `scripts`, `rules`, `docs`), then runs that
+    area's tests. One retry, then the build stops; `build` again resumes.
+  - Wider than a scout on purpose — it builds what was ASKED, so rules,
+    functions, Admin and `firestoreService.js` are allowed and are named in
+    the pull request under "Look at this before merging". Still off limits:
+    `.github/`, `ops/`, `data/`, dependencies, `.env`, plists.
+  - Problems the inspector still lists after one fix round open the pull
+    request as a DRAFT with them at the top, rather than dropping the work.
+  - The record is `out/contractor/build/` (`tree.html` = who made whom, and
+    each hire's exact brief). `reset` shelves it; nothing is deleted.
+  - Hand-run: no schedule, so no unit in `agent.json`. It has no secrets and
+    cannot touch live data — "update data" means files in the repo.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

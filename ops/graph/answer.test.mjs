@@ -1,9 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Answers, answerForBuild, realDesk, sealProfile } from './answer.mjs'
+const HERE = dirname(fileURLToPath(import.meta.url))
 import { calcProblems, checkerProblems, knownNumbers, methodProblems, reportHtml, resultProblems, trimPlayer, wordProblems } from '../contractor/answer.mjs'
 
 // No Claude, no database, no sandbox: a fake crew and a fake desk. What is
@@ -71,6 +73,9 @@ test('the sandbox denies the network, writes, and reads outside the folder', () 
   assert.match(p, /\(deny network\*\)/)
   assert.match(p, /\(deny file-write\*\)/)
   assert.match(p, /\(deny file-read\* \(subpath "\/Users\/x"\)\)\(allow file-read\* \(subpath "\/Users\/x\/out\/answers\/q"\)/)
+  // Node lstat-s every folder above its script: those may be stat-ed, nothing more.
+  assert.match(p, /\(allow file-read-metadata \(literal "\/Users\/x"\) .*\(literal "\/Users\/x\/out\/answers"\)\)$/)
+  assert.doesNotMatch(p, /file-read-metadata[^)]*\(literal "\/Users"\)/)
 })
 
 test('an output with a hole in it is refused', () => {
@@ -220,4 +225,19 @@ try { readFileSync(${JSON.stringify(join(process.env.HOME, '.zshrc'))}); r = 'RE
 console.log(JSON.stringify({ w, n, r, self: readFileSync('calc.mjs', 'utf8').length > 0 }))`)
   assert.deepEqual(JSON.parse(realDesk().run(folder)), { w: 'blocked', n: 'blocked', r: 'blocked', self: true })
   assert.equal(readFileSync(join(folder, 'calc.mjs'), 'utf8').length > 0, true)
+})
+
+// The keeper question's first real run died here: answers live under the home
+// folder, and Node could not even find calc.mjs with every folder above it denied.
+test('the real sandbox runs a calculation that lives under the home folder', { skip: process.platform !== 'darwin' || !HERE.startsWith(process.env.HOME ?? '\0') }, () => {
+  mkdirSync(join(HERE, '../../out'), { recursive: true })
+  const folder = mkdtempSync(join(HERE, '../../out/seal-'))
+  try {
+    writeFileSync(join(folder, 'calc.mjs'), `import { readFileSync, readdirSync } from 'node:fs'
+let r = 'blocked', l = 'blocked'
+try { readFileSync(${JSON.stringify(join(process.env.HOME, '.zshrc'))}); r = 'READ' } catch {}
+try { readdirSync(${JSON.stringify(process.env.HOME)}); l = 'LISTED' } catch {}
+console.log(JSON.stringify({ r, l }))`)
+    assert.deepEqual(JSON.parse(realDesk().run(folder)), { r: 'blocked', l: 'blocked' })
+  } finally { rmSync(folder, { recursive: true, force: true }) }
 })

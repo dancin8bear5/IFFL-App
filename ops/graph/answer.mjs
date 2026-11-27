@@ -52,9 +52,19 @@ export async function fetchPlayers() {
   return players
 }
 
-/** macOS sandbox for the calculation: no network, no writes, no reading the Mac beyond its own folder and Node itself. */
+/**
+ * macOS sandbox for the calculation: no network, no writes, no reading the Mac
+ * beyond its own folder and Node itself. Node resolves its script's real path
+ * by lstat-ing every folder above it, so those folders (home included) may be
+ * stat-ed — their existence, never their contents.
+ */
 export function sealProfile(folder, home = process.env.HOME, node = resolve(process.execPath, '../..')) {
-  return `(version 1)(allow default)(deny network*)(deny file-write*)(allow file-write* (literal "/dev/null"))(deny file-read* (subpath "${home}"))(allow file-read* (subpath "${folder}") (subpath "${node}"))`
+  const above = new Set()
+  for (const p of [folder, node]) {
+    for (let d = dirname(p); d.startsWith(home) && d.length >= home.length; d = dirname(d)) { above.add(d); if (d === home) break }
+  }
+  const stat = above.size ? `(allow file-read-metadata ${[...above].sort().map((d) => `(literal "${d}")`).join(' ')})` : ''
+  return `(version 1)(allow default)(deny network*)(deny file-write*)(allow file-write* (literal "/dev/null"))(deny file-read* (subpath "${home}"))(allow file-read* (subpath "${folder}") (subpath "${node}"))${stat}`
 }
 
 /** Everything that touches the disk, the database or a process — faked in tests. */

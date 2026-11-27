@@ -139,6 +139,8 @@ export class Answers {
       }
       if (!problems.length) { a.status = 'passed'; this.note(`${name}: passed its check`); return got.out }
       a.note = problems.join('; ')
+      // Kept so a refusal can be read afterwards: what it said, and why code said no.
+      this.desk.write(join(s.folder, 'crew'), `${id}-rejected-${attempt}.json`, JSON.stringify({ problems, answer: got?.out ?? null }, null, 2))
       this.note(`${name}: REJECTED — ${a.note.slice(0, 200)}`)
     }
     a.status = 'failed'

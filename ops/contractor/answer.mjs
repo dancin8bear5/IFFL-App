@@ -179,6 +179,7 @@ ${DESK(snapshot)}
 - Follow \`definitions.md\` exactly. Put anything the reader must know to trust the numbers (sample sizes, weeks covered, players that could not be matched) in \`notes\`, as counted by the code.
 - Parse the CSV properly: fields can be quoted and contain commas.
 - At most 200 rows per table; sort so the answer is at the top.
+- Name every fantasy team by its OWNER for that season (from `data/espn-team-identity-map.json`), never by its ESPN team name.
 
 You may run \`node calc.mjs\` to test it. Create no other file. When it prints the right shape, answer \`done: true\` with a one-sentence summary of what it computes.${note ? `\n\n${note}` : ''}`
 
@@ -222,7 +223,7 @@ ${JSON.stringify(result, null, 1).slice(0, 14000)}
 - \`paragraphs\`: one to three short paragraphs. Lead with the answer, then what stands out. Plain English, no hype, no hedging filler.
 - \`caveats\`: anything in the notes the reader needs before trusting it.
 
-Every digit you write must appear in the output above, exactly or rounded. Code checks this; a number that is not there gets the whole write-up thrown away. Do not compute new numbers (no differences, sums or percentages of your own). If a comparison matters and its number is not in the output, describe it in words.${note ? `\n\n${note}` : ''}`
+Every digit you write must appear in the output above, exactly or rounded. Code checks this; a number that is not there gets the whole write-up thrown away. Do not compute new numbers (no differences, sums or percentages of your own). That includes round thresholds and counts you worked out yourself: not "topped 50 four times" unless 50 and 4 are in the output. If a comparison matters and its number is not in the output, describe it in words.${note ? `\n\n${note}` : ''}`
 
 export const rejected = (problems) => `## Your last answer was REJECTED by an automatic check\n${problems.map((p) => `- ${p}`).join('\n')}\n\nFix exactly that and answer again.`
 

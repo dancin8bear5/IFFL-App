@@ -102,7 +102,7 @@ export function parseClaude(stdout) {
   return { out, cost: data.total_cost_usd ?? null }
 }
 
-function claude(prompt, cwd, opts, timeoutMs) {
+export function claude(prompt, cwd, opts, timeoutMs) {
   return new Promise((done, fail) => {
     // No API key in the child: -p would prefer it over the subscription login and bill the API.
     const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN'].includes(k)))

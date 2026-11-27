@@ -222,6 +222,44 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
     The feed's safety is a fact check against numbers computed by CODE. A
     scout's "finding" has numbers computed by Claude, so checking Claude
     against Claude proves nothing. Findings become tested code in a PR.
+- **The contractor — you ask, a crew builds** (Nov 26, 2026).
+  `node ops/graph/contractor.mjs build "what you want"`. The builder lab's
+  contractor (`~/claude-agents/agent-builder-lab`) pointed at this app; spec
+  in `docs/agents/09-contractor.md`. It hires an architect (who defines the
+  trades), the trades, a lead's own helpers, and an inspector on a different
+  model tier — and ends in a pull request labelled `contractor`.
+  **Nothing merges or deploys from there.**
+  - **It trusts no hire.** `ops/contractor/checks.mjs` judges the blueprint,
+    a lead's request for helpers, and every trade's diff against its ONE
+    area (`web`, `functions`, `scripts`, `rules`, `docs`), then runs that
+    area's tests. One retry, then the build stops; `build` again resumes.
+  - Wider than a scout on purpose — it builds what was ASKED, so rules,
+    functions, Admin and `firestoreService.js` are allowed and are named in
+    the pull request under "Look at this before merging". Still off limits:
+    `.github/`, `ops/`, `data/`, dependencies, `.env`, plists.
+  - Problems the inspector still lists after one fix round open the pull
+    request as a DRAFT with them at the top, rather than dropping the work.
+  - The record is `out/contractor/build/` (`tree.html` = who made whom, and
+    each hire's exact brief). `reset` shelves it; nothing is deleted.
+  - Hand-run: no schedule, so no unit in `agent.json`. It has no secrets and
+    cannot touch live data — "update data" means files in the repo.
+- **The contractor answers questions too** (Nov 27, 2026).
+  `node ops/graph/contractor.mjs ask "…"` → a private report in
+  `out/contractor/answers/<id>/report.html`, never the site. Analyst →
+  calculator → checker (stronger model) → writer.
+  - **Code computes every number.** The calculator writes `calc.mjs`; the
+    contractor runs it under `sandbox-exec` (no network, no writes, no reads
+    outside its folder) and takes the numbers from what it prints. A digit
+    in the write-up that the calculation did not print drops the write-up,
+    not the answer.
+  - **The league's terms live in `ops/contractor/definitions.md`** — the
+    commissioner's rulings (keeper price, keeper value, trade analysis,
+    scores against a team). An undefined term stops the run and asks him.
+  - **Its one read of Firestore is `players`** (today's rosters and prices),
+    fetched by the contractor's code with the gcloud login, field-allowlisted
+    and handed over as a file. The crew holds no login; nothing is written.
+  - `build --answer <id>` turns an answer into an ordinary build (a pull
+    request) with the checked calculation on the crew's desk.
 - **League notes never send themselves.** Drafts are commissioner-only; only
   `sendLeagueNotes` writes `sending`/`sent`, and the rules forbid clients both.
 - **`web/src/services/rulesCoverage.test.js` fails `npm test` when a collection

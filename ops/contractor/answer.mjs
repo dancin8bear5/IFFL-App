@@ -179,7 +179,7 @@ ${DESK(snapshot)}
 - Follow \`definitions.md\` exactly. Put anything the reader must know to trust the numbers (sample sizes, weeks covered, players that could not be matched) in \`notes\`, as counted by the code.
 - Parse the CSV properly: fields can be quoted and contain commas.
 - At most 200 rows per table; sort so the answer is at the top.
-- Name every fantasy team by its OWNER for that season (from `data/espn-team-identity-map.json`), never by its ESPN team name.
+- Name every fantasy team by its OWNER for that season (from \`data/espn-team-identity-map.json\`), never by its ESPN team name.
 
 You may run \`node calc.mjs\` to test it. Create no other file. When it prints the right shape, answer \`done: true\` with a one-sentence summary of what it computes.${note ? `\n\n${note}` : ''}`
 

@@ -6,6 +6,8 @@
 //   node ops/graph/contractor.mjs build                           pick up a planned or stopped build
 //   node ops/graph/contractor.mjs build --no-pr "…"               build, but stop before the pull request
 //   node ops/graph/contractor.mjs status
+//   node ops/graph/contractor.mjs ask "a question about the league"  a private report, no site change (answer.mjs)
+//   node ops/graph/contractor.mjs build --answer <id>             put that answer on the site, as a pull request
 //   node ops/graph/contractor.mjs reset                           shelve the current build (nothing is deleted)
 //
 // It writes no app code. It HIRES — each hire is a headless Claude Code
@@ -53,6 +55,7 @@ import { parseGitDiff } from '../scouts/policy.mjs'
 import { AREAS, MAX_HIRES, blueprintProblems, diffProblems, finalTests, flags, planProblems, reportProblems, slug } from '../contractor/checks.mjs'
 import * as briefs from '../contractor/briefs.mjs'
 import { treeHtml } from '../contractor/tree.mjs'
+import { Answers, answerForBuild } from './answer.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '../..')
@@ -72,6 +75,11 @@ const KINDS = {
   },
   // Not the author's tier: a model grading its own output is a spell-check.
   inspector: { tier: 'reviewer', edits: false, tools: READ, budget: 4, mins: 20 },
+  // The answer crew (answer.mjs). The calculator may run only its own file; the contractor runs it again, sealed.
+  analyst: { tier: 'author', edits: false, tools: READ, budget: 3, mins: 15 },
+  calculator: { tier: 'author', edits: true, budget: 6, mins: 30, tools: [...READ, 'Edit', 'Write', 'Bash'], allowed: ['Bash(node calc.mjs:*)', 'Bash(ls:*)'] },
+  checker: { tier: 'reviewer', edits: false, tools: READ, budget: 4, mins: 20 },
+  writer: { tier: 'author', edits: false, tools: READ, budget: 1, mins: 10 },
 }
 
 /** One headless Claude Code session. Returns {out, cost}. */
@@ -366,7 +374,7 @@ export class Contractor {
   }
 
   // ── build ──
-  async build(request, { noPr = false, planOnly = false } = {}) {
+  async build(request, { noPr = false, planOnly = false, attach = null } = {}) {
     const prev = existsSync(this.stateFile) ? JSON.parse(readFileSync(this.stateFile, 'utf8')) : null
     if (prev && request && request !== prev.request) {
       if (!['done', 'declined', 'planned'].includes(prev.status)) {
@@ -394,13 +402,15 @@ export class Contractor {
       this.note('Picking up where the last run stopped')
     } else {
       const at = this.now().toISOString().replace(/[-:]/g, '').slice(0, 13).replace('T', '-')
-      this.state = { id: `${slug(request)}-${at}`, request, status: 'building', title: '', agents: [], log: [], inspections: 0, openProblems: null }
+      this.state = { id: `${slug(request)}-${at}`, request, attach, status: 'building', title: '', agents: [], log: [], inspections: 0, openProblems: null }
       this.note(`Contractor started. You asked for: ${request}`)
     }
     const s = this.state
     try {
       await this.repo.preflight()
       s.worktree = await this.repo.open(s.id, s.worktree)
+      // A build that began as an answer starts with that answer's calculation on the desk.
+      for (const [name, text] of Object.entries(s.attach ?? {})) await this.repo.put(s.worktree, name, text)
       const bp = await this.architect()
       if (bp.buildable === false) {
         s.status = 'declined'
@@ -475,16 +485,28 @@ function notify(text) {
 
 async function main(argv) {
   const [cmd, ...rest] = argv
-  if (!['build', 'plan', 'status', 'reset'].includes(cmd)) {
-    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 9).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'))
+  if (!['build', 'plan', 'status', 'reset', 'ask'].includes(cmd)) {
+    console.log(readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 11).map((l) => l.replace(/^\/\/ ?/, '')).join('\n'))
     return 2
   }
   const c = new Contractor({ dir: join(ROOT, 'out/contractor'), app: readFileSync(join(ROOT, 'ops/scouts/prompts/_shared.md'), 'utf8').trim() })
   if (cmd === 'status') return c.status()
   if (cmd === 'reset') return c.reset()
-  const request = rest.filter((a) => !a.startsWith('--')).join(' ').trim() || null
+  const answers = join(ROOT, 'out/contractor/answers')
+  if (cmd === 'ask') {
+    const a = new Answers({ dir: answers, hire: hireClaude })
+    const code = await a.ask(rest.join(' ').trim())
+    if (a.state) notify(a.state.status === 'done' ? `Answer ready: ${a.state.plan?.title}` : a.state.status === 'needs-you' ? 'The analyst needs something defined first' : `Stopped — ${a.state.log.at(-1)?.slice(10, 150)}`)
+    return code
+  }
+  let attach = null
+  const from = rest.indexOf('--answer')
+  let request = rest.filter((a, i) => !a.startsWith('--') && i !== (from < 0 ? -1 : from + 1)).join(' ').trim() || null
+  if (from >= 0) {
+    try { ({ request, attach } = answerForBuild(answers, rest[from + 1])) } catch (e) { console.log(`[contractor] ${e.message}`); return 1 }
+  }
   console.log(`[contractor] watch it: open ${join(ROOT, 'out/contractor/build/tree.html')}`)
-  const code = await c.build(request, { noPr: rest.includes('--no-pr'), planOnly: cmd === 'plan' })
+  const code = await c.build(request, { noPr: rest.includes('--no-pr'), planOnly: cmd === 'plan', attach })
   const s = c.state
   if (s) notify(s.status === 'done' ? (s.pr?.url ? `Pull request ready: ${s.title}` : `Built and held: ${s.title}`) : s.status === 'planned' ? `Planned: ${s.title}` : `Stopped — ${s.log.at(-1)?.slice(10, 150)}`)
   return code

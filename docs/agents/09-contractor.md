@@ -35,6 +35,45 @@ estimate, not a charge) and takes 15–40 minutes.
 | helpers | Claude | the architect may mark one big trade a **lead**; the lead writes briefs for 1–2 helpers of its own, then joins their work. A helper hires no one |
 | inspector | Claude, a different and stronger model | reads the finished change, names what is wrong; those trades get one fix |
 
+## Answer mode — ask a question, get a private report (Nov 27, 2026)
+
+```bash
+node ops/graph/contractor.mjs ask "who is the best keeper value from 2026"
+```
+
+No site change, no pull request. A second crew works the question out and
+opens `out/contractor/answers/<id>/report.html` on this Mac (git ignores
+`out/`).
+
+| Hire | Does | Checked by code |
+|---|---|---|
+| Analyst | Decides HOW to answer, from `ops/contractor/definitions.md` and the real data. An undefined term stops the run and puts the question to the commissioner in the report. | Has a title, a method and steps — or a reason. |
+| Calculator | Writes `calc.mjs`, one file. | Only that file; reads files and nothing else; the CONTRACTOR runs it sealed and the output has no holes. |
+| Checker | A different, stronger model reads the calculation and its output. One fix round. | Names a problem if it fails. Doubts that survive lead the report. |
+| Writer | A headline and a few paragraphs. | Every digit must be in the calculation's output (rounding allowed). Two misses and the report ships with numbers only. |
+
+**Code computes every number.** The calculator's own claims are ignored; the
+numbers are what `calc.mjs` printed when run under `sandbox-exec` with no
+network, no writes and no reads outside its folder.
+
+**The one read of the live database.** `players` — today's rosters and
+prices — is fetched by the contractor's own code with the Mac's gcloud
+login, trimmed to an allowlist of fields, and handed to the crew as
+`players.json`. The crew holds no login. Nothing is ever written. If the
+gcloud login is gone the run continues from the league files and says so.
+`data/big-board-*` is never copied to a crew.
+
+**Definitions are the commissioner's.** `ops/contractor/definitions.md`
+holds his rulings (keeper price, keeper value, trade analysis, scores
+against a team). Add a ruling there; do not let a crew guess.
+
+**Put an answer on the site:** `node ops/graph/contractor.mjs build --answer <id>`
+starts an ordinary build whose crew finds the checked calculation and its
+method on the desk (`.contractor/calc.mjs`, `.contractor/method.md`). It
+ends in a pull request like any other build.
+
+An answer does not resume: four hires, so a stopped one is asked again.
+
 ## The rules it cannot break
 
 Enforced by `ops/contractor/checks.mjs`, not by the briefs.

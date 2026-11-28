@@ -11,6 +11,10 @@ that changes the answer is not yours to define: the analyst stops and asks.
 - **Kept player (in season S)** — on a roster, `purchaseYear` < S, and not an
   in-season waiver pickup of S. Auction buys and rookie picks made in S are
   not kept players in S.
+  **Inactive means dropped, not kept** (ruled Nov 27, 2026): a player whose
+  `isActive` is false in `players.json` is on no roster and is never a kept
+  player, whatever his `teamName` and `prices` still say. Leave him out of
+  the pool and out of every count; say how many were left out.
 - Next year's price = this year's price + $5 × contract year
   (contract year = season − purchaseYear + 1). A kept waiver pickup enters at $2.
 

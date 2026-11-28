@@ -255,9 +255,13 @@ cd ~/claude-agents/iffl-web-app && git pull --no-rebase origin claude/insanity-l
   - **The league's terms live in `ops/contractor/definitions.md`** — the
     commissioner's rulings (keeper price, keeper value, trade analysis,
     scores against a team). An undefined term stops the run and asks him.
-  - **Its one read of Firestore is `players`** (today's rosters and prices),
-    fetched by the contractor's code with the gcloud login, field-allowlisted
-    and handed over as a file. The crew holds no login; nothing is written.
+  - **It reads four Firestore collections** (widened Nov 27, 2026, the
+    commissioner's list): `players`, FINISHED `trades` (never offers,
+    declines or notes), `draftPicks`, `weeklyScores`. The list is `LIVE` in
+    `ops/contractor/answer.mjs`; each is fetched by the contractor's code
+    with the gcloud login, field-allowlisted and handed over as a file.
+    `config/league` is never on it. The crew holds no login; nothing is
+    written.
   - `build --answer <id>` turns an answer into an ordinary build (a pull
     request) with the checked calculation on the crew's desk.
 - **League notes never send themselves.** Drafts are commissioner-only; only

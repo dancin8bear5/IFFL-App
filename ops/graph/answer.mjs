@@ -16,9 +16,10 @@
 //                    that the calculation did not print throws them away,
 //                    and the report shows the numbers alone.
 //
-// It reads the committed league files plus ONE thing from the live
-// database: today's rosters and prices (`players`), fetched by this code
-// with the Mac's gcloud login and handed to the crew as a file. The crew
+// It reads the committed league files plus four things from the live
+// database — rosters and prices, FINISHED trades, draft picks, weekly
+// scores (the list is LIVE in ../contractor/answer.mjs) — fetched by this
+// code with the Mac's gcloud login and handed to the crew as files. The crew
 // holds no login and cannot reach the database. Nothing is ever written
 // to it, and nothing here touches the repo — reports live in
 // out/contractor/answers/, which git ignores.
@@ -36,20 +37,27 @@ const NOT_DATA = /^big-board/ // the commissioner's private keep/drop calls neve
 
 export class Stop extends Error {}
 
-/** Today's rosters and prices, read-only. Throws if the gcloud login is gone. */
-export async function fetchPlayers() {
-  const token = execFileSync('gcloud', ['auth', 'print-access-token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-  const players = []
+/** One collection, read-only, trimmed to its allowlist. */
+async function fetchCollection(spec, token) {
+  const rows = []
   let page = ''
   do {
-    const res = await fetch(`${FS_BASE}/players?pageSize=300${page ? `&pageToken=${page}` : ''}`, { headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) throw new Error(`Firestore answered ${res.status}`)
+    const res = await fetch(`${FS_BASE}/${spec.collection}?pageSize=300${page ? `&pageToken=${page}` : ''}`, { headers: { Authorization: `Bearer ${token}` } })
+    if (!res.ok) throw new Error(`Firestore answered ${res.status} for ${spec.collection}`)
     const body = await res.json()
-    players.push(...(body.documents ?? []).map(A.trimPlayer))
+    rows.push(...(body.documents ?? []).map((d) => A.trimLive(spec, d)).filter(Boolean))
     page = body.nextPageToken ?? ''
   } while (page)
-  if (!players.length) throw new Error('the players collection came back empty')
-  return players
+  return rows
+}
+
+/** Everything in A.LIVE, read-only: { 'players.json': [...], … }. Throws if the gcloud login is gone. */
+export async function fetchLive() {
+  const token = execFileSync('gcloud', ['auth', 'print-access-token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  const got = await Promise.all(A.LIVE.map((spec) => fetchCollection(spec, token)))
+  const out = Object.fromEntries(A.LIVE.map((spec, i) => [spec.file, got[i]]))
+  if (!out['players.json'].length) throw new Error('the players collection came back empty')
+  return out
 }
 
 /**
@@ -83,9 +91,9 @@ export function realDesk(root = ROOT) {
       for (const f of readdirSync(join(root, 'data'))) if (DATA.test(f) && !NOT_DATA.test(f)) copyFileSync(join(root, 'data', f), join(folder, 'data', f))
       copyFileSync(join(root, 'ops/contractor/definitions.md'), join(folder, 'definitions.md'))
       try {
-        const players = await fetchPlayers()
-        writeFileSync(join(folder, 'players.json'), JSON.stringify(players))
-        return { at: new Date().toISOString(), count: players.length }
+        const live = await fetchLive()
+        for (const [file, rows] of Object.entries(live)) writeFileSync(join(folder, file), JSON.stringify(rows))
+        return { at: new Date().toISOString(), count: live['players.json'].length, files: Object.fromEntries(Object.entries(live).map(([f, rows]) => [f, rows.length])) }
       } catch (e) {
         return { missing: String(e.message ?? e).slice(0, 160) }
       }
@@ -200,7 +208,7 @@ export class Answers {
       const snap = await this.desk.open(s.folder)
       s.snapshot = snap.missing ? null : snap
       this.note(`Contractor started. You asked: ${question}`)
-      this.note(snap.missing ? `Today's rosters and prices could NOT be read (${snap.missing}) — answering from the league files alone` : `Read today's rosters and prices: ${snap.count} players`)
+      this.note(snap.missing ? `The live database could NOT be read (${snap.missing}) — answering from the league files alone` : `Read the live database: ${snap.count} players${snap.files ? `, ${snap.files['trades.json']} finished trades, ${snap.files['picks.json']} picks, ${snap.files['weekly-scores.json']} seasons of scores` : ''}`)
 
       s.plan = await this.work('analyst', 'Analyst', {
         kind: 'analyst', schema: A.SCHEMAS.method,

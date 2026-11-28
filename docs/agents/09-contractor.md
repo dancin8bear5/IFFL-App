@@ -56,11 +56,23 @@ opens `out/contractor/answers/<id>/report.html` on this Mac (git ignores
 numbers are what `calc.mjs` printed when run under `sandbox-exec` with no
 network, no writes and no reads outside its folder.
 
-**The one read of the live database.** `players` — today's rosters and
-prices — is fetched by the contractor's own code with the Mac's gcloud
-login, trimmed to an allowlist of fields, and handed to the crew as
-`players.json`. The crew holds no login. Nothing is ever written. If the
-gcloud login is gone the run continues from the league files and says so.
+**What it reads from the live database** (the commissioner's list, Nov 27,
+2026). Four collections, fetched by the contractor's own code with the Mac's
+gcloud login, each trimmed to an allowlist of fields and handed to the crew
+as a file:
+
+| Collection | File | What leaves |
+|---|---|---|
+| `players` | `players.json` | today's rosters and prices |
+| `trades` | `trades.json` | FINISHED trades only (`completed`, `historical`) — never an offer, a decline, or the notes members typed |
+| `draftPicks` | `picks.json` | each pick, who holds it, who it came from |
+| `weeklyScores` | `weekly-scores.json` | team scores by week and records |
+
+The list is `LIVE` in `ops/contractor/answer.mjs`; a fifth is one entry and
+a line in `definitions.md`. **Never on it:** `config/league` (member emails
+and UIDs), `bigBoard`, `powerRankings`, `users`. A test fails if the list
+changes. The crew holds no login. Nothing is ever written. If the gcloud
+login is gone the run continues from the league files and says so.
 `data/big-board-*` is never copied to a crew.
 
 **Definitions are the commissioner's.** `ops/contractor/definitions.md`

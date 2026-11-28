@@ -48,6 +48,13 @@ that changes the answer is not yours to define: the analyst stops and asks.
 ## What the data can and cannot say
 - `players.json` is TODAY'S rosters and prices. A player kept in August and
   dropped since is not on it — say so when it matters.
+- `trades.json` is every FINISHED trade the app holds (2022-24 and 2026;
+  2025 was never kept). The two trade CSVs in `data/` are the same record,
+  one row per asset; where they disagree, `trades.json` is newer.
+- `picks.json` is the rookie picks the app tracks (this season's and next
+  year's), with who holds each now and who it came from.
+- `weekly-scores.json` is every team's score by week, all seasons. It has
+  team totals only — player lines are in the history CSV.
 - The history CSV has every lineup and score by week (`PlayerWeek`,
   `TeamWeek`), and drafts through 2025. It has no 2026 draft rows.
 - Team names in the CSV are ESPN's; `espn-team-identity-map.json` names the

@@ -48,9 +48,15 @@ that changes the answer is not yours to define: the analyst stops and asks.
 ## What the data can and cannot say
 - `players.json` is TODAY'S rosters and prices. A player kept in August and
   dropped since is not on it — say so when it matters.
-- `trades.json` is every FINISHED trade the app holds (2022-24 and 2026;
-  2025 was never kept). The two trade CSVs in `data/` are the same record,
-  one row per asset; where they disagree, `trades.json` is newer.
+- Trades: the two CSVs in `data/` are the COMPLETE record (2022 on), one
+  row per asset. `trades.json` is the app's copy — 2025 and 2026 only — and
+  adds each player's `id`. Count trades from the CSVs; use `trades.json` to
+  find the players.
+- Which way a trade went: in the CSV an asset moved FROM `from_team` TO
+  `to_team`. In `trades.json`, `assetsFromProposer` is what the proposing
+  team GAVE UP (it went to the receiving team), and `assetsFromReceiver`
+  went the other way. Say who GOT each asset, and check it against where
+  the player is in `players.json` today.
 - `picks.json` is the rookie picks the app tracks (this season's and next
   year's), with who holds each now and who it came from.
 - `weekly-scores.json` is every team's score by week, all seasons. It has

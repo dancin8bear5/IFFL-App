@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Answers, answerForBuild, realDesk, sealProfile } from './answer.mjs'
 const HERE = dirname(fileURLToPath(import.meta.url))
-import { calcProblems, checkerProblems, knownNumbers, methodProblems, reportHtml, resultProblems, trimPlayer, wordProblems } from '../contractor/answer.mjs'
+import { calcProblems, checkerProblems, knownNumbers, methodProblems, LIVE, reportHtml, resultProblems, trimLive, trimPlayer, wordProblems } from '../contractor/answer.mjs'
 
 // No Claude, no database, no sandbox: a fake crew and a fake desk. What is
 // under test is the rule the mode exists for — code computes every number.
@@ -17,7 +17,7 @@ const WORDS = { headline: 'WRs score 41.3 a game against M. Zurek, above the 36.
 
 function fakeDesk(over = {}) {
   const d = {
-    disk: {}, shown: [], runs: 0, printed: JSON.stringify(RESULT), snapshot: { at: '2026-11-27T12:00:00Z', count: 300 },
+    disk: {}, shown: [], runs: 0, printed: JSON.stringify(RESULT), snapshot: { at: '2026-11-27T12:00:00Z', count: 300, files: { 'players.json': 300, 'trades.json': 60, 'picks.json': 48, 'weekly-scores.json': 19 } },
     preflight() {},
     async open() { return d.snapshot },
     files(folder) { return Object.keys(d.disk).filter((k) => k.startsWith(`${folder}/`) && !k.slice(folder.length + 1).includes('/')).map((k) => k.slice(folder.length + 1)) },
@@ -56,6 +56,25 @@ function crew(over = {}, deskOver = {}) {
 test('only the allowed player fields leave the database', () => {
   const doc = { fields: { name: { stringValue: 'Dak Prescott' }, teamName: { stringValue: 'A. Zurek' }, prices: { mapValue: { fields: { 2026: { integerValue: '36' } } } }, ownerEmail: { stringValue: 'someone@example.com' }, uid: { stringValue: 'abc' } } }
   assert.deepEqual(trimPlayer(doc), { name: 'Dak Prescott', teamName: 'A. Zurek', prices: { 2026: 36 } })
+})
+
+const fsDoc = (id, o) => ({ name: `projects/x/databases/(default)/documents/c/${id}`, fields: Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'number' ? { integerValue: String(v) } : Array.isArray(v) ? { arrayValue: { values: v.map((m) => ({ mapValue: { fields: Object.fromEntries(Object.entries(m).map(([a, b]) => [a, { stringValue: b }])) } })) } } : { stringValue: v }])) })
+
+test('a row carries its id, so a trade can name its player', () => {
+  assert.equal(trimLive(LIVE[0], fsDoc('p1', { name: 'Dak Prescott' })).id, 'p1')
+})
+
+test('only finished trades leave the database, without the notes', () => {
+  const spec = LIVE.find((l) => l.collection === 'trades')
+  for (const status of ['pending', 'rejected', 'cancelled', 'countered', 'picksPending']) assert.equal(trimLive(spec, fsDoc('t', { status })), null, status)
+  const t = trimLive(spec, fsDoc('t9', { status: 'completed', season: 2026, proposingTeamName: 'Dugan', receivingTeamName: 'Foley', notes: 'do not tell Bill', response: 'ok', cancelReason: 'x', assetsFromProposer: [{ assetType: 'player', assetId: 'p1', displayName: 'A Player', proposerUid: 'abc' }] }))
+  assert.deepEqual(t, { id: 't9', season: 2026, status: 'completed', proposingTeamName: 'Dugan', receivingTeamName: 'Foley', assetsFromProposer: [{ assetType: 'player', assetId: 'p1', displayName: 'A Player' }], assetsFromReceiver: [] })
+})
+
+test('the live list never names a collection that holds member data', () => {
+  const names = LIVE.map((l) => l.collection)
+  assert.deepEqual(names, ['players', 'trades', 'draftPicks', 'weeklyScores'])
+  for (const l of LIVE) assert.ok(l.fields.every((f) => !/email|uid|notes|token/i.test(f)), l.collection)
 })
 
 test('a calculation may read files and nothing else', () => {
@@ -186,7 +205,7 @@ test('no roster snapshot: the crew is told, and the run goes on from the league 
   const { a, calls } = crew({}, { snapshot: { missing: 'gcloud login expired' } })
   assert.equal(await a.ask('q'), 0)
   assert.equal(a.state.snapshot, null)
-  assert.match(calls[0].prompt, /players\.json` is MISSING/)
+  assert.match(calls[0].prompt, /players\.json`.* are MISSING/)
   assert.match(a.state.log.join('\n'), /could NOT be read \(gcloud login expired\)/)
 })
 

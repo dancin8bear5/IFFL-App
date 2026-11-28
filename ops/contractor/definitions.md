@@ -18,6 +18,9 @@ that changes the answer is not yours to define: the analyst stops and asks.
 - Lowest price with highest output is the ideal player.
 - **Who counts:** kept players only.
 - **Output:** total fantasy points for the season, started or benched.
+  While a season is in progress, that means points SO FAR — every week
+  scraped to date (ruled Nov 27, 2026). Say which week it runs through, and
+  that the ranking can still move. The average starter uses the same weeks.
 - **Rank by:** points above the average starter at his position, divided by
   keeper price.
 - **Average starter at a position:** the mean season total of the top N
